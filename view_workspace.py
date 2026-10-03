@@ -109,12 +109,27 @@ class ViewWorkspace:
             self.theme_mode = "dark"
         self.palette_side = "left"
         self.palette_collapsed = False
+        self._normalize_existing_controls()
         self._apply_theme()
         self._assemble_views()
         self._build_navigation()
         self.tabs.currentChanged.connect(self._view_changed)
         self.show_main()
         self._view_changed(self.tabs.currentIndex())
+
+    def _normalize_existing_controls(self) -> None:
+        """Remove legacy hard-coded colors so both themes stay coherent."""
+        for widget in (
+            self.window.textEdit,
+            self.window.pushButton_3,
+            self.window.pushButton_5,
+            self.window.pushButton_6,
+            self.window.pushButton_7,
+        ):
+            widget.setStyleSheet("")
+        self.window.pushButton_5.setObjectName("accentButton")
+        self.window.pushButton_6.setObjectName("dangerButton")
+        self.window.textEdit.setReadOnly(True)
 
     def _assemble_views(self) -> None:
         self.table_page = self.window.tab
@@ -275,7 +290,7 @@ class ViewWorkspace:
         return page
 
     def _build_table_view(self) -> None:
-        self.command_table = InstructionTableWidget(0, 5, self.table_page)
+        self.command_table = InstructionTableWidget(0, 5)
         self.command_table.setObjectName("commandTable")
         self.command_table.setHorizontalHeaderLabels(["序号", "指令", "重复", "异常处理", "备注"])
         self.command_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -287,8 +302,49 @@ class ViewWorkspace:
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         self.command_table.cellDoubleClicked.connect(self._edit_table_command)
         self.command_table.instructionDropped.connect(self._add_table_command)
-        self.window.horizontalLayout.insertWidget(0, self.command_table, 3)
-        self.window.horizontalLayout.setStretchFactor(self.window.textEdit, 2)
+
+        # Replace the legacy left/right log layout with a clear vertical stack:
+        # commands on top and the continuously updating run log below.
+        self.window.horizontalLayout.removeWidget(self.window.textEdit)
+        self.window.horizontalLayout.removeItem(self.window.verticalLayout)
+        for button in (self.window.toolButton_8, self.window.toolButton_7):
+            self.window.verticalLayout.removeWidget(button)
+
+        table_panel = QFrame()
+        table_panel.setObjectName("workspacePanel")
+        table_layout = QVBoxLayout(table_panel)
+        table_layout.setContentsMargins(12, 12, 12, 12)
+        table_title = QLabel("指令表格")
+        table_title.setObjectName("sectionTitle")
+        table_layout.addWidget(table_title)
+        table_layout.addWidget(self.command_table, 1)
+
+        log_panel = QFrame()
+        log_panel.setObjectName("workspacePanel")
+        log_layout = QVBoxLayout(log_panel)
+        log_layout.setContentsMargins(12, 10, 12, 12)
+        log_header = QHBoxLayout()
+        log_title = QLabel("运行日志")
+        log_title.setObjectName("sectionTitle")
+        log_header.addWidget(log_title)
+        log_header.addStretch(1)
+        self.window.toolButton_8.setText("导出日志")
+        self.window.toolButton_7.setText("清空日志")
+        log_header.addWidget(self.window.toolButton_8)
+        log_header.addWidget(self.window.toolButton_7)
+        log_layout.addLayout(log_header)
+        log_layout.addWidget(self.window.textEdit, 1)
+
+        self.table_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.table_splitter.setObjectName("tableLogSplitter")
+        self.table_splitter.setChildrenCollapsible(False)
+        self.table_splitter.addWidget(table_panel)
+        self.table_splitter.addWidget(log_panel)
+        self.table_splitter.setStretchFactor(0, 3)
+        self.table_splitter.setStretchFactor(1, 2)
+        self.table_splitter.setSizes([520, 260])
+        self.window.horizontalLayout.setContentsMargins(8, 8, 8, 8)
+        self.window.horizontalLayout.addWidget(self.table_splitter, 1)
 
     def _build_editor_view(self) -> QWidget:
         page = QWidget()
@@ -557,7 +613,9 @@ class ViewWorkspace:
             QListWidget#beginnerNavigation::item:selected {{ background: {c['accent']}; color: {c['accent_text']}; border-radius: 8px; }}
             QListWidget#beginnerNavigation::item:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QFrame#contentCard {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; padding: 12px; }}
+            QFrame#workspacePanel {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; }}
             QLabel#cardTitle {{ color: {c['accent']}; font-size: 18px; font-weight: 700; padding: 4px; }}
+            QLabel#sectionTitle {{ color: {c['text']}; font-size: 15px; font-weight: 700; padding: 2px 4px 7px 4px; }}
             QLabel#mutedText {{ color: {c['dim']}; padding: 3px; }}
             QLabel#taskStats {{ color: {c['text']}; background: {c['surface2']}; border-radius: 10px; padding: 14px; font-size: 15px; }}
             QLabel#editorTip {{ color: {c['accent']}; background: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 8px 12px; }}
@@ -565,14 +623,18 @@ class ViewWorkspace:
             QPushButton:hover, QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; border-color: {c['accent']}; }}
             QPushButton:pressed {{ background: {c['accent2']}; color: white; }}
             QPushButton#accentButton {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; border-color: {c['accent']}; }}
+            QPushButton#dangerButton {{ background: {c['danger']}; color: white; font-weight: 700; border-color: {c['danger']}; }}
             QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
             QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus {{ border-color: {c['accent']}; }}
             QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
+            QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 10px; padding: 8px; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
             QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}
             QScrollBar:vertical {{ background: {c['bg']}; width: 11px; }}
             QScrollBar::handle:vertical {{ background: {c['surface3']}; min-height: 24px; border-radius: 5px; }}
             QScrollBar::handle:vertical:hover {{ background: {c['accent2']}; }}
+            QSplitter#tableLogSplitter::handle {{ background: {c['bg']}; height: 8px; }}
+            QSplitter#tableLogSplitter::handle:hover {{ background: {c['accent']}; border-radius: 4px; }}
             QStatusBar {{ background: {c['nav']}; color: {c['dim']}; border-top: 1px solid {c['line']}; }}
             QGroupBox {{ color: {c['accent']}; background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 10px; margin-top: 10px; padding-top: 10px; font-weight: 700; }}
             QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; }}
