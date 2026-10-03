@@ -1,0 +1,579 @@
+"""Linked Clicker workspaces and the dark cyan desktop theme."""
+
+from __future__ import annotations
+
+import json
+
+from PySide6.QtCore import QSignalBlocker, Signal, Qt, QTimer
+from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QPlainTextEdit,
+    QPushButton,
+    QSplitter,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from instructions.registry import iter_instruction_specs
+from node_editor.palette import INSTRUCTION_MIME_TYPE
+
+
+MAIN_VIEW = 0
+TABLE_VIEW = 1
+FLOW_VIEW = 2
+CODE_VIEW = 3
+NAVIGATION_VIEW = 4
+CODE_SETTING = "多功能代码"
+TASK_NAME_SETTING = "任务名称"
+WINDOW_TITLE_SETTING = "绑定窗口标题"
+THEME_SETTING = "界面主题"
+
+
+class InstructionTableWidget(QTableWidget):
+    """Command table that accepts instruction MIME drops from the palette."""
+
+    instructionDropped = Signal(str)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAcceptDrops(True)
+
+    @staticmethod
+    def _type_id(event_):
+        if not event_.mimeData().hasFormat(INSTRUCTION_MIME_TYPE):
+            return None
+        try:
+            return bytes(event_.mimeData().data(INSTRUCTION_MIME_TYPE)).decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+
+    def dragEnterEvent(self, event_):
+        if self._type_id(event_):
+            event_.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event_)
+
+    def dragMoveEvent(self, event_):
+        if self._type_id(event_):
+            event_.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event_)
+
+    def dropEvent(self, event_):
+        type_id_ = self._type_id(event_)
+        if type_id_:
+            self.instructionDropped.emit(type_id_)
+            event_.acceptProposedAction()
+        else:
+            super().dropEvent(event_)
+
+
+class ViewWorkspace:
+    """Coordinate the five workspaces, palette layout and application theme."""
+
+    THEMES = {
+        "dark": {
+            "bg": "#212121", "nav": "#171717", "surface": "#2f2f2f",
+            "surface2": "#383838", "surface3": "#424242", "line": "#4a4a4a",
+            "text": "#ececec", "dim": "#b4b4b4", "accent": "#7c8cff",
+            "accent2": "#6574d8", "accent_text": "#ffffff", "danger": "#ff6b6b",
+        },
+        "light": {
+            "bg": "#f7f7f8", "nav": "#ececf1", "surface": "#ffffff",
+            "surface2": "#f1f1f3", "surface3": "#e6e6e9", "line": "#d9d9e0",
+            "text": "#2f2f2f", "dim": "#6b6b75", "accent": "#5b6fdc",
+            "accent2": "#495bbd", "accent_text": "#ffffff", "danger": "#d94b4b",
+        },
+    }
+
+    def __init__(self, window):
+        self.window = window
+        self.tabs = window.tabWidget
+        self._loading_code = False
+        self._code_dirty = False
+        self.theme_mode = str(window.db.get_setting_value(THEME_SETTING) or "dark")
+        if self.theme_mode not in self.THEMES:
+            self.theme_mode = "dark"
+        self.palette_side = "left"
+        self.palette_collapsed = False
+        self._apply_theme()
+        self._assemble_views()
+        self._build_navigation()
+        self.tabs.currentChanged.connect(self._view_changed)
+        self.show_main()
+        self._view_changed(self.tabs.currentIndex())
+
+    def _assemble_views(self) -> None:
+        self.table_page = self.window.tab
+        self._build_table_view()
+        self.navigation_page = self._build_beginner_view()
+        self.main_page = self._build_main_view()
+        self.editor_page = self._build_editor_view()
+        self.code_page = self._build_code_view()
+        self.tabs.clear()
+        self.tabs.addTab(self.main_page, "主界面")
+        self.tabs.addTab(self.table_page, "表格")
+        self.tabs.addTab(self.editor_page, "流程图")
+        self.tabs.addTab(self.code_page, "多功能")
+        self.tabs.addTab(self.navigation_page, "导航")
+
+    def _build_main_view(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        hero, hero_layout = self._card(
+            "Clicker 自动化工作台",
+            "从表格快速维护指令，在流程图中编排连线，或使用多功能代码完成高级操作。",
+        )
+        self.main_stats = QLabel()
+        self.main_stats.setObjectName("taskStats")
+        hero_layout.addWidget(self.main_stats)
+        buttons = QHBoxLayout()
+        for label, callback, primary in (
+            ("打开表格", self.show_table, False),
+            ("打开流程图", self.show_flow, True),
+            ("打开多功能", self.show_code, False),
+            ("功能导航", self.show_navigation, False),
+        ):
+            button = QPushButton(label)
+            if primary:
+                button.setObjectName("accentButton")
+            button.clicked.connect(callback)
+            buttons.addWidget(button)
+        hero_layout.addLayout(buttons)
+        layout.addWidget(hero)
+        layout.addStretch(1)
+        return page
+
+    def _build_beginner_view(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("beginnerView")
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        nav_frame = QFrame()
+        nav_frame.setObjectName("viewNavigation")
+        nav_layout = QVBoxLayout(nav_frame)
+        nav_title = QLabel("功能导航")
+        nav_title.setObjectName("navTitle")
+        nav_layout.addWidget(nav_title)
+        self.beginner_nav = QListWidget()
+        self.beginner_nav.setObjectName("beginnerNavigation")
+        for text in ("任务", "窗口绑定", "图色", "录制", "AI 识图", "DLL"):
+            self.beginner_nav.addItem(text)
+        nav_layout.addWidget(self.beginner_nav, 1)
+        layout.addWidget(nav_frame)
+        self.beginner_stack = QStackedWidget()
+        self.beginner_stack.addWidget(self._build_task_panel())
+        self.beginner_stack.addWidget(self._build_binding_panel())
+        self.beginner_stack.addWidget(self._build_action_panel(
+            "图色与资源", "统一管理模板图片和外部资源目录。",
+            (("设置资源文件夹", lambda: self.window.show_windows("全局")),
+             ("添加图像点击指令", lambda: self.window.workspace.add_command("图像点击"))),
+        ))
+        self.beginner_stack.addWidget(self._build_action_panel(
+            "操作录制", "通过键鼠指令快速搭建录制结果，也可在编辑视图继续拖拽编排。",
+            (("添加鼠标点击", lambda: self.window.workspace.add_command("鼠标点击")),
+             ("添加按键指令", lambda: self.window.workspace.add_command("按下键盘")),
+             ("打开流程图", self.show_flow)),
+        ))
+        self.beginner_stack.addWidget(self._build_action_panel(
+            "AI 识图", "使用现有 OCR 与图像匹配指令完成离线识别流程。",
+            (("添加 OCR 识别", lambda: self.window.workspace.add_command("OCR识别")),
+             ("添加图像等待", lambda: self.window.workspace.add_command("图像等待"))),
+        ))
+        self.beginner_stack.addWidget(self._build_action_panel(
+            "DLL 与外部能力", "可通过运行 Python、CMD 或外部文件指令接入本地组件。",
+            (("运行 Python", lambda: self.window.workspace.add_command("运行Python")),
+             ("运行外部文件", lambda: self.window.workspace.add_command("运行外部文件"))),
+        ))
+        self.beginner_nav.currentRowChanged.connect(self.beginner_stack.setCurrentIndex)
+        self.beginner_nav.setCurrentRow(0)
+        layout.addWidget(self.beginner_stack, 1)
+        return page
+
+    def _card(self, title: str, description: str = ""):
+        card = QFrame()
+        card.setObjectName("contentCard")
+        layout = QVBoxLayout(card)
+        heading = QLabel(title)
+        heading.setObjectName("cardTitle")
+        layout.addWidget(heading)
+        if description:
+            detail = QLabel(description)
+            detail.setObjectName("mutedText")
+            detail.setWordWrap(True)
+            layout.addWidget(detail)
+        return card, layout
+
+    def _build_task_panel(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        card, card_layout = self._card("当前任务", "名称、流程、代码和运行控制实时联动。")
+        form = QFormLayout()
+        self.task_name = QLineEdit(str(self.window.db.get_setting_value(TASK_NAME_SETTING) or "默认任务"))
+        self.task_name.editingFinished.connect(self._save_task_name)
+        form.addRow("任务名称", self.task_name)
+        card_layout.addLayout(form)
+        self.stats = QLabel()
+        self.stats.setObjectName("taskStats")
+        card_layout.addWidget(self.stats)
+        buttons = QHBoxLayout()
+        edit_button = QPushButton("打开流程图")
+        edit_button.setObjectName("accentButton")
+        edit_button.clicked.connect(self.show_flow)
+        table_button = QPushButton("打开表格")
+        table_button.clicked.connect(self.show_table)
+        code_button = QPushButton("打开多功能代码")
+        code_button.clicked.connect(self.show_code)
+        for button in (edit_button, table_button, code_button):
+            buttons.addWidget(button)
+        card_layout.addLayout(buttons)
+        layout.addWidget(card)
+        layout.addStretch(1)
+        return page
+
+    def _build_binding_panel(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        card, card_layout = self._card("窗口绑定", "保存目标窗口标题，供窗口控制和自动化指令统一使用。")
+        form = QFormLayout()
+        self.window_title = QLineEdit(str(self.window.db.get_setting_value(WINDOW_TITLE_SETTING) or ""))
+        self.window_title.setPlaceholderText("输入目标窗口标题")
+        form.addRow("窗口标题", self.window_title)
+        card_layout.addLayout(form)
+        save_button = QPushButton("保存绑定")
+        save_button.setObjectName("accentButton")
+        save_button.clicked.connect(self._save_window_binding)
+        card_layout.addWidget(save_button, 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(card)
+        layout.addStretch(1)
+        return page
+
+    def _build_action_panel(self, title, description, actions) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        card, card_layout = self._card(title, description)
+        for label, callback in actions:
+            button = QPushButton(label)
+            button.clicked.connect(callback)
+            card_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(card)
+        layout.addStretch(1)
+        return page
+
+    def _build_table_view(self) -> None:
+        self.command_table = InstructionTableWidget(0, 5, self.table_page)
+        self.command_table.setObjectName("commandTable")
+        self.command_table.setHorizontalHeaderLabels(["序号", "指令", "重复", "异常处理", "备注"])
+        self.command_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.command_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.command_table.verticalHeader().setVisible(False)
+        header = self.command_table.horizontalHeader()
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.command_table.cellDoubleClicked.connect(self._edit_table_command)
+        self.command_table.instructionDropped.connect(self._add_table_command)
+        self.window.horizontalLayout.insertWidget(0, self.command_table, 3)
+        self.window.horizontalLayout.setStretchFactor(self.window.textEdit, 2)
+
+    def _build_editor_view(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("editorView")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        tip = QLabel("从左侧指令区拖入画布，或在画布空白处右键新建指令")
+        tip.setObjectName("editorTip")
+        layout.addWidget(tip)
+        self.window.nodeEditorLayout.removeWidget(self.window.workspace.editor)
+        self.window.workspace.editor.setParent(page)
+        layout.addWidget(self.window.workspace.editor, 1)
+        return page
+
+    def _build_code_view(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("multifunctionView")
+        layout = QVBoxLayout(page)
+        header = QHBoxLayout()
+        title = QLabel("多功能代码")
+        title.setObjectName("pageTitle")
+        self.code_status = QLabel("修改会自动保存在当前任务中")
+        self.code_status.setObjectName("mutedText")
+        regenerate = QPushButton("按当前流程重新生成")
+        regenerate.clicked.connect(self.regenerate_code)
+        header.addWidget(title)
+        header.addWidget(self.code_status)
+        header.addStretch(1)
+        header.addWidget(regenerate)
+        layout.addLayout(header)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.command_list = QListWidget()
+        self.command_list.setMinimumWidth(190)
+        self.command_list.setMaximumWidth(290)
+        for spec in iter_instruction_specs():
+            item = QListWidgetItem(f"{spec.category}  /  {spec.display_name}")
+            item.setData(Qt.ItemDataRole.UserRole, spec.type_id)
+            self.command_list.addItem(item)
+        self.command_list.itemDoubleClicked.connect(self._insert_command_hint)
+        self.code_editor = QPlainTextEdit()
+        self.code_editor.setPlaceholderText("在这里维护当前任务的多功能代码……")
+        self.code_editor.textChanged.connect(self._schedule_code_save)
+        splitter.addWidget(self.command_list)
+        splitter.addWidget(self.code_editor)
+        splitter.setStretchFactor(1, 1)
+        layout.addWidget(splitter)
+        return page
+
+    def _build_navigation(self) -> None:
+        self.primary_action = QAction("打开流程图", self.window)
+        self.primary_action.triggered.connect(self.toggle_primary)
+        self.code_action = QAction("多功能", self.window)
+        self.code_action.triggered.connect(self.show_code)
+        self.palette_side_action = QAction("指令栏移到右侧", self.window)
+        self.palette_side_action.triggered.connect(self.toggle_palette_side)
+        self.palette_collapse_action = QAction("收起指令栏", self.window)
+        self.palette_collapse_action.triggered.connect(self.toggle_palette)
+        self.theme_action = QAction("切换浅色", self.window)
+        self.theme_action.triggered.connect(self.toggle_theme)
+        self.window.toolBar.addSeparator()
+        self.window.toolBar.addAction(self.primary_action)
+        self.window.toolBar.addAction(self.code_action)
+        self.window.toolBar.addSeparator()
+        self.window.toolBar.addAction(self.palette_side_action)
+        self.window.toolBar.addAction(self.palette_collapse_action)
+        self.window.toolBar.addAction(self.theme_action)
+        menu = QMenu("视图", self.window)
+        for label, shortcut, callback in (
+            ("主界面", "Ctrl+1", self.show_main),
+            ("表格", "Ctrl+2", self.show_table),
+            ("流程图", "Ctrl+3", self.show_flow),
+            ("多功能", "Ctrl+4", self.show_code),
+            ("导航", "Ctrl+5", self.show_navigation),
+        ):
+            action = QAction(label, self.window)
+            action.setShortcut(QKeySequence(shortcut))
+            action.triggered.connect(callback)
+            menu.addAction(action)
+        self.window.menubar.insertMenu(self.window.menu_4.menuAction(), menu)
+
+    def toggle_primary(self) -> None:
+        self.show_main() if self.tabs.currentIndex() == FLOW_VIEW else self.show_flow()
+
+    def show_main(self): self.tabs.setCurrentIndex(MAIN_VIEW)
+    def show_table(self): self.tabs.setCurrentIndex(TABLE_VIEW)
+    def show_flow(self): self.tabs.setCurrentIndex(FLOW_VIEW)
+    def show_code(self):
+        self._load_code()
+        self.tabs.setCurrentIndex(CODE_VIEW)
+    def show_navigation(self): self.tabs.setCurrentIndex(NAVIGATION_VIEW)
+
+    # Backward-compatible aliases for integrations that used the earlier names.
+    def show_beginner(self): self.show_navigation()
+    def show_editor(self): self.show_flow()
+
+    def toggle_palette_side(self) -> None:
+        self.palette_side = "right" if self.palette_side == "left" else "left"
+        self._place_palette()
+
+    def toggle_palette(self) -> None:
+        self.palette_collapsed = not self.palette_collapsed
+        self._place_palette()
+
+    def toggle_theme(self) -> None:
+        self.theme_mode = "light" if self.theme_mode == "dark" else "dark"
+        self.window.db.set_setting_value(THEME_SETTING, self.theme_mode)
+        self._apply_theme()
+        self._update_view_actions()
+
+    def _place_palette(self) -> None:
+        grid = self.window.gridLayout_4
+        palette = self.window.instructionPaletteHost
+        center = self.tabs
+        controls = self.window.groupBox_3
+        for widget in (palette, center, controls):
+            grid.removeWidget(widget)
+        if self.palette_side == "left":
+            grid.addWidget(palette, 0, 0, 1, 1)
+            grid.addWidget(center, 0, 1, 1, 1)
+            grid.addWidget(controls, 0, 2, 1, 1)
+            stretches = (0, 4, 1)
+        else:
+            grid.addWidget(center, 0, 0, 1, 1)
+            grid.addWidget(palette, 0, 1, 1, 1)
+            grid.addWidget(controls, 0, 2, 1, 1)
+            stretches = (4, 0, 1)
+        for column, stretch in enumerate(stretches):
+            grid.setColumnStretch(column, stretch)
+        palette.setVisible(
+            self.tabs.currentIndex() in (TABLE_VIEW, FLOW_VIEW)
+            and not self.palette_collapsed
+        )
+        self._update_view_actions()
+
+    def _update_view_actions(self) -> None:
+        self.primary_action.setText(
+            "返回主界面" if self.tabs.currentIndex() == FLOW_VIEW else "打开流程图"
+        )
+        self.palette_side_action.setText(
+            "指令栏移到左侧" if self.palette_side == "right" else "指令栏移到右侧"
+        )
+        self.palette_collapse_action.setText(
+            "展开指令栏" if self.palette_collapsed else "收起指令栏"
+        )
+        self.theme_action.setText("切换深色" if self.theme_mode == "light" else "切换浅色")
+
+    def _view_changed(self, index: int) -> None:
+        self._place_palette()
+        if index in (MAIN_VIEW, NAVIGATION_VIEW): self.refresh_summary()
+        elif index == TABLE_VIEW: self.refresh_table()
+        elif index == CODE_VIEW: self._load_code()
+
+    def refresh_all(self) -> None:
+        self.refresh_summary()
+        self.refresh_table()
+
+    def refresh_summary(self) -> None:
+        try:
+            snapshot = self.window.workspace.repository.snapshot()
+            code_lines = len(self.code_editor.toPlainText().splitlines())
+            summary = (
+                f"流程节点  {len(snapshot.nodes)}\n可执行指令  {len(snapshot.commands)}\n"
+                f"多功能代码  {code_lines} 行"
+            )
+            self.stats.setText(summary)
+            self.main_stats.setText(summary)
+        except Exception as error:
+            summary = f"任务状态暂不可用：{error}"
+            self.stats.setText(summary)
+            self.main_stats.setText(summary)
+
+    def refresh_table(self) -> None:
+        commands = self.window.workspace.repository.list_commands()
+        self.command_table.setRowCount(len(commands))
+        for row, command in enumerate(commands):
+            values = (str(command.order + 1), command.type_id, str(command.repeat_count), command.error_policy, command.note)
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setData(Qt.ItemDataRole.UserRole, command.id)
+                self.command_table.setItem(row, column, item)
+
+    def _add_table_command(self, type_id: str) -> None:
+        self.window.workspace.add_command(type_id)
+        self.refresh_table()
+        self.window.statusBar.showMessage(f"已从指令栏添加：{type_id}", 2500)
+
+    def _edit_table_command(self, row: int, _column: int) -> None:
+        item = self.command_table.item(row, 0)
+        if item is not None:
+            self.window.workspace.edit_command(item.data(Qt.ItemDataRole.UserRole))
+            self.refresh_all()
+
+    def _save_task_name(self) -> None:
+        name = self.task_name.text().strip() or "默认任务"
+        self.task_name.setText(name)
+        self.window.db.set_setting_value(TASK_NAME_SETTING, name)
+        self.window.statusBar.showMessage(f"任务名称已保存：{name}", 3000)
+
+    def _save_window_binding(self) -> None:
+        self.window.db.set_setting_value(WINDOW_TITLE_SETTING, self.window_title.text().strip())
+        self.window.statusBar.showMessage("窗口绑定已保存。", 3000)
+
+    def _load_code(self) -> None:
+        if self._code_dirty: return
+        text = str(self.window.db.get_setting_value(CODE_SETTING) or "") or self._generated_code()
+        self._loading_code = True
+        with QSignalBlocker(self.code_editor): self.code_editor.setPlainText(text)
+        self._loading_code = False
+
+    def regenerate_code(self) -> None:
+        self._loading_code = True
+        self.code_editor.setPlainText(self._generated_code())
+        self._loading_code = False
+        self._code_dirty = True
+        self._save_code()
+        self.refresh_summary()
+        self.window.statusBar.showMessage("已根据当前流程重新生成多功能代码。", 3000)
+
+    def _generated_code(self) -> str:
+        commands = self.window.workspace.repository.list_commands()
+        lines = ["# Clicker 多功能代码", "# 双击左侧命令可插入命令提示。", ""]
+        for command in commands:
+            params = json.dumps(command.parameters, ensure_ascii=False, sort_keys=True)
+            note = f"  # {command.note}" if command.note else ""
+            lines.append(f"{command.type_id}({params}, 重复次数={command.repeat_count}, 异常处理={command.error_policy!r}){note}")
+        if not commands: lines.append("# 当前流程还没有指令，请先到编辑视图添加。")
+        return "\n".join(lines) + "\n"
+
+    def _insert_command_hint(self, item: QListWidgetItem) -> None:
+        type_id = item.data(Qt.ItemDataRole.UserRole)
+        self.code_editor.insertPlainText(f'{type_id}({{}}, 重复次数=1, 异常处理="提示异常并暂停")\n')
+        self.code_editor.setFocus()
+
+    def _schedule_code_save(self) -> None:
+        if self._loading_code: return
+        self._code_dirty = True
+        self.code_status.setText("正在保存……")
+        QTimer.singleShot(350, self._save_code)
+
+    def _save_code(self) -> None:
+        if not self._code_dirty: return
+        self.window.db.set_setting_value(CODE_SETTING, self.code_editor.toPlainText())
+        self._code_dirty = False
+        self.code_status.setText("已自动保存")
+
+    def _apply_theme(self) -> None:
+        c = self.THEMES[self.theme_mode]
+        self.window.workspace.editor.set_theme(self.theme_mode)
+        self.window.setStyleSheet(f"""
+            QMainWindow, QWidget#centralwidget {{ background: {c['bg']}; color: {c['text']}; }}
+            QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
+            QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
+            QMenuBar::item:selected, QMenu::item:selected {{ background: {c['surface3']}; color: {c['accent']}; }}
+            QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 5px; }}
+            QToolBar QToolButton {{ padding: 6px 10px; border-radius: 8px; }}
+            QToolBar QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
+            QTabWidget::pane {{ border: 1px solid {c['line']}; border-radius: 12px; background: {c['bg']}; top: -1px; }}
+            QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 9px 18px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
+            QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
+            QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
+            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; }}
+            QFrame#viewNavigation {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; min-width: 175px; max-width: 220px; }}
+            QLabel#navTitle, QLabel#pageTitle {{ color: {c['accent']}; font-size: 17px; font-weight: 700; padding: 8px; }}
+            QListWidget#beginnerNavigation {{ background: transparent; border: none; outline: none; }}
+            QListWidget#beginnerNavigation::item {{ color: {c['text']}; padding: 11px 14px; margin: 1px 0; }}
+            QListWidget#beginnerNavigation::item:selected {{ background: {c['accent']}; color: {c['accent_text']}; border-radius: 8px; }}
+            QListWidget#beginnerNavigation::item:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
+            QFrame#contentCard {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; padding: 12px; }}
+            QLabel#cardTitle {{ color: {c['accent']}; font-size: 18px; font-weight: 700; padding: 4px; }}
+            QLabel#mutedText {{ color: {c['dim']}; padding: 3px; }}
+            QLabel#taskStats {{ color: {c['text']}; background: {c['surface2']}; border-radius: 10px; padding: 14px; font-size: 15px; }}
+            QLabel#editorTip {{ color: {c['accent']}; background: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 8px 12px; }}
+            QPushButton, QToolButton {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 7px 12px; }}
+            QPushButton:hover, QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; border-color: {c['accent']}; }}
+            QPushButton:pressed {{ background: {c['accent2']}; color: white; }}
+            QPushButton#accentButton {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; border-color: {c['accent']}; }}
+            QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
+            QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus {{ border-color: {c['accent']}; }}
+            QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
+            QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
+            QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}
+            QScrollBar:vertical {{ background: {c['bg']}; width: 11px; }}
+            QScrollBar::handle:vertical {{ background: {c['surface3']}; min-height: 24px; border-radius: 5px; }}
+            QScrollBar::handle:vertical:hover {{ background: {c['accent2']}; }}
+            QStatusBar {{ background: {c['nav']}; color: {c['dim']}; border-top: 1px solid {c['line']}; }}
+            QGroupBox {{ color: {c['accent']}; background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 10px; margin-top: 10px; padding-top: 10px; font-weight: 700; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; }}
+        """)

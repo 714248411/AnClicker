@@ -1,0 +1,8 @@
+APP_NAME = "YanYiClicker"
+CURRENT_VERSION = "v0.26.6 Beta"
+QQ = "308994839"
+QQ_GROUP = "https://qm.qq.com/q/3ih3PE16Mg"
+MAIN_WEBSITE = "https://gitee.com/fasterthanlight/automatic_clicker_2"
+Github_WEBSITE = "https://github.com/FsterThanLight/automatic_clicker_2"
+ISSUE_WEBSITE = "https://gitee.com/fasterthanlight/automatic_clicker_2/issues"
+DONATE_WEBSITE = "https://fsterthanlight.github.io/donation.github.io/"

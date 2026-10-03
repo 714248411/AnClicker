@@ -1,0 +1,315 @@
+"""Main-window integration for the instruction palette and node canvas."""
+
+from __future__ import annotations
+
+import math
+from typing import Optional
+
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QDialog, QMessageBox
+
+from graph_repository import END_NODE_ID, GraphRepository
+from instructions.models import CommandRecord, ExecutionContext, InstructionDraft
+from instructions.registry import INSTRUCTION_SPECS, get_instruction_spec
+from node_editor import InstructionPalette, NodeEditorWidget
+
+
+class InstructionWorkspace(QObject):
+    """Coordinate UI-only widgets with the transactional graph repository.
+
+    The palette and node editor deliberately know nothing about SQLite.  This
+    controller is the only main-window layer that opens instruction editors and
+    turns their signals into repository transactions.
+    """
+
+    statusMessage = Signal(str)
+    runSingleRequested = Signal(int)
+    runFromRequested = Signal(int)
+
+    EDGE_HIT_DISTANCE = 72.0
+
+    def __init__(self, db_path: str, parent=None) -> None:
+        super().__init__(parent)
+        self.parent_window = parent
+        self.repository = GraphRepository(db_path)
+        self.palette = InstructionPalette(INSTRUCTION_SPECS, parent_=parent)
+        self.editor = NodeEditorWidget(parent_=parent)
+        self._connect_signals()
+        self.reload_graph()
+
+    def _connect_signals(self) -> None:
+        self.palette.instructionActivated.connect(self.add_command)
+        self.editor.instructionDropped.connect(self.add_command)
+        self.editor.instructionCreateRequested.connect(self.add_command)
+        self.editor.commandActivated.connect(self.edit_command)
+        self.editor.copyRequested.connect(self.copy_commands)
+        self.editor.deleteRequested.connect(self.remove_commands)
+        self.editor.runSingleRequested.connect(self.run_from_command_single)
+        self.editor.runFromRequested.connect(self.run_from_command)
+        self.editor.graphCommitted.connect(self._commit_graph_change)
+        self.editor.positionCommitted.connect(self._commit_position)
+        self.editor.connectionRequested.connect(self._connect_nodes)
+        self.editor.deleteConnectionsRequested.connect(self._delete_connections)
+
+    # Public node-workspace interface used by the main window.
+    def selected_command_ids(self) -> list[int]:
+        return [int(command_id_) for command_id_ in self.editor.selected_command_ids()]
+
+    def focus_command(self, command_id: int) -> bool:
+        return self.editor.focus_command(int(command_id))
+
+    def reload_graph(self, focus_command_id: Optional[int] = None) -> None:
+        snapshot_ = self.repository.snapshot()
+        self.editor.load_graph(
+            snapshot_.nodes, snapshot_.edges, INSTRUCTION_SPECS,
+            allow_incomplete=True,
+        )
+        if focus_command_id is not None:
+            self.editor.focus_command(int(focus_command_id))
+        else:
+            self.editor.view.fit_graph()
+
+    def add_selected_instruction(self) -> None:
+        type_id_ = self.palette.selected_type_id()
+        if type_id_ is None:
+            QMessageBox.information(
+                self.parent_window,
+                "提示",
+                "请先在左侧选择一条指令。",
+                QMessageBox.StandardButton.Ok,
+            )
+            return
+        self.add_command(type_id_)
+
+    def add_command(
+        self,
+        type_id: str,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+    ) -> Optional[int]:
+        """Open the independent editor and create only after confirmation."""
+        try:
+            spec_ = get_instruction_spec(str(type_id))
+            editor_ = spec_.create_editor(
+                parent=self.parent_window,
+                context=self._editor_context(),
+            )
+            self._connect_editor_test(editor_, spec_)
+            if editor_.exec() != QDialog.DialogCode.Accepted:
+                return None
+            draft_ = editor_.get_draft()
+            split_edge_ = self._nearest_edge(x, y) if x is not None and y is not None else None
+            command_ = self.repository.add_command(
+                draft_,
+                x=x,
+                y=y,
+                split_edge=split_edge_,
+                before_node_id=None if split_edge_ is not None else END_NODE_ID,
+            )
+            self.reload_graph(command_.id)
+            self.statusMessage.emit(f"已添加指令：{spec_.display_name}")
+            return command_.id
+        except Exception as error_:
+            self._show_error("添加指令失败", error_)
+            return None
+
+    def edit_command(self, command_id) -> bool:
+        try:
+            command_ = self.repository.get_command(int(command_id))
+            if command_ is None:
+                raise KeyError(f"指令不存在：{command_id}")
+            spec_ = get_instruction_spec(command_.type_id)
+            editor_ = spec_.create_editor(
+                parent=self.parent_window,
+                draft=command_.to_draft(),
+                context=self._editor_context(),
+            )
+            self._connect_editor_test(editor_, spec_)
+            if editor_.exec() != QDialog.DialogCode.Accepted:
+                return False
+            self.repository.update_command(command_.id, editor_.get_draft())
+            self.reload_graph(command_.id)
+            self.statusMessage.emit(f"已修改指令：{spec_.display_name}")
+            return True
+        except Exception as error_:
+            self._show_error("修改指令失败", error_)
+            return False
+
+    def copy_commands(self, command_ids=None) -> list[int]:
+        command_ids_ = command_ids or self.selected_command_ids()
+        copied_ids_: list[int] = []
+        try:
+            for command_id_ in command_ids_:
+                copied_ = self.repository.duplicate_command(int(command_id_))
+                copied_ids_.append(int(copied_.id))
+            self.reload_graph(copied_ids_[-1] if copied_ids_ else None)
+            if copied_ids_:
+                self.statusMessage.emit(f"已复制 {len(copied_ids_)} 条指令")
+        except Exception as error_:
+            self._show_error("复制指令失败", error_)
+        return copied_ids_
+
+    def remove_commands(self, command_ids=None, *, confirm: bool = True) -> int:
+        command_ids_ = command_ids or self.selected_command_ids()
+        if not command_ids_:
+            return 0
+        if confirm and QMessageBox.question(
+            self.parent_window,
+            "删除指令",
+            f"确认删除选中的 {len(command_ids_)} 条指令吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return 0
+        try:
+            deleted_ = self.repository.delete_commands(command_ids_)
+            self.reload_graph()
+            self.statusMessage.emit(f"已删除 {deleted_} 条指令")
+            return deleted_
+        except Exception as error_:
+            self._show_error("删除指令失败", error_)
+            return 0
+
+    def clear(self, *, confirm: bool = True) -> bool:
+        if confirm and QMessageBox.question(
+            self.parent_window,
+            "清空画布",
+            "确认清除全部指令吗？画布将只保留“开始→结束”。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return False
+        try:
+            self.repository.clear()
+            self.reload_graph()
+            self.statusMessage.emit("已清空全部指令")
+            return True
+        except Exception as error_:
+            self._show_error("清空画布失败", error_)
+            return False
+
+    def run_from_command_single(self, command_id) -> None:
+        self.runSingleRequested.emit(int(command_id))
+
+    def run_from_command(self, command_id=None) -> None:
+        command_id_ = command_id
+        if command_id_ is None:
+            selected_ = self.selected_command_ids()
+            command_id_ = selected_[0] if selected_ else None
+        if command_id_ is not None:
+            self.runFromRequested.emit(int(command_id_))
+
+    def _commit_graph_change(
+        self, command_ids, node_id, x: float, y: float
+    ) -> None:
+        try:
+            focused_ = self.selected_command_ids()
+            self.repository.reorder_chain_and_save_positions(
+                [int(item_) for item_ in command_ids],
+                {str(node_id): (float(x), float(y))},
+            )
+            self.reload_graph(focused_[0] if focused_ else None)
+            self.statusMessage.emit("已保存节点位置和顺序")
+        except Exception as error_:
+            self.reload_graph()
+            self._show_error("保存节点位置和顺序失败", error_)
+
+    def _commit_position(self, node_id, x: float, y: float) -> None:
+        try:
+            self.repository.save_node_position(str(node_id), float(x), float(y))
+        except Exception as error_:
+            self.reload_graph()
+            self._show_error("保存节点位置失败", error_)
+
+    def _connect_nodes(self, source_id, target_id) -> None:
+        try:
+            self.repository.connect_nodes(str(source_id), str(target_id))
+            self.reload_graph()
+            self.statusMessage.emit("流程连接已保存")
+        except Exception as error_:
+            self.reload_graph()
+            self._show_error("连接流程失败", error_)
+
+    def _delete_connections(self, node_id, mode: str) -> None:
+        try:
+            deleted_ = self.repository.delete_node_connections(str(node_id), mode)
+            self.reload_graph()
+            self.statusMessage.emit(f"已删除 {deleted_} 条流程连接线")
+        except Exception as error_:
+            self.reload_graph()
+            self._show_error("删除流程连接线失败", error_)
+
+    def _nearest_edge(self, x: float, y: float):
+        snapshot_ = self.repository.snapshot()
+        nodes_ = {node_.node_id: node_ for node_ in snapshot_.nodes}
+        nearest_ = None
+        nearest_distance_ = math.inf
+        for edge_ in snapshot_.edges:
+            source_ = nodes_[edge_.source]
+            target_ = nodes_[edge_.target]
+            distance_ = self._point_segment_distance(
+                float(x), float(y), source_.x, source_.y, target_.x, target_.y
+            )
+            if distance_ < nearest_distance_:
+                nearest_, nearest_distance_ = edge_, distance_
+        return nearest_ if nearest_distance_ <= self.EDGE_HIT_DISTANCE else None
+
+    @staticmethod
+    def _point_segment_distance(px_, py_, ax_, ay_, bx_, by_) -> float:
+        dx_, dy_ = bx_ - ax_, by_ - ay_
+        length_squared_ = dx_ * dx_ + dy_ * dy_
+        if length_squared_ == 0:
+            return math.hypot(px_ - ax_, py_ - ay_)
+        ratio_ = max(
+            0.0,
+            min(1.0, ((px_ - ax_) * dx_ + (py_ - ay_) * dy_) / length_squared_),
+        )
+        return math.hypot(px_ - (ax_ + ratio_ * dx_), py_ - (ay_ + ratio_ * dy_))
+
+    def _editor_context(self) -> ExecutionContext:
+        return ExecutionContext(
+            variables=self._load_variables(),
+            output=self.statusMessage.emit,
+            metadata={"database": getattr(self.parent_window, "db", None)},
+        )
+
+    def _load_variables(self) -> dict:
+        database_ = getattr(self.parent_window, "db", None)
+        if database_ is None:
+            return {}
+        try:
+            return dict(database_.get_variable_info("dict"))
+        except Exception:
+            return {}
+
+    def _connect_editor_test(self, editor_, spec_) -> None:
+        signal_ = getattr(editor_, "test_requested", None)
+        if signal_ is None:
+            return
+
+        def execute_test_(draft_: InstructionDraft) -> None:
+            try:
+                command_ = CommandRecord(
+                    id=None,
+                    type_id=draft_.type_id,
+                    parameters=draft_.parameters,
+                    repeat_count=1,
+                    error_policy=draft_.error_policy,
+                    note=draft_.note,
+                    order=0,
+                )
+                spec_.create_executor().execute(self._editor_context(), command_)
+                self.statusMessage.emit(f"测试完成：{spec_.display_name}")
+            except Exception as error_:
+                self._show_error("测试指令失败", error_)
+
+        signal_.connect(execute_test_)
+
+    def _show_error(self, title_: str, error_: Exception) -> None:
+        self.statusMessage.emit(f"{title_}：{error_}")
+        QMessageBox.warning(
+            self.parent_window,
+            title_,
+            str(error_),
+            QMessageBox.StandardButton.Ok,
+        )

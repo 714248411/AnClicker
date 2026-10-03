@@ -1,0 +1,26 @@
+[project]
+name = "automatic-clicker-2"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.7"
+dependencies = [
+    "PySide6",
+    "pyttsx4",
+    "pymsgbox",
+    "pyautogui",
+    "mouse",
+    "keyboard",
+    "pandas",
+    "pillow",
+    "openpyxl",
+    "requests",
+    "system_hotkey",
+    "pygments",
+    "opencv-python",
+    "baidu-aip",
+    "chardet",
+    "system_hotkey",
+    "pyinstaller",
+    "python-dateutil",
+    "psutil",
+]
