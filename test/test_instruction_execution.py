@@ -102,9 +102,12 @@ class InstructionFallbackTests(unittest.TestCase):
             "提示音": {"类型": "系统提示音", "提示类型": "系统警告", "次数": 1},
             "提示窗口": {"标题": "标题", "内容": "内容", "图标": "警告"},
             "终止流程": {"终止类型": "终止所有任务"},
+            "循环": {"次数": 3},
+            "条件判断": {"条件": "True"},
+            "条件循环": {"条件": "True", "次数": 3},
         }
 
-    def test_all_32_real_fallbacks_execute_without_delegated_service(self):
+    def test_all_35_real_fallbacks_execute_without_delegated_service(self):
         parameters_ = self._parameters()
         self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS})
         self.context_.variables["值"] = 2

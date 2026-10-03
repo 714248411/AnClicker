@@ -41,7 +41,7 @@ class PortItem(QGraphicsObject):
         super().__init__(node_)
         self.node = node_
         self.direction = direction_
-        self.edge: EdgeItem | None = None
+        self.edges: list[EdgeItem] = []
         self.setAcceptHoverEvents(True)
         self.setToolTip("流程输入" if direction_ == "input" else "流程输出")
 
@@ -70,8 +70,8 @@ class PortItem(QGraphicsObject):
         super().hoverLeaveEvent(event_)
 
     def update_edge(self):
-        if self.edge is not None:
-            self.edge.update_path()
+        for edge_ in tuple(self.edges):
+            edge_.update_path()
 
 
 class NodeItem(QGraphicsObject):
@@ -85,6 +85,7 @@ class NodeItem(QGraphicsObject):
         title_: str,
         color_: QColor,
         terminal_role_: str | None = None,
+        control_kind_: str | None = None,
     ):
         super().__init__()
         self.node_id = node_id_
@@ -92,6 +93,7 @@ class NodeItem(QGraphicsObject):
         self.type_id = type_id_
         self.title = title_
         self.terminal_role = terminal_role_
+        self.control_kind = control_kind_
         self.header_color = QColor(color_)
         self.title_font = QFont("Microsoft YaHei UI", 10, QFont.Weight.DemiBold)
         title_width_ = QFontMetricsF(self.title_font).horizontalAdvance(title_)
@@ -131,6 +133,13 @@ class NodeItem(QGraphicsObject):
 
     def shape(self):
         path_ = QPainterPath()
+        if self.control_kind == "condition":
+            path_.moveTo(self.width / 2.0, 0.0)
+            path_.lineTo(self.width, self.height / 2.0)
+            path_.lineTo(self.width / 2.0, self.height)
+            path_.lineTo(0.0, self.height / 2.0)
+            path_.closeSubpath()
+            return path_
         radius_ = self.height / 2.0 if self.is_terminal else 9.0
         path_.addRoundedRect(
             QRectF(0.0, 0.0, self.width, self.height), radius_, radius_
@@ -146,10 +155,14 @@ class NodeItem(QGraphicsObject):
         painter_.setBrush(QBrush(NODE_COLOR))
         painter_.drawPath(body_)
 
-        painter_.save()
-        painter_.setClipPath(body_)
-        painter_.fillRect(QRectF(0.0, 0.0, self.width, 4.0), self.header_color)
-        painter_.restore()
+        if self.control_kind == "condition":
+            painter_.setPen(QPen(self.header_color, 3.0))
+            painter_.drawPath(body_)
+        else:
+            painter_.save()
+            painter_.setClipPath(body_)
+            painter_.fillRect(QRectF(0.0, 0.0, self.width, 4.0), self.header_color)
+            painter_.restore()
 
         painter_.setPen(TEXT_COLOR)
         painter_.setFont(self.title_font)
@@ -229,7 +242,7 @@ class NodeItem(QGraphicsObject):
 
 
 class EdgeItem(QGraphicsPathItem):
-    """A visual edge in the validated single instruction chain."""
+    """A visual directed edge; ports may participate in multiple branches."""
 
     def __init__(self, source_node_: NodeItem, target_node_: NodeItem):
         super().__init__()
@@ -239,8 +252,8 @@ class EdgeItem(QGraphicsPathItem):
         self.target_node = target_node_
         self.source_port = source_node_.output_port
         self.target_port = target_node_.input_port
-        self.source_port.edge = self
-        self.target_port.edge = self
+        self.source_port.edges.append(self)
+        self.target_port.edges.append(self)
         self.setZValue(-1.0)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setAcceptHoverEvents(True)
@@ -275,7 +288,7 @@ class EdgeItem(QGraphicsPathItem):
         end_ = self.path().pointAtPercent(1.0)
         before_ = self.path().pointAtPercent(0.96)
         angle_ = math.atan2(end_.y() - before_.y(), end_.x() - before_.x())
-        size_ = 10.0
+        size_ = 16.0
         left_ = QPointF(
             end_.x() - size_ * math.cos(angle_ - math.pi / 6.0),
             end_.y() - size_ * math.sin(angle_ - math.pi / 6.0),
@@ -288,6 +301,23 @@ class EdgeItem(QGraphicsPathItem):
         painter_.setPen(QPen(color_, 1.0))
         painter_.setBrush(QBrush(color_))
         painter_.drawPolygon(QPolygonF([end_, left_, right_]))
+        if self.source_node.type_id in {"条件判断", "条件循环"}:
+            branch_edges_ = sorted(
+                self.source_port.edges,
+                key=lambda edge_: edge_.target_node.scenePos().y(),
+            )
+            try:
+                branch_index_ = branch_edges_.index(self)
+            except ValueError:
+                branch_index_ = -1
+            label_ = "是" if branch_index_ == 0 else "否"
+            label_position_ = self.path().pointAtPercent(0.58)
+            painter_.setPen(QPen(color_, 1.0))
+            painter_.setFont(QFont("Microsoft YaHei UI", 9, QFont.Weight.DemiBold))
+            painter_.drawText(label_position_ + QPointF(6.0, -6.0), label_)
+
+    def boundingRect(self):
+        return super().boundingRect().adjusted(-20.0, -20.0, 20.0, 20.0)
 
     def shape(self):
         stroker_ = QPainterPathStroker()
@@ -308,7 +338,7 @@ class EdgeItem(QGraphicsPathItem):
         self.update_path()
 
     def detach(self):
-        if self.source_port.edge is self:
-            self.source_port.edge = None
-        if self.target_port.edge is self:
-            self.target_port.edge = None
+        if self in self.source_port.edges:
+            self.source_port.edges.remove(self)
+        if self in self.target_port.edges:
+            self.target_port.edges.remove(self)

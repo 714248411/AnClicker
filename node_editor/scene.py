@@ -1,4 +1,4 @@
-"""Validated single-chain graphics scene for Clicker instructions."""
+"""Validated directed-flow graphics scene for Clicker instructions."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def _record_value(record_, *names_, default=None):
 
 
 class NodeScene(QGraphicsScene):
-    """Scene containing one start-to-end chain with movable instruction nodes."""
+    """Scene containing a branch-capable start-to-end DAG."""
 
     graphChanged = Signal(int, int)
     commandActivated = Signal(object)
@@ -115,7 +115,7 @@ class NodeScene(QGraphicsScene):
         self._connection_port = None
 
     def load_graph(self, nodes_, edges_, specs_, allow_incomplete=False) -> None:
-        """Replace scene contents with a validated single-chain graph.
+        """Replace scene contents with a validated directed graph.
 
         Node records accept ``node_id``/``id``, ``command_id``, ``type_id``/
         ``type``, ``x`` and ``y``.  Terminals may use ``role='start'`` or
@@ -178,6 +178,8 @@ class NodeScene(QGraphicsScene):
                     "y": float(
                         _record_value(record_, "y", default=sequence_index_ * 120.0)
                     ),
+                    "repeat_count": int(_record_value(record_, "repeat_count", default=1)),
+                    "parameters": dict(_record_value(record_, "parameters", default={}) or {}),
                 }
             )
 
@@ -196,6 +198,8 @@ class NodeScene(QGraphicsScene):
                     "role": "start",
                     "x": 0.0,
                     "y": minimum_y_ - 120.0,
+                    "repeat_count": 1,
+                    "parameters": {},
                 },
             )
         if end_count_ == 0:
@@ -208,6 +212,8 @@ class NodeScene(QGraphicsScene):
                     "role": "end",
                     "x": 0.0,
                     "y": maximum_y_ + 120.0,
+                    "repeat_count": 1,
+                    "parameters": {},
                 }
             )
 
@@ -244,6 +250,9 @@ class NodeScene(QGraphicsScene):
                     spec_ = specs_normalized_.get(record_["type_id"])
                     title_ = spec_.title if spec_ is not None else record_["type_id"]
                     color_ = spec_.color if spec_ is not None else DEFAULT_NODE_COLOR
+                    if record_["type_id"] in {"循环", "条件循环"}:
+                        count_ = int(record_["parameters"].get("次数", record_["repeat_count"]))
+                        title_ = f"{title_}  × {count_}"
                 node_ = NodeItem(
                     record_["node_id"],
                     record_["command_id"],
@@ -251,6 +260,10 @@ class NodeScene(QGraphicsScene):
                     title_,
                     color_,
                     role_,
+                    control_kind_=(
+                        "condition" if record_["type_id"] in {"条件判断", "条件循环"}
+                        else "loop" if record_["type_id"] == "循环" else None
+                    ),
                 )
                 self.addItem(node_)
                 node_.setPos(record_["x"], record_["y"])
@@ -261,9 +274,25 @@ class NodeScene(QGraphicsScene):
 
             if edge_records_:
                 try:
-                    chain_order_ = self._validate_and_order_edges(edge_records_)
-                    self._complete_chain = True
-                    self._set_chain_order(chain_order_)
+                    graph_order_ = self._validate_and_order_edges(edge_records_)
+                    self.chain_order = graph_order_
+                    endpoints_ = [self._edge_endpoints(edge_) for edge_ in edge_records_]
+                    outgoing_counts_: dict[object, int] = {}
+                    incoming_counts_: dict[object, int] = {}
+                    for source_id_, target_id_ in endpoints_:
+                        outgoing_counts_[source_id_] = outgoing_counts_.get(source_id_, 0) + 1
+                        incoming_counts_[target_id_] = incoming_counts_.get(target_id_, 0) + 1
+                        edge_ = EdgeItem(
+                            self.nodes_by_id[source_id_], self.nodes_by_id[target_id_]
+                        )
+                        self.addItem(edge_)
+                        self.edges.append(edge_)
+                    # Drag-to-reorder is only meaningful for a true linear chain.
+                    self._complete_chain = (
+                        len(endpoints_) == len(self.nodes_by_id) - 1
+                        and max(outgoing_counts_.values(), default=0) <= 1
+                        and max(incoming_counts_.values(), default=0) <= 1
+                    )
                 except ValueError:
                     if not allow_incomplete:
                         raise
@@ -311,21 +340,23 @@ class NodeScene(QGraphicsScene):
         return source_id_, target_id_
 
     def _validate_and_order_edges(self, edge_records_) -> list[NodeItem]:
-        if len(edge_records_) != len(self.nodes_by_id) - 1:
-            raise ValueError("a single chain requires exactly node_count - 1 edges")
-
-        successor_: dict[object, object] = {}
-        predecessor_: dict[object, object] = {}
+        """Validate a complete DAG and return a stable topological order."""
+        successors_: dict[object, set[object]] = {
+            node_id_: set() for node_id_ in self.nodes_by_id
+        }
+        predecessors_: dict[object, set[object]] = {
+            node_id_: set() for node_id_ in self.nodes_by_id
+        }
+        pairs_: set[tuple[object, object]] = set()
         for edge_record_ in edge_records_:
             source_id_, target_id_ = self._edge_endpoints(edge_record_)
             if source_id_ == target_id_:
                 raise ValueError("self-loop is not allowed")
-            if source_id_ in successor_:
-                raise ValueError("fan-out is not allowed")
-            if target_id_ in predecessor_:
-                raise ValueError("multiple inputs are not allowed")
-            successor_[source_id_] = target_id_
-            predecessor_[target_id_] = source_id_
+            if (source_id_, target_id_) in pairs_:
+                raise ValueError("duplicate edge is not allowed")
+            pairs_.add((source_id_, target_id_))
+            successors_[source_id_].add(target_id_)
+            predecessors_[target_id_].add(source_id_)
 
         start_node_ = next(
             node_ for node_ in self.nodes_by_id.values() if node_.terminal_role == "start"
@@ -333,27 +364,50 @@ class NodeScene(QGraphicsScene):
         end_node_ = next(
             node_ for node_ in self.nodes_by_id.values() if node_.terminal_role == "end"
         )
-        if start_node_.node_id in predecessor_:
+        if predecessors_[start_node_.node_id]:
             raise ValueError("start node cannot have an input")
-        if end_node_.node_id in successor_:
+        if successors_[end_node_.node_id]:
             raise ValueError("end node cannot have an output")
 
-        ordered_: list[NodeItem] = []
-        seen_: set[object] = set()
-        current_id_ = start_node_.node_id
-        while True:
-            if current_id_ in seen_:
-                raise ValueError("cycles are not allowed")
-            seen_.add(current_id_)
-            ordered_.append(self.nodes_by_id[current_id_])
-            if current_id_ == end_node_.node_id:
-                break
-            if current_id_ not in successor_:
-                raise ValueError("graph contains a disconnected node")
-            current_id_ = successor_[current_id_]
-        if len(ordered_) != len(self.nodes_by_id):
-            raise ValueError("graph must be one connected start-to-end chain")
-        return ordered_
+        reachable_ = {start_node_.node_id}
+        pending_ = [start_node_.node_id]
+        while pending_:
+            for target_id_ in successors_[pending_.pop()]:
+                if target_id_ not in reachable_:
+                    reachable_.add(target_id_)
+                    pending_.append(target_id_)
+        can_reach_end_ = {end_node_.node_id}
+        pending_ = [end_node_.node_id]
+        while pending_:
+            for source_id_ in predecessors_[pending_.pop()]:
+                if source_id_ not in can_reach_end_:
+                    can_reach_end_.add(source_id_)
+                    pending_.append(source_id_)
+        if reachable_ != set(self.nodes_by_id) or can_reach_end_ != set(self.nodes_by_id):
+            if any(len(targets_) > 1 for targets_ in successors_.values()):
+                raise ValueError("every fan-out branch must lead to end")
+            if any(len(sources_) > 1 for sources_ in predecessors_.values()):
+                raise ValueError("multiple inputs must all be reachable from start")
+            raise ValueError("every node must be reachable from start and lead to end")
+
+        input_rank_ = {node_.node_id: index_ for index_, node_ in enumerate(self.nodes_by_id.values())}
+        indegree_ = {node_id_: len(items_) for node_id_, items_ in predecessors_.items()}
+        ready_ = sorted(
+            (node_id_ for node_id_, count_ in indegree_.items() if count_ == 0),
+            key=input_rank_.get,
+        )
+        ordered_ids_: list[object] = []
+        while ready_:
+            node_id_ = ready_.pop(0)
+            ordered_ids_.append(node_id_)
+            for target_id_ in sorted(successors_[node_id_], key=input_rank_.get):
+                indegree_[target_id_] -= 1
+                if indegree_[target_id_] == 0:
+                    ready_.append(target_id_)
+                    ready_.sort(key=input_rank_.get)
+        if len(ordered_ids_) != len(self.nodes_by_id):
+            raise ValueError("cycles are not allowed")
+        return [self.nodes_by_id[node_id_] for node_id_ in ordered_ids_]
 
     def _clear_edges(self) -> None:
         for edge_ in self.edges:

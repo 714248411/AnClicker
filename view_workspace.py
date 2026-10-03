@@ -112,6 +112,7 @@ class ViewWorkspace:
         self._normalize_existing_controls()
         self._apply_theme()
         self._assemble_views()
+        self.window.workspace.graphFinalized.connect(self._graph_finalized)
         self._build_navigation()
         self.tabs.currentChanged.connect(self._view_changed)
         self.show_main()
@@ -295,7 +296,11 @@ class ViewWorkspace:
         self.command_table.setHorizontalHeaderLabels(["序号", "指令", "重复", "异常处理", "备注"])
         self.command_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.command_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.command_table.setAlternatingRowColors(True)
+        self.command_table.setShowGrid(False)
+        self.command_table.setWordWrap(False)
         self.command_table.verticalHeader().setVisible(False)
+        self.command_table.verticalHeader().setDefaultSectionSize(38)
         header = self.command_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
@@ -317,6 +322,9 @@ class ViewWorkspace:
         table_title = QLabel("指令表格")
         table_title.setObjectName("sectionTitle")
         table_layout.addWidget(table_title)
+        self.table_state = QLabel()
+        self.table_state.setObjectName("mutedText")
+        table_layout.addWidget(self.table_state)
         table_layout.addWidget(self.command_table, 1)
 
         log_panel = QFrame()
@@ -351,7 +359,9 @@ class ViewWorkspace:
         page.setObjectName("editorView")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        tip = QLabel("从左侧指令区拖入画布，或在画布空白处右键新建指令")
+        tip = QLabel(
+            "先拖入指令，再从节点左右两侧拉线；条件节点上方为“是”、下方为“否”"
+        )
         tip.setObjectName("editorTip")
         layout.addWidget(tip)
         self.window.nodeEditorLayout.removeWidget(self.window.workspace.editor)
@@ -517,10 +527,22 @@ class ViewWorkspace:
             self.main_stats.setText(summary)
 
     def refresh_table(self) -> None:
-        commands = self.window.workspace.repository.list_commands()
+        try:
+            snapshot = self.window.workspace.repository.validate_graph()
+        except Exception as error:
+            self.command_table.setRowCount(0)
+            self.table_state.setText(f"等待流程图完成连线：{error}")
+            return
+        commands = list(snapshot.commands)
+        self.table_state.setText(f"流程已生成，共 {len(commands)} 条指令")
         self.command_table.setRowCount(len(commands))
         for row, command in enumerate(commands):
-            values = (str(command.order + 1), command.type_id, str(command.repeat_count), command.error_policy, command.note)
+            repeat_text = str(
+                command.parameters.get("次数", command.repeat_count)
+                if command.type_id in {"循环", "条件循环"}
+                else command.repeat_count
+            )
+            values = (str(command.order + 1), command.type_id, repeat_text, command.error_policy, command.note)
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, command.id)
@@ -530,6 +552,17 @@ class ViewWorkspace:
         self.window.workspace.add_command(type_id)
         self.refresh_table()
         self.window.statusBar.showMessage(f"已从指令栏添加：{type_id}", 2500)
+
+    def _graph_finalized(self, complete: bool) -> None:
+        self.refresh_summary()
+        self.refresh_table()
+        if complete:
+            self.regenerate_code()
+        else:
+            self._loading_code = True
+            self.code_editor.setPlainText("# 请先在流程图中完成全部指令连线。\n")
+            self._loading_code = False
+            self.code_status.setText("等待流程图完成")
 
     def _edit_table_command(self, row: int, _column: int) -> None:
         item = self.command_table.item(row, 0)
@@ -549,7 +582,12 @@ class ViewWorkspace:
 
     def _load_code(self) -> None:
         if self._code_dirty: return
-        text = str(self.window.db.get_setting_value(CODE_SETTING) or "") or self._generated_code()
+        try:
+            self.window.workspace.repository.validate_graph()
+        except Exception:
+            text = self._generated_code()
+        else:
+            text = str(self.window.db.get_setting_value(CODE_SETTING) or "") or self._generated_code()
         self._loading_code = True
         with QSignalBlocker(self.code_editor): self.code_editor.setPlainText(text)
         self._loading_code = False
@@ -564,7 +602,10 @@ class ViewWorkspace:
         self.window.statusBar.showMessage("已根据当前流程重新生成多功能代码。", 3000)
 
     def _generated_code(self) -> str:
-        commands = self.window.workspace.repository.list_commands()
+        try:
+            commands = list(self.window.workspace.repository.validate_graph().commands)
+        except Exception as error:
+            return f"# 流程图尚未完成：{error}\n"
         lines = ["# Clicker 多功能代码", "# 双击左侧命令可插入命令提示。", ""]
         for command in commands:
             params = json.dumps(command.parameters, ensure_ascii=False, sort_keys=True)
@@ -622,17 +663,30 @@ class ViewWorkspace:
             QPushButton, QToolButton {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 7px 12px; }}
             QPushButton:hover, QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; border-color: {c['accent']}; }}
             QPushButton:pressed {{ background: {c['accent2']}; color: white; }}
+            QPushButton:disabled, QToolButton:disabled {{ background: {c['surface']}; color: {c['dim']}; border-color: {c['line']}; }}
             QPushButton#accentButton {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; border-color: {c['accent']}; }}
             QPushButton#dangerButton {{ background: {c['danger']}; color: white; font-weight: 700; border-color: {c['danger']}; }}
-            QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
-            QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus {{ border-color: {c['accent']}; }}
+            QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
+            QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{ border-color: {c['accent']}; }}
+            QComboBox::drop-down {{ border: none; width: 24px; }}
+            QCheckBox, QRadioButton {{ color: {c['text']}; spacing: 7px; padding: 3px; }}
+            QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px; }}
+            QCheckBox::indicator:unchecked, QRadioButton::indicator:unchecked {{ background: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 5px; }}
+            QCheckBox::indicator:checked, QRadioButton::indicator:checked {{ background: {c['accent']}; border: 2px solid {c['surface2']}; border-radius: 5px; }}
             QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
             QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 10px; padding: 8px; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
             QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}
+            QToolTip {{ background: {c['surface3']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 6px; padding: 5px; }}
+            QDialog {{ background: {c['bg']}; color: {c['text']}; }}
+            QDialogButtonBox QPushButton {{ min-width: 76px; }}
             QScrollBar:vertical {{ background: {c['bg']}; width: 11px; }}
             QScrollBar::handle:vertical {{ background: {c['surface3']}; min-height: 24px; border-radius: 5px; }}
             QScrollBar::handle:vertical:hover {{ background: {c['accent2']}; }}
+            QScrollBar:horizontal {{ background: {c['bg']}; height: 11px; }}
+            QScrollBar::handle:horizontal {{ background: {c['surface3']}; min-width: 24px; border-radius: 5px; }}
+            QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; }}
+            QSplitter::handle {{ background: {c['bg']}; }}
             QSplitter#tableLogSplitter::handle {{ background: {c['bg']}; height: 8px; }}
             QSplitter#tableLogSplitter::handle:hover {{ background: {c['accent']}; border-radius: 4px; }}
             QStatusBar {{ background: {c['nav']}; color: {c['dim']}; border-top: 1px solid {c['line']}; }}

@@ -1,11 +1,11 @@
-"""Single-chain command graph persistence and workbook protocol.
+"""Branch-capable command graph persistence and workbook protocol.
 
-The node graph is deliberately restricted to one complete chain::
+The node graph is a complete directed acyclic flow::
 
-    start -> instruction ... -> instruction -> end
+    start -> instruction -> branch ... -> merge -> end
 
 The executor continues to consume :class:`CommandRecord` objects ordered by
-``order``.  Connections are the source of truth whenever the chain changes;
+``order``.  Connections are the source of truth whenever the graph changes;
 the repository rewrites command ordering in the same transaction.
 """
 
@@ -61,7 +61,7 @@ class GraphSchemaError(GraphRepositoryError):
 
 
 class GraphValidationError(GraphRepositoryError):
-    """The stored or requested graph is not one complete single chain."""
+    """The stored or requested graph is not one complete valid flow."""
 
 
 class WorkbookValidationError(GraphRepositoryError, ValueError):
@@ -88,6 +88,8 @@ class NodeView:
     display_name: str
     x: float
     y: float
+    repeat_count: int = 1
+    parameters: Optional[dict[str, Any]] = None
 
     @property
     def role(self) -> Optional[str]:
@@ -125,7 +127,7 @@ class _SerializedCommand:
 
 
 class GraphRepository:
-    """Transactional persistence for the linear command graph.
+    """Transactional persistence for a directed acyclic command graph.
 
     ``instruction_resolver`` may return an ``InstructionSpec`` (or a mapping)
     for a type ID.  It is used for node display names and strict workbook type
@@ -183,10 +185,10 @@ class GraphRepository:
                 "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
                 (START_NODE_ID, END_NODE_ID),
             )
-        elif node_count == 0 or edge_count == 0:
+        elif node_count == 0:
             raise GraphSchemaError("命令与节点图必须同时存在，不能初始化不完整的图结构")
 
-        cls._validate_connection(connection, require_order=True)
+        cls._validate_draft_connection(connection)
 
     @staticmethod
     def _table_columns(
@@ -320,8 +322,9 @@ class GraphRepository:
         if "节点连接" not in existing_tables:
             connection.execute(
                 "CREATE TABLE 节点连接 ("
-                "源节点ID TEXT NOT NULL PRIMARY KEY, "
-                "目标节点ID TEXT NOT NULL UNIQUE, "
+                "源节点ID TEXT NOT NULL, "
+                "目标节点ID TEXT NOT NULL, "
+                "PRIMARY KEY(源节点ID, 目标节点ID), "
                 "FOREIGN KEY(源节点ID) REFERENCES 节点(节点ID) ON DELETE CASCADE, "
                 "FOREIGN KEY(目标节点ID) REFERENCES 节点(节点ID) ON DELETE CASCADE)"
             )
@@ -330,12 +333,31 @@ class GraphRepository:
             raise GraphSchemaError("节点连接表结构不受支持")
         expected_signature = (
             ("源节点ID", "TEXT", 1, 1),
+            ("目标节点ID", "TEXT", 1, 2),
+        )
+        old_signature = (
+            ("源节点ID", "TEXT", 1, 1),
             ("目标节点ID", "TEXT", 1, 0),
         )
-        if cls._table_signature(connection, "节点连接") != expected_signature:
+        signature = cls._table_signature(connection, "节点连接")
+        if signature == old_signature and ("目标节点ID",) in cls._unique_indexes(
+            connection, "节点连接"
+        ):
+            connection.execute("ALTER TABLE 节点连接 RENAME TO 节点连接_单链旧表")
+            connection.execute(
+                "CREATE TABLE 节点连接 ("
+                "源节点ID TEXT NOT NULL, 目标节点ID TEXT NOT NULL, "
+                "PRIMARY KEY(源节点ID, 目标节点ID), "
+                "FOREIGN KEY(源节点ID) REFERENCES 节点(节点ID) ON DELETE CASCADE, "
+                "FOREIGN KEY(目标节点ID) REFERENCES 节点(节点ID) ON DELETE CASCADE)"
+            )
+            connection.execute(
+                "INSERT INTO 节点连接(源节点ID, 目标节点ID) "
+                "SELECT 源节点ID, 目标节点ID FROM 节点连接_单链旧表"
+            )
+            connection.execute("DROP TABLE 节点连接_单链旧表")
+        elif signature != expected_signature:
             raise GraphSchemaError("节点连接表字段类型或约束不正确")
-        if ("目标节点ID",) not in cls._unique_indexes(connection, "节点连接"):
-            raise GraphSchemaError("节点连接.目标节点ID必须具有唯一约束")
         expected = {
             ("源节点ID", "节点", "节点ID", "CASCADE"),
             ("目标节点ID", "节点", "节点ID", "CASCADE"),
@@ -356,12 +378,15 @@ class GraphRepository:
             connection.close()
 
     @contextlib.contextmanager
-    def _transaction(self):
+    def _transaction(self, *, validate_graph: bool = True):
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 yield connection
-                self._validate_connection(connection, require_order=True)
+                if validate_graph:
+                    self._validate_connection(connection, require_order=True)
+                else:
+                    self._validate_draft_connection(connection)
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -508,6 +533,36 @@ class GraphRepository:
         )
 
     @classmethod
+    def _validate_draft_connection(cls, connection: sqlite3.Connection) -> list[str]:
+        """Validate stored records and DAG safety while allowing missing edges."""
+        command_rows = connection.execute(
+            "SELECT ID, 类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序 "
+            "FROM 命令 ORDER BY 排序"
+        ).fetchall()
+        commands = [
+            _SerializedCommand(
+                int(row[0]), str(row[1]), str(row[2]), int(row[3]),
+                str(row[4]), str(row[5]), int(row[6])
+            )
+            for row in command_rows
+        ]
+        nodes = [
+            cls._node_from_row(row)
+            for row in connection.execute(
+                "SELECT 节点ID, 命令ID, 节点类型, X, Y FROM 节点"
+            )
+        ]
+        edges = [
+            EdgeRecord(str(row[0]), str(row[1]))
+            for row in connection.execute(
+                "SELECT 源节点ID, 目标节点ID FROM 节点连接"
+            )
+        ]
+        return cls._validate_records(
+            commands, nodes, edges, require_order=False, allow_incomplete=True
+        )
+
+    @classmethod
     def _validate_records(
         cls,
         commands: Sequence[_SerializedCommand],
@@ -515,6 +570,7 @@ class GraphRepository:
         edges: Sequence[EdgeRecord],
         *,
         require_order: bool,
+        allow_incomplete: bool = False,
     ) -> list[str]:
         command_ids = [command.id for command in commands]
         if len(command_ids) != len(set(command_ids)) or any(
@@ -565,53 +621,94 @@ class GraphRepository:
         if any(not math.isfinite(node.x) or not math.isfinite(node.y) for node in nodes):
             raise GraphValidationError("节点坐标必须是有限数值")
 
-        outgoing: dict[str, str] = {}
-        incoming: dict[str, str] = {}
+        outgoing: dict[str, set[str]] = {node_id: set() for node_id in node_by_id}
+        incoming: dict[str, set[str]] = {node_id: set() for node_id in node_by_id}
+        edge_pairs: set[tuple[str, str]] = set()
         for edge in edges:
             if edge.source not in node_by_id or edge.target not in node_by_id:
                 raise GraphValidationError("连线引用了不存在的节点")
-            if edge.source in outgoing:
-                raise GraphValidationError("节点不能拥有多个输出")
-            if edge.target in incoming:
-                raise GraphValidationError("节点不能拥有多个输入")
-            outgoing[edge.source] = edge.target
-            incoming[edge.target] = edge.source
-        if START_NODE_ID in incoming or END_NODE_ID in outgoing:
+            pair = (edge.source, edge.target)
+            if pair in edge_pairs:
+                raise GraphValidationError("不能重复连接同一对节点")
+            if edge.source == edge.target:
+                raise GraphValidationError("节点不能连接到自身")
+            edge_pairs.add(pair)
+            outgoing[edge.source].add(edge.target)
+            incoming[edge.target].add(edge.source)
+        if incoming[START_NODE_ID] or outgoing[END_NODE_ID]:
             raise GraphValidationError("开始节点不能有输入，结束节点不能有输出")
-        if outgoing.get(START_NODE_ID) is None or incoming.get(END_NODE_ID) is None:
-            raise GraphValidationError("开始到结束之间必须存在完整连线")
+
+        command_by_id = {command.id: command for command in commands}
         for node in instruction_nodes:
-            if node.node_id not in incoming or node.node_id not in outgoing:
-                raise GraphValidationError("每个指令节点必须各有一个输入和输出")
-        if len(edges) != len(nodes) - 1:
-            raise GraphValidationError("单链的连线数量不正确")
+            command = command_by_id[int(node.command_id)]
+            if command.type_id in {"条件判断", "条件循环"}:
+                branch_count = len(outgoing[node.node_id])
+                if branch_count > 2:
+                    raise GraphValidationError("条件节点最多只能连接“是、否”两条输出")
+                if not allow_incomplete and branch_count != 2:
+                    raise GraphValidationError("条件节点必须连接“是、否”两条输出")
 
-        chain: list[str] = [START_NODE_ID]
-        visited = {START_NODE_ID}
-        current = START_NODE_ID
-        while current != END_NODE_ID:
-            target = outgoing.get(current)
-            if target is None:
-                raise GraphValidationError("节点链在到达结束节点前中断")
-            if target in visited:
-                raise GraphValidationError("节点链不能包含环路")
-            chain.append(target)
-            visited.add(target)
-            current = target
-        if visited != set(node_by_id):
-            raise GraphValidationError("存在未接入主链的节点")
+        command_order = {command.id: command.order for command in commands}
+        def sort_key(node_id: str):
+            node = node_by_id[node_id]
+            if node_id == START_NODE_ID:
+                return (-1, node_id)
+            if node_id == END_NODE_ID:
+                return (len(commands) + 1, node_id)
+            return (command_order.get(node.command_id, len(commands)), node_id)
 
-        chain_command_ids = [
+        indegree = {node_id: len(sources) for node_id, sources in incoming.items()}
+        ready = sorted(
+            (node_id for node_id, count in indegree.items() if count == 0),
+            key=sort_key,
+        )
+        ordered_nodes: list[str] = []
+        while ready:
+            current = ready.pop(0)
+            ordered_nodes.append(current)
+            for target in sorted(outgoing[current], key=sort_key):
+                indegree[target] -= 1
+                if indegree[target] == 0:
+                    ready.append(target)
+                    ready.sort(key=sort_key)
+        if len(ordered_nodes) != len(node_by_id):
+            raise GraphValidationError("流程连接不能形成环路")
+        if allow_incomplete:
+            return ordered_nodes
+
+        reachable = {START_NODE_ID}
+        pending = [START_NODE_ID]
+        while pending:
+            for target in outgoing[pending.pop()]:
+                if target not in reachable:
+                    reachable.add(target)
+                    pending.append(target)
+        can_reach_end = {END_NODE_ID}
+        pending = [END_NODE_ID]
+        while pending:
+            for source in incoming[pending.pop()]:
+                if source not in can_reach_end:
+                    can_reach_end.add(source)
+                    pending.append(source)
+        missing_from_start = set(node_by_id) - reachable
+        missing_to_end = set(node_by_id) - can_reach_end
+        if missing_from_start or missing_to_end:
+            raise GraphValidationError(
+                "流程缺少完整连线：所有指令都必须从开始节点可达并最终连接到结束节点"
+            )
+
+        ordered_command_ids = [
             node_by_id[node_id].command_id
-            for node_id in chain[1:-1]
+            for node_id in ordered_nodes
+            if node_by_id[node_id].node_type == INSTRUCTION_NODE_TYPE
         ]
         if require_order:
-            ordered_command_ids = [
+            stored_command_ids = [
                 command.id for command in sorted(commands, key=lambda item: item.order)
             ]
-            if chain_command_ids != ordered_command_ids:
-                raise GraphValidationError("命令排序与节点连线顺序不一致")
-        return chain
+            if ordered_command_ids != stored_command_ids:
+                raise GraphValidationError("命令排序与流程图拓扑顺序不一致")
+        return ordered_nodes
 
     def validate_graph(self) -> GraphSnapshot:
         with self._connection() as connection:
@@ -710,6 +807,8 @@ class GraphRepository:
                     display_name=display_name,
                     x=node.x,
                     y=node.y,
+                    repeat_count=command.repeat_count if command is not None else 1,
+                    parameters=dict(command.parameters) if command is not None else None,
                 )
             )
         return GraphSnapshot(commands, tuple(node_views), edges)
@@ -719,7 +818,7 @@ class GraphRepository:
         node_id = str(node_id)
         if mode not in {"all", "incoming", "outgoing"}:
             raise ValueError(f"不支持的连线删除方式：{mode}")
-        with self._transaction() as connection:
+        with self._transaction(validate_graph=False) as connection:
             if connection.execute(
                 "SELECT 1 FROM 节点 WHERE 节点ID=?", (node_id,)
             ).fetchone() is None:
@@ -736,12 +835,13 @@ class GraphRepository:
             )
             return int(cursor.rowcount)
 
-    def connect_nodes(self, source_id: str, target_id: str) -> None:
-        """Connect two draft nodes, replacing conflicting single-flow edges."""
+    def connect_nodes(self, source_id: str, target_id: str) -> bool:
+        """Add one DAG edge and finalize command order when the graph is complete."""
         source_id, target_id = str(source_id), str(target_id)
         if source_id == target_id:
             raise GraphValidationError("节点不能连接到自身")
-        with self._transaction() as connection:
+        complete = False
+        with self._transaction(validate_graph=False) as connection:
             rows = connection.execute(
                 "SELECT 节点ID, 节点类型 FROM 节点 WHERE 节点ID IN (?, ?)",
                 (source_id, target_id),
@@ -754,23 +854,28 @@ class GraphRepository:
             if node_types[target_id] == START_NODE_TYPE:
                 raise GraphValidationError("开始节点不能接收连接线")
             connection.execute(
-                "DELETE FROM 节点连接 WHERE 源节点ID=? OR 目标节点ID=?",
+                "INSERT OR IGNORE INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
                 (source_id, target_id),
             )
-            connection.execute(
-                "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
-                (source_id, target_id),
-            )
-            # Reject cycles while allowing a temporarily incomplete draft.
-            outgoing = dict(connection.execute(
-                "SELECT 源节点ID, 目标节点ID FROM 节点连接"
-            ).fetchall())
-            seen, current = set(), source_id
-            while current in outgoing:
-                if current in seen:
-                    raise GraphValidationError("流程连接不能形成环")
-                seen.add(current)
-                current = str(outgoing[current])
+            self._validate_draft_connection(connection)
+            try:
+                ordered_nodes = self._validate_connection(
+                    connection, require_order=False
+                )
+            except GraphValidationError:
+                pass
+            else:
+                node_commands = dict(connection.execute(
+                    "SELECT 节点ID, 命令ID FROM 节点 "
+                    "WHERE 节点类型='instruction'"
+                ).fetchall())
+                self._set_command_orders(
+                    connection,
+                    [int(node_commands[node_id]) for node_id in ordered_nodes
+                     if node_id in node_commands],
+                )
+                complete = True
+        return complete
 
     # ------------------------------------------------------------------
     # Mutations
@@ -827,6 +932,7 @@ class GraphRepository:
         y: Optional[float] = None,
         split_edge: Any = None,
         before_node_id: Optional[str] = None,
+        unconnected: bool = False,
     ) -> CommandRecord:
         type_id, parameters_json, repeat_count, error_policy, note = (
             self._normalize_draft(draft)
@@ -835,41 +941,39 @@ class GraphRepository:
             raise ValueError(f"未知指令类型：{type_id}")
         if split_edge is not None and before_node_id is not None:
             raise ValueError("split_edge 与 before_node_id 不能同时指定")
-        with self._transaction() as connection:
-            if split_edge is not None:
-                source, target = self._edge_tuple(split_edge)
-            else:
-                target = before_node_id or END_NODE_ID
-                incoming = connection.execute(
-                    "SELECT 源节点ID FROM 节点连接 WHERE 目标节点ID=?", (target,)
+        with self._transaction(validate_graph=not unconnected) as connection:
+            sequence = int(connection.execute("SELECT COUNT(*) FROM 命令").fetchone()[0])
+            source = target = None
+            if not unconnected:
+                if split_edge is not None:
+                    source, target = self._edge_tuple(split_edge)
+                else:
+                    target = before_node_id or END_NODE_ID
+                    incoming = connection.execute(
+                        "SELECT 源节点ID FROM 节点连接 WHERE 目标节点ID=? "
+                        "ORDER BY rowid LIMIT 1", (target,)
+                    ).fetchone()
+                    if incoming is None:
+                        raise GraphValidationError("目标节点没有可拆分的输入连线")
+                    source = str(incoming[0])
+                if connection.execute(
+                    "SELECT 1 FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
+                    (source, target),
+                ).fetchone() is None:
+                    raise GraphValidationError("指定连线不存在，无法插入节点")
+                source_position = connection.execute(
+                    "SELECT X, Y FROM 节点 WHERE 节点ID=?", (source,)
                 ).fetchone()
-                if incoming is None:
-                    raise GraphValidationError("目标节点没有可拆分的输入连线")
-                source = str(incoming[0])
-            if connection.execute(
-                "SELECT 1 FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
-                (source, target),
-            ).fetchone() is None:
-                raise GraphValidationError("指定连线不存在，无法插入节点")
-            if source == END_NODE_ID or target == START_NODE_ID:
-                raise GraphValidationError("不能在无效方向的连线上插入节点")
-
-            source_position = connection.execute(
-                "SELECT X, Y FROM 节点 WHERE 节点ID=?", (source,)
-            ).fetchone()
-            target_position = connection.execute(
-                "SELECT X, Y FROM 节点 WHERE 节点ID=?", (target,)
-            ).fetchone()
-            node_x = (
-                float(x)
-                if x is not None
-                else (float(source_position[0]) + float(target_position[0])) / 2
-            )
-            node_y = (
-                float(y)
-                if y is not None
-                else (float(source_position[1]) + float(target_position[1])) / 2
-            )
+                target_position = connection.execute(
+                    "SELECT X, Y FROM 节点 WHERE 节点ID=?", (target,)
+                ).fetchone()
+                default_x = (float(source_position[0]) + float(target_position[0])) / 2
+                default_y = (float(source_position[1]) + float(target_position[1])) / 2
+            else:
+                default_x = 160.0 + (sequence % 4) * 180.0
+                default_y = 120.0 + (sequence // 4) * 120.0
+            node_x = float(x) if x is not None else default_x
+            node_y = float(y) if y is not None else default_y
             if not math.isfinite(node_x) or not math.isfinite(node_y):
                 raise ValueError("节点坐标必须是有限数值")
 
@@ -895,15 +999,21 @@ class GraphRepository:
                 "VALUES (?, ?, 'instruction', ?, ?)",
                 (node_id, command_id, node_x, node_y),
             )
-            connection.execute(
-                "DELETE FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
-                (source, target),
-            )
-            connection.executemany(
-                "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
-                [(source, node_id), (node_id, target)],
-            )
-            self._sync_orders_from_chain(connection)
+            if unconnected and sequence == 0:
+                connection.execute(
+                    "DELETE FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
+                    (START_NODE_ID, END_NODE_ID),
+                )
+            elif not unconnected:
+                connection.execute(
+                    "DELETE FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
+                    (source, target),
+                )
+                connection.executemany(
+                    "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
+                    [(source, node_id), (node_id, target)],
+                )
+                self._sync_orders_from_chain(connection)
         record = self.get_command(command_id)
         if record is None:  # pragma: no cover - transaction invariant
             raise GraphRepositoryError("新增命令后无法读取记录")
@@ -915,7 +1025,7 @@ class GraphRepository:
         )
         if not self._is_known_type(type_id):
             raise ValueError(f"未知指令类型：{type_id}")
-        with self._transaction() as connection:
+        with self._transaction(validate_graph=False) as connection:
             cursor = connection.execute(
                 "UPDATE 命令 SET 类型标识=?, 参数JSON=?, 重复次数=?, "
                 "异常处理=?, 备注=? WHERE ID=?",
@@ -935,7 +1045,7 @@ class GraphRepository:
             raise GraphRepositoryError("修改命令后无法读取记录")
         return record
 
-    def duplicate_command(self, command_id: int) -> CommandRecord:
+    def duplicate_command(self, command_id: int, *, unconnected: bool = False) -> CommandRecord:
         command = self.get_command(command_id)
         if command is None:
             raise KeyError(f"命令不存在：{command_id}")
@@ -945,11 +1055,10 @@ class GraphRepository:
             ).fetchone()
             if node is None:
                 raise GraphValidationError("命令缺少对应节点")
-            successor = connection.execute(
-                "SELECT 目标节点ID FROM 节点连接 WHERE 源节点ID=?", (node[0],)
+            outgoing = connection.execute(
+                "SELECT 目标节点ID FROM 节点连接 WHERE 源节点ID=? ORDER BY rowid LIMIT 1",
+                (node[0],),
             ).fetchone()
-            if successor is None:
-                raise GraphValidationError("命令节点缺少输出连线")
         draft = {
             "type_id": command.type_id,
             "parameters": command.parameters,
@@ -961,14 +1070,17 @@ class GraphRepository:
             draft,
             x=float(node[1]) + 30.0,
             y=float(node[2]) + 30.0,
-            split_edge=(str(node[0]), str(successor[0])),
+            split_edge=None if unconnected or outgoing is None else (node[0], outgoing[0]),
+            unconnected=unconnected,
         )
 
-    def delete_commands(self, command_ids: Iterable[int]) -> int:
+    def delete_commands(
+        self, command_ids: Iterable[int], *, preserve_flow: bool = True
+    ) -> int:
         unique_ids = tuple(dict.fromkeys(int(item) for item in command_ids))
         if not unique_ids:
             return 0
-        with self._transaction() as connection:
+        with self._transaction(validate_graph=preserve_flow) as connection:
             existing = {
                 row[0]
                 for row in connection.execute(
@@ -980,34 +1092,32 @@ class GraphRepository:
             }
             if not existing:
                 return 0
-            chain = self._validate_connection(connection, require_order=True)
-            remaining_nodes = [
-                node_id
-                for node_id in chain
-                if (
-                    connection.execute(
+            if preserve_flow:
+                chain = self._validate_connection(connection, require_order=True)
+                remaining_nodes = [
+                    node_id for node_id in chain
+                    if connection.execute(
                         "SELECT 命令ID FROM 节点 WHERE 节点ID=?", (node_id,)
-                    ).fetchone()[0]
-                    not in existing
-                )
-            ]
-            connection.execute("DELETE FROM 节点连接")
+                    ).fetchone()[0] not in existing
+                ]
+                connection.execute("DELETE FROM 节点连接")
             connection.execute(
                 "DELETE FROM 命令 WHERE ID IN ({})".format(
                     ",".join("?" for _ in existing)
                 ),
                 tuple(existing),
             )
-            connection.executemany(
-                "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
-                zip(remaining_nodes, remaining_nodes[1:]),
-            )
-            self._sync_orders_from_chain(connection)
+            if preserve_flow:
+                connection.executemany(
+                    "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
+                    zip(remaining_nodes, remaining_nodes[1:]),
+                )
+                self._sync_orders_from_chain(connection)
             deleted_count = len(existing)
         return deleted_count
 
     def clear(self) -> None:
-        with self._transaction() as connection:
+        with self._transaction(validate_graph=False) as connection:
             connection.execute("DELETE FROM 节点连接")
             connection.execute("DELETE FROM 命令")
             connection.execute(
@@ -1027,7 +1137,7 @@ class GraphRepository:
         normalized = self._normalize_node_positions(positions)
         if not normalized:
             return
-        with self._transaction() as connection:
+        with self._transaction(validate_graph=False) as connection:
             self._save_node_positions(connection, normalized)
 
     @staticmethod

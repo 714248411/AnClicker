@@ -1,4 +1,4 @@
-"""Linear command execution thread backed by the instruction registry."""
+"""Branch-capable command execution thread backed by the instruction registry."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from 数据库操作 import DatabaseOperation
 
 
 class CommandThread(QThread):
-    """Execute the validated start-to-end chain in stored linear order."""
+    """Execute a validated start-to-end flow in stable topological order."""
 
     send_message = Signal(str, name="send_message")
     finished_signal = Signal(str, name="finished_signal")
@@ -213,14 +213,34 @@ class CommandThread(QThread):
     def _execute_commands(
         self, commands_: list[CommandRecord], context_: ExecutionContext
     ) -> None:
+        active_nodes_: set[str] | None = None
+        node_by_command_: dict[int, object] = {}
+        outgoing_: dict[str, list[str]] = {}
+        node_by_id_: dict[str, object] = {}
+        if self.run_mode[0] == "全部指令":
+            snapshot_ = self.repository.validate_graph()
+            node_by_id_ = {node_.node_id: node_ for node_ in snapshot_.nodes}
+            node_by_command_ = {
+                int(node_.command_id): node_
+                for node_ in snapshot_.nodes
+                if node_.command_id is not None
+            }
+            outgoing_ = {node_id_: [] for node_id_ in node_by_id_}
+            for edge_ in snapshot_.edges:
+                outgoing_[edge_.source].append(edge_.target)
+            active_nodes_ = set(outgoing_.get("start", ()))
         for command_ in commands_:
             if not self.start_state:
                 return
+            node_ = node_by_command_.get(int(command_.id)) if active_nodes_ is not None else None
+            if active_nodes_ is not None and (node_ is None or node_.node_id not in active_nodes_):
+                continue
+            result_ = None
             while self.start_state:
                 if not self.check_mutex():
                     return
                 try:
-                    self._execute_one(command_, context_)
+                    result_ = self._execute_one(command_, context_)
                     self._persist_variables(context_.variables)
                     if context_.stop_requested:
                         self.send_message.emit(
@@ -237,10 +257,17 @@ class CommandThread(QThread):
                         break
                     self.start_state = False
                     return
+            if active_nodes_ is not None and node_ is not None:
+                targets_ = list(outgoing_.get(node_.node_id, ()))
+                if command_.type_id in {"条件判断", "条件循环"} and targets_:
+                    targets_.sort(key=lambda target_: (node_by_id_[target_].y, node_by_id_[target_].x))
+                    selected_index_ = 0 if bool(result_) else min(1, len(targets_) - 1)
+                    targets_ = [targets_[selected_index_]]
+                active_nodes_.update(targets_)
 
     def _execute_one(
         self, command_: CommandRecord, context_: ExecutionContext
-    ) -> None:
+    ):
         spec_ = get_instruction_spec(command_.type_id)
         executor_ = spec_.create_executor()
         self.send_message.emit("换行")
@@ -248,7 +275,7 @@ class CommandThread(QThread):
             f"执行ID为{command_.id}的指令：{spec_.display_name}"
         )
         self.send_type_and_id.emit(command_.type_id, str(command_.id))
-        executor_.execute(context_, command_)
+        return executor_.execute(context_, command_)
 
     def _handle_command_error(
         self, command_: CommandRecord, error_: Exception

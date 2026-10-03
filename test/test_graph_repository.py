@@ -78,6 +78,32 @@ class GraphRepositoryTests(unittest.TestCase):
             [(START_NODE_ID, END_NODE_ID)],
         )
 
+    def test_unconnected_commands_can_be_wired_as_complete_branch(self):
+        first = self.repository.add_command(self.draft(), unconnected=True)
+        yes_branch = self.repository.add_command(
+            self.draft(type_id="时间等待"), unconnected=True
+        )
+        no_branch = self.repository.add_command(
+            self.draft(type_id="文本输入"), unconnected=True
+        )
+        node_by_command = {
+            node.command_id: node.node_id
+            for node in self.repository.snapshot().nodes
+            if node.command_id is not None
+        }
+
+        self.assertFalse(self.repository.connect_nodes(START_NODE_ID, node_by_command[first.id]))
+        self.assertFalse(self.repository.connect_nodes(node_by_command[first.id], node_by_command[yes_branch.id]))
+        self.assertFalse(self.repository.connect_nodes(node_by_command[first.id], node_by_command[no_branch.id]))
+        self.assertFalse(self.repository.connect_nodes(node_by_command[yes_branch.id], END_NODE_ID))
+        self.assertTrue(self.repository.connect_nodes(node_by_command[no_branch.id], END_NODE_ID))
+
+        snapshot = self.repository.validate_graph()
+        self.assertEqual(
+            [command.id for command in snapshot.commands],
+            [first.id, yes_branch.id, no_branch.id],
+        )
+
     def test_unknown_legacy_command_schema_is_rejected_without_data_loss(self):
         legacy_path = os.path.join(self.temporary_directory.name, "legacy.db")
         with contextlib.closing(sqlite3.connect(legacy_path)) as connection:

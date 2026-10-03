@@ -33,13 +33,13 @@ class InstructionRegistryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.application_ = QApplication.instance() or QApplication([])
 
-    def test_registry_contains_exactly_32_unique_instruction_types(self):
+    def test_registry_contains_exactly_35_unique_instruction_types(self):
         type_ids_ = [spec_.type_id for spec_ in INSTRUCTION_SPECS]
         module_paths_ = [spec_.module_path for spec_ in INSTRUCTION_SPECS]
 
-        self.assertEqual(len(type_ids_), 32)
-        self.assertEqual(len(set(type_ids_)), 32)
-        self.assertEqual(len(set(module_paths_)), 32)
+        self.assertEqual(len(type_ids_), 35)
+        self.assertEqual(len(set(type_ids_)), 35)
+        self.assertEqual(len(set(module_paths_)), 35)
         self.assertEqual(tuple(module_paths_), hidden_imports())
         for spec_ in INSTRUCTION_SPECS:
             self.assertTrue(spec_.display_name)
@@ -104,7 +104,7 @@ class InstructionRegistryTests(unittest.TestCase):
                     self.assertIn(common_name_, widget_names_)
                     self.assertIn(f"self.{common_name_}", generated_source_)
 
-        self.assertGreater(len(ui_hashes_), 1, "32 个独立 UI 不得是同一个空壳模板")
+        self.assertGreater(len(ui_hashes_), 1, "35 个独立 UI 不得是同一个空壳模板")
 
     def test_common_editor_only_binds_controls_declared_in_ui(self):
         source_ = (INSTRUCTIONS_ROOT / "common" / "editor.py").read_text(encoding="utf-8")

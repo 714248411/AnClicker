@@ -25,6 +25,7 @@ class InstructionWorkspace(QObject):
     statusMessage = Signal(str)
     runSingleRequested = Signal(int)
     runFromRequested = Signal(int)
+    graphFinalized = Signal(bool)
 
     EDGE_HIT_DISTANCE = 72.0
 
@@ -98,16 +99,17 @@ class InstructionWorkspace(QObject):
             if editor_.exec() != QDialog.DialogCode.Accepted:
                 return None
             draft_ = editor_.get_draft()
-            split_edge_ = self._nearest_edge(x, y) if x is not None and y is not None else None
             command_ = self.repository.add_command(
                 draft_,
                 x=x,
                 y=y,
-                split_edge=split_edge_,
-                before_node_id=None if split_edge_ is not None else END_NODE_ID,
+                unconnected=True,
             )
             self.reload_graph(command_.id)
-            self.statusMessage.emit(f"已添加指令：{spec_.display_name}")
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit(
+                f"已插入指令：{spec_.display_name}，请在流程图中完成连线"
+            )
             return command_.id
         except Exception as error_:
             self._show_error("添加指令失败", error_)
@@ -129,6 +131,12 @@ class InstructionWorkspace(QObject):
                 return False
             self.repository.update_command(command_.id, editor_.get_draft())
             self.reload_graph(command_.id)
+            try:
+                self.repository.validate_graph()
+            except Exception:
+                self.graphFinalized.emit(False)
+            else:
+                self.graphFinalized.emit(True)
             self.statusMessage.emit(f"已修改指令：{spec_.display_name}")
             return True
         except Exception as error_:
@@ -140,10 +148,13 @@ class InstructionWorkspace(QObject):
         copied_ids_: list[int] = []
         try:
             for command_id_ in command_ids_:
-                copied_ = self.repository.duplicate_command(int(command_id_))
+                copied_ = self.repository.duplicate_command(
+                    int(command_id_), unconnected=True
+                )
                 copied_ids_.append(int(copied_.id))
             self.reload_graph(copied_ids_[-1] if copied_ids_ else None)
             if copied_ids_:
+                self.graphFinalized.emit(False)
                 self.statusMessage.emit(f"已复制 {len(copied_ids_)} 条指令")
         except Exception as error_:
             self._show_error("复制指令失败", error_)
@@ -162,8 +173,16 @@ class InstructionWorkspace(QObject):
         ) != QMessageBox.StandardButton.Yes:
             return 0
         try:
-            deleted_ = self.repository.delete_commands(command_ids_)
+            deleted_ = self.repository.delete_commands(
+                command_ids_, preserve_flow=False
+            )
             self.reload_graph()
+            try:
+                self.repository.validate_graph()
+            except Exception:
+                self.graphFinalized.emit(False)
+            else:
+                self.graphFinalized.emit(True)
             self.statusMessage.emit(f"已删除 {deleted_} 条指令")
             return deleted_
         except Exception as error_:
@@ -182,6 +201,7 @@ class InstructionWorkspace(QObject):
         try:
             self.repository.clear()
             self.reload_graph()
+            self.graphFinalized.emit(True)
             self.statusMessage.emit("已清空全部指令")
             return True
         except Exception as error_:
@@ -223,9 +243,13 @@ class InstructionWorkspace(QObject):
 
     def _connect_nodes(self, source_id, target_id) -> None:
         try:
-            self.repository.connect_nodes(str(source_id), str(target_id))
+            complete_ = self.repository.connect_nodes(str(source_id), str(target_id))
             self.reload_graph()
-            self.statusMessage.emit("流程连接已保存")
+            self.graphFinalized.emit(complete_)
+            self.statusMessage.emit(
+                "流程已完整，表格与多功能内容已生成"
+                if complete_ else "流程连接已保存，请继续连接未接入的指令"
+            )
         except Exception as error_:
             self.reload_graph()
             self._show_error("连接流程失败", error_)
@@ -234,6 +258,7 @@ class InstructionWorkspace(QObject):
         try:
             deleted_ = self.repository.delete_node_connections(str(node_id), mode)
             self.reload_graph()
+            self.graphFinalized.emit(False)
             self.statusMessage.emit(f"已删除 {deleted_} 条流程连接线")
         except Exception as error_:
             self.reload_graph()
