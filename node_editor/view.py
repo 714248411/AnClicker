@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Signal, Qt
 from PySide6.QtGui import QKeySequence, QPainter
-from PySide6.QtWidgets import QGraphicsView, QMenu
+from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
 from node_editor.items import NodeItem
 from node_editor.palette import INSTRUCTION_MIME_TYPE
@@ -20,6 +20,9 @@ class NodeView(QGraphicsView):
     runSingleRequested = Signal(object)
     runFromRequested = Signal(object)
     deleteConnectionsRequested = Signal(object, str)
+    noteChanged = Signal(object, str)
+    saveTemplateRequested = Signal(object, str)
+    insertTemplateRequested = Signal(str, float, float)
 
     def __init__(self, scene_, parent_=None):
         super().__init__(scene_, parent_)
@@ -29,6 +32,7 @@ class NodeView(QGraphicsView):
         self._pan_moved = False
         self._instruction_types: set[str] = set()
         self._instruction_specs = {}
+        self.template_names_provider = lambda: ()
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing
             | QPainter.RenderHint.TextAntialiasing
@@ -55,7 +59,12 @@ class NodeView(QGraphicsView):
         event_.accept()
 
     def mousePressEvent(self, event_):
-        if event_.button() == Qt.MouseButton.RightButton:
+        ctrl_pan_ = (
+            event_.button() == Qt.MouseButton.LeftButton
+            and bool(event_.modifiers() & Qt.KeyboardModifier.ControlModifier)
+            and self.itemAt(event_.position().toPoint()) is None
+        )
+        if event_.button() == Qt.MouseButton.RightButton or ctrl_pan_:
             self._panning = True
             self._pan_moved = False
             self._pan_start = event_.position().toPoint()
@@ -82,7 +91,9 @@ class NodeView(QGraphicsView):
         super().mouseMoveEvent(event_)
 
     def mouseReleaseEvent(self, event_):
-        if event_.button() == Qt.MouseButton.RightButton and self._panning:
+        if self._panning and event_.button() in {
+            Qt.MouseButton.RightButton, Qt.MouseButton.LeftButton
+        }:
             self._panning = False
             self.unsetCursor()
             event_.accept()
@@ -139,6 +150,10 @@ class NodeView(QGraphicsView):
         node_ = self._node_at(event_.pos())
         if node_ is None:
             menu_ = QMenu(self)
+            select_all_action_ = menu_.addAction("全选")
+            save_template_action_ = menu_.addAction("选中存为模板")
+            save_template_action_.setEnabled(bool(self.scene().selected_command_ids()))
+            menu_.addSeparator()
             action_types_ = {}
             categories_ = {}
             for type_id_, spec_ in self._instruction_specs.items():
@@ -148,9 +163,38 @@ class NodeView(QGraphicsView):
                 for type_id_, title_ in entries_:
                     action_ = category_menu_.addAction(title_)
                     action_types_[action_] = type_id_
+            template_actions_ = {}
+            template_menu_ = menu_.addMenu("插入模板")
+            for name_ in self.template_names_provider() or ():
+                action_ = template_menu_.addAction(str(name_))
+                template_actions_[action_] = str(name_)
+            if not template_actions_:
+                template_menu_.addAction("暂无模板").setEnabled(False)
             if not action_types_:
                 menu_.addAction("暂无可用指令").setEnabled(False)
             selected_action_ = menu_.exec(event_.globalPos())
+            if selected_action_ == select_all_action_:
+                for item_ in self.scene().nodes_by_id.values():
+                    if not item_.is_terminal:
+                        item_.setSelected(True)
+                event_.accept()
+                return
+            if selected_action_ == save_template_action_:
+                name_, accepted_ = QInputDialog.getText(self, "模板名称", "名称：", text="我的模板")
+                if accepted_ and name_.strip():
+                    self.saveTemplateRequested.emit(
+                        self.scene().selected_command_ids(), name_.strip()
+                    )
+                event_.accept()
+                return
+            template_name_ = template_actions_.get(selected_action_)
+            if template_name_ is not None:
+                scene_position_ = self.mapToScene(event_.pos())
+                self.insertTemplateRequested.emit(
+                    template_name_, float(scene_position_.x()), float(scene_position_.y())
+                )
+                event_.accept()
+                return
             type_id_ = action_types_.get(selected_action_)
             if type_id_ is not None:
                 scene_position_ = self.mapToScene(event_.pos())
@@ -170,6 +214,10 @@ class NodeView(QGraphicsView):
             return
 
         menu_ = QMenu(self)
+        configure_action_ = menu_.addAction("配置")
+        note_action_ = menu_.addAction("备注")
+        save_template_action_ = menu_.addAction("存为模板")
+        menu_.addSeparator()
         copy_action_ = menu_.addAction("复制")
         copy_action_.setShortcut(QKeySequence.StandardKey.Copy)
         delete_action_ = menu_.addAction("删除")
@@ -185,7 +233,21 @@ class NodeView(QGraphicsView):
             delete_incoming_edge_ = menu_.addAction("删除前流程连接线")
             delete_outgoing_edge_ = menu_.addAction("删除后流程连接线")
         selected_action_ = menu_.exec(event_.globalPos())
-        if selected_action_ == copy_action_:
+        if selected_action_ == configure_action_:
+            self.scene().activate_node(node_)
+        elif selected_action_ == note_action_:
+            note_, accepted_ = QInputDialog.getText(
+                self, "备注", "节点备注：", text=node_.note
+            )
+            if accepted_:
+                self.noteChanged.emit(node_.command_id, note_)
+        elif selected_action_ == save_template_action_:
+            name_, accepted_ = QInputDialog.getText(
+                self, "模板名称", "名称：", text=f"{node_.title}模板"
+            )
+            if accepted_ and name_.strip():
+                self.saveTemplateRequested.emit(selected_ids_, name_.strip())
+        elif selected_action_ == copy_action_:
             self.copyRequested.emit(selected_ids_)
         elif selected_action_ == delete_action_:
             self.deleteRequested.emit(selected_ids_)
@@ -203,6 +265,12 @@ class NodeView(QGraphicsView):
 
     def keyPressEvent(self, event_):
         selected_ids_ = self.scene().selected_command_ids()
+        if event_.matches(QKeySequence.StandardKey.SelectAll):
+            for item_ in self.scene().nodes_by_id.values():
+                if not item_.is_terminal:
+                    item_.setSelected(True)
+            event_.accept()
+            return
         if event_.matches(QKeySequence.StandardKey.Copy) and selected_ids_:
             self.copyRequested.emit(selected_ids_)
             event_.accept()
@@ -220,4 +288,18 @@ class NodeView(QGraphicsView):
         self._zoom = max(MIN_ZOOM, min(fitted_zoom_, MAX_ZOOM))
         if fitted_zoom_ and fitted_zoom_ != self._zoom:
             self.scale(self._zoom / fitted_zoom_, self._zoom / fitted_zoom_)
+        self.zoomChanged.emit(round(self._zoom * 100))
+
+    def zoom_in(self):
+        self._set_zoom(min(MAX_ZOOM, self._zoom * 1.2))
+
+    def zoom_out(self):
+        self._set_zoom(max(MIN_ZOOM, self._zoom / 1.2))
+
+    def _set_zoom(self, zoom_: float):
+        zoom_ = max(MIN_ZOOM, min(float(zoom_), MAX_ZOOM))
+        if zoom_ == self._zoom:
+            return
+        self.scale(zoom_ / self._zoom, zoom_ / self._zoom)
+        self._zoom = zoom_
         self.zoomChanged.emit(round(self._zoom * 100))

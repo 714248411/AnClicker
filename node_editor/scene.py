@@ -43,6 +43,7 @@ class NodeScene(QGraphicsScene):
     reorderCommitted = Signal(object)
     graphCommitted = Signal(object, object, float, float)
     positionCommitted = Signal(object, float, float)
+    sizeCommitted = Signal(object, float, float)
     connectionRequested = Signal(object, object)
 
     START_NODE_ID = "__start__"
@@ -180,6 +181,9 @@ class NodeScene(QGraphicsScene):
                     ),
                     "repeat_count": int(_record_value(record_, "repeat_count", default=1)),
                     "parameters": dict(_record_value(record_, "parameters", default={}) or {}),
+                    "note": str(_record_value(record_, "note", default="") or ""),
+                    "width": _record_value(record_, "width", default=None),
+                    "height": _record_value(record_, "height", default=None),
                 }
             )
 
@@ -200,6 +204,9 @@ class NodeScene(QGraphicsScene):
                     "y": minimum_y_ - 120.0,
                     "repeat_count": 1,
                     "parameters": {},
+                    "note": "",
+                    "width": None,
+                    "height": None,
                 },
             )
         if end_count_ == 0:
@@ -214,6 +221,9 @@ class NodeScene(QGraphicsScene):
                     "y": maximum_y_ + 120.0,
                     "repeat_count": 1,
                     "parameters": {},
+                    "note": "",
+                    "width": None,
+                    "height": None,
                 }
             )
 
@@ -264,6 +274,12 @@ class NodeScene(QGraphicsScene):
                         "condition" if record_["type_id"] in {"条件判断", "条件循环"}
                         else "loop" if record_["type_id"] == "循环" else None
                     ),
+                    subtitle_=self._node_subtitle(
+                        record_["type_id"], record_["parameters"], record_["repeat_count"]
+                    ),
+                    note_=record_["note"],
+                    width_=record_["width"],
+                    height_=record_["height"],
                 )
                 self.addItem(node_)
                 node_.setPos(record_["x"], record_["y"])
@@ -283,7 +299,8 @@ class NodeScene(QGraphicsScene):
                         outgoing_counts_[source_id_] = outgoing_counts_.get(source_id_, 0) + 1
                         incoming_counts_[target_id_] = incoming_counts_.get(target_id_, 0) + 1
                         edge_ = EdgeItem(
-                            self.nodes_by_id[source_id_], self.nodes_by_id[target_id_]
+                            self.nodes_by_id[source_id_], self.nodes_by_id[target_id_],
+                            self._edge_kind(edge_records_[len(self.edges)])
                         )
                         self.addItem(edge_)
                         self.edges.append(edge_)
@@ -302,7 +319,8 @@ class NodeScene(QGraphicsScene):
                     for edge_record_ in edge_records_:
                         source_id_, target_id_ = self._edge_endpoints(edge_record_)
                         edge_ = EdgeItem(
-                            self.nodes_by_id[source_id_], self.nodes_by_id[target_id_]
+                            self.nodes_by_id[source_id_], self.nodes_by_id[target_id_],
+                            self._edge_kind(edge_record_)
                         )
                         self.addItem(edge_)
                         self.edges.append(edge_)
@@ -322,6 +340,27 @@ class NodeScene(QGraphicsScene):
         self.clearSelection()
         self.emit_graph_changed()
 
+    @staticmethod
+    def _node_subtitle(type_id_: str, parameters_: Mapping, repeat_count_: int) -> str:
+        visible_ = {
+            str(key_): value_ for key_, value_ in dict(parameters_ or {}).items()
+            if not str(key_).startswith("__flow_")
+        }
+        if type_id_ == "条件判断":
+            return str(visible_.get("条件", "True"))
+        if type_id_ in {"循环", "条件循环"}:
+            mode_ = str(visible_.get("方式", "次数"))
+            if mode_ in {"条件", "cond"} or type_id_ == "条件循环":
+                return f"条件：{visible_.get('条件', 'True')}"
+            return f"循环 {visible_.get('次数', 1)} 次"
+        parts_ = [f"{key_}: {value_}" for key_, value_ in list(visible_.items())[:2]]
+        if repeat_count_ > 1:
+            parts_.append(f"重复 ×{repeat_count_}")
+        return "  ·  ".join(parts_) or "双击配置"
+
+    def commit_node_size(self, node_, width_: float, height_: float) -> None:
+        self.sizeCommitted.emit(node_.node_id, float(width_), float(height_))
+
     def _edge_endpoints(self, edge_record_):
         if isinstance(edge_record_, Mapping):
             source_id_ = _record_value(
@@ -338,6 +377,12 @@ class NodeScene(QGraphicsScene):
         if source_id_ not in self.nodes_by_id or target_id_ not in self.nodes_by_id:
             raise ValueError("edge references an unknown node")
         return source_id_, target_id_
+
+    @staticmethod
+    def _edge_kind(edge_record_) -> int:
+        if isinstance(edge_record_, Mapping):
+            return int(_record_value(edge_record_, "kind", "link_kind", "类型", default=0) or 0)
+        return int(getattr(edge_record_, "kind", 0) or 0)
 
     def _validate_and_order_edges(self, edge_records_) -> list[NodeItem]:
         """Validate a complete DAG and return a stable topological order."""

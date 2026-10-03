@@ -8,4 +8,4 @@ class InstructionEditor(条件循环Editor):
 
 
 class InstructionExecutor(条件循环Executor):
-    CONSUMED_FIELDS = ("条件", "次数")
+    CONSUMED_FIELDS = ("方式", "条件", "次数")

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from graph_repository import END_NODE_ID, GraphRepository
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft
@@ -49,8 +51,14 @@ class InstructionWorkspace(QObject):
         self.editor.runFromRequested.connect(self.run_from_command)
         self.editor.graphCommitted.connect(self._commit_graph_change)
         self.editor.positionCommitted.connect(self._commit_position)
+        self.editor.sizeCommitted.connect(self._commit_size)
         self.editor.connectionRequested.connect(self._connect_nodes)
         self.editor.deleteConnectionsRequested.connect(self._delete_connections)
+        self.editor.noteChanged.connect(self._update_note)
+        self.editor.saveTemplateRequested.connect(self._save_template)
+        self.editor.insertTemplateRequested.connect(self._insert_template)
+        self.editor.manageTemplatesRequested.connect(self._manage_templates)
+        self.editor.view.template_names_provider = self._template_names
 
     # Public node-workspace interface used by the main window.
     def selected_command_ids(self) -> list[int]:
@@ -241,6 +249,15 @@ class InstructionWorkspace(QObject):
             self.reload_graph()
             self._show_error("保存节点位置失败", error_)
 
+    def _commit_size(self, node_id, width: float, height: float) -> None:
+        try:
+            self.repository.save_node_size(
+                str(node_id), float(width), float(height)
+            )
+        except Exception as error_:
+            self.reload_graph()
+            self._show_error("保存节点大小失败", error_)
+
     def _connect_nodes(self, source_id, target_id) -> None:
         try:
             complete_ = self.repository.connect_nodes(str(source_id), str(target_id))
@@ -263,6 +280,144 @@ class InstructionWorkspace(QObject):
         except Exception as error_:
             self.reload_graph()
             self._show_error("删除流程连接线失败", error_)
+
+    def _update_note(self, command_id, note: str) -> None:
+        try:
+            self.repository.update_command_note(int(command_id), str(note))
+            self.reload_graph(int(command_id))
+            self.statusMessage.emit("节点备注已保存")
+        except Exception as error_:
+            self._show_error("保存节点备注失败", error_)
+
+    @property
+    def _template_directory(self) -> Path:
+        directory_ = Path(self.repository.db_path).resolve().parent / "templates"
+        directory_.mkdir(parents=True, exist_ok=True)
+        return directory_
+
+    @staticmethod
+    def _safe_template_name(name_: str) -> str:
+        cleaned_ = "".join(
+            "_" if character_ in '<>:"/\\|?*' else character_
+            for character_ in str(name_).strip()
+        ).rstrip(". ")
+        if not cleaned_:
+            raise ValueError("模板名称不能为空")
+        return cleaned_
+
+    def _template_names(self):
+        return tuple(path_.stem for path_ in sorted(self._template_directory.glob("*.json")))
+
+    def _manage_templates(self) -> None:
+        names_ = self._template_names()
+        if not names_:
+            QMessageBox.information(self.parent_window, "模板管理", "当前没有已保存的流程模板。")
+            return
+        name_, accepted_ = QInputDialog.getItem(
+            self.parent_window, "模板管理", "选择要删除的模板：", names_, 0, False
+        )
+        if not accepted_ or not name_:
+            return
+        answer_ = QMessageBox.question(
+            self.parent_window,
+            "删除模板",
+            f"确定删除流程模板“{name_}”吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer_ == QMessageBox.StandardButton.Yes:
+            path_ = self._template_directory / f"{self._safe_template_name(name_)}.json"
+            path_.unlink(missing_ok=True)
+            self.statusMessage.emit(f"已删除流程模板：{name_}")
+
+    def _save_template(self, command_ids, name: str) -> None:
+        try:
+            selected_ = {int(command_id_) for command_id_ in command_ids}
+            snapshot_ = self.repository.snapshot()
+            commands_ = [command_ for command_ in snapshot_.commands if command_.id in selected_]
+            nodes_ = {
+                int(node_.command_id): node_ for node_ in snapshot_.nodes
+                if node_.command_id is not None and int(node_.command_id) in selected_
+            }
+            if not commands_:
+                raise ValueError("请先选择至少一个指令节点")
+            min_x_ = min(nodes_[int(command_.id)].x for command_ in commands_)
+            min_y_ = min(nodes_[int(command_.id)].y for command_ in commands_)
+            local_id_ = {int(command_.id): index_ + 1 for index_, command_ in enumerate(commands_)}
+            command_by_node_ = {node_.node_id: int(node_.command_id) for node_ in nodes_.values()}
+            payload_ = {
+                "version": 1,
+                "nodes": [
+                    {
+                        "id": local_id_[int(command_.id)],
+                        "type_id": command_.type_id,
+                        "parameters": command_.parameters,
+                        "repeat_count": command_.repeat_count,
+                        "error_policy": command_.error_policy,
+                        "note": command_.note,
+                        "x": nodes_[int(command_.id)].x - min_x_,
+                        "y": nodes_[int(command_.id)].y - min_y_,
+                        "width": nodes_[int(command_.id)].width,
+                        "height": nodes_[int(command_.id)].height,
+                    }
+                    for command_ in commands_
+                ],
+                "edges": [
+                    [local_id_[command_by_node_[edge_.source]], local_id_[command_by_node_[edge_.target]], edge_.kind]
+                    for edge_ in snapshot_.edges
+                    if edge_.source in command_by_node_ and edge_.target in command_by_node_
+                ],
+            }
+            path_ = self._template_directory / f"{self._safe_template_name(name)}.json"
+            path_.write_text(json.dumps(payload_, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.statusMessage.emit(f"模板已保存：{path_.stem}")
+        except Exception as error_:
+            self._show_error("保存流程模板失败", error_)
+
+    def _insert_template(self, name: str, x: float, y: float) -> None:
+        try:
+            path_ = self._template_directory / f"{self._safe_template_name(name)}.json"
+            payload_ = json.loads(path_.read_text(encoding="utf-8"))
+            records_ = list(payload_.get("nodes", ()))
+            command_by_local_: dict[int, int] = {}
+            for record_ in records_:
+                command_ = self.repository.add_command(
+                    {
+                        "type_id": record_["type_id"],
+                        "parameters": record_.get("parameters", {}),
+                        "repeat_count": int(record_.get("repeat_count", 1)),
+                        "error_policy": record_.get("error_policy", "提示异常并暂停"),
+                        "note": record_.get("note", ""),
+                    },
+                    x=float(x) + float(record_.get("x", 0)),
+                    y=float(y) + float(record_.get("y", 0)),
+                    unconnected=True,
+                )
+                command_by_local_[int(record_["id"])] = int(command_.id)
+            snapshot_ = self.repository.snapshot()
+            node_by_command_ = {
+                int(node_.command_id): node_.node_id for node_ in snapshot_.nodes
+                if node_.command_id is not None
+            }
+            for edge_record_ in payload_.get("edges", ()):
+                source_local_, target_local_ = edge_record_[:2]
+                kind_ = int(edge_record_[2]) if len(edge_record_) > 2 else None
+                self.repository.connect_nodes(
+                    node_by_command_[command_by_local_[int(source_local_)]],
+                    node_by_command_[command_by_local_[int(target_local_)]],
+                    kind_,
+                )
+            for record_ in records_:
+                if record_.get("width") and record_.get("height"):
+                    self.repository.save_node_size(
+                        node_by_command_[command_by_local_[int(record_["id"])]],
+                        float(record_["width"]), float(record_["height"]),
+                    )
+            self.reload_graph()
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit(f"已插入流程模板：{name}")
+        except Exception as error_:
+            self._show_error("插入流程模板失败", error_)
 
     def _nearest_edge(self, x: float, y: float):
         snapshot_ = self.repository.snapshot()

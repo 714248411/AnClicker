@@ -90,6 +90,9 @@ class NodeView:
     y: float
     repeat_count: int = 1
     parameters: Optional[dict[str, Any]] = None
+    note: str = ""
+    width: Optional[float] = None
+    height: Optional[float] = None
 
     @property
     def role(self) -> Optional[str]:
@@ -101,6 +104,7 @@ class NodeView:
 class EdgeRecord:
     source: str
     target: str
+    kind: int = 0
 
     def __iter__(self):
         """Allow consumers that accept a two-item edge sequence."""
@@ -168,6 +172,16 @@ class GraphRepository:
         cls._create_or_validate_command_table(connection, existing_tables)
         cls._create_or_validate_node_table(connection, existing_tables)
         cls._create_or_validate_edge_table(connection, existing_tables)
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS flow_edge_metadata ("
+            "source_id TEXT NOT NULL, target_id TEXT NOT NULL, kind INTEGER NOT NULL DEFAULT 0, "
+            "PRIMARY KEY(source_id, target_id))"
+        )
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS 节点布局 ("
+            "节点ID TEXT PRIMARY KEY, 宽度 REAL NOT NULL, 高度 REAL NOT NULL, "
+            "FOREIGN KEY(节点ID) REFERENCES 节点(节点ID) ON DELETE CASCADE)"
+        )
 
         node_count = connection.execute("SELECT COUNT(*) FROM 节点").fetchone()[0]
         command_count = connection.execute("SELECT COUNT(*) FROM 命令").fetchone()[0]
@@ -497,6 +511,53 @@ class GraphRepository:
         return None if row is None else self._command_from_row(row)
 
     @classmethod
+    def _edge_records(cls, connection: sqlite3.Connection) -> list[EdgeRecord]:
+        """Load links with stable branch roles, migrating older databases lazily."""
+        rows = connection.execute(
+            "SELECT 源节点ID, 目标节点ID FROM 节点连接 ORDER BY rowid"
+        ).fetchall()
+        metadata = {
+            (str(row[0]), str(row[1])): int(row[2])
+            for row in connection.execute(
+                "SELECT source_id, target_id, kind FROM flow_edge_metadata"
+            )
+        }
+        valid_pairs = {(str(row[0]), str(row[1])) for row in rows}
+        for stale_source, stale_target in set(metadata) - valid_pairs:
+            connection.execute(
+                "DELETE FROM flow_edge_metadata WHERE source_id=? AND target_id=?",
+                (stale_source, stale_target),
+            )
+        source_types = {
+            str(row[0]): str(row[1])
+            for row in connection.execute(
+                "SELECT 节点.节点ID, 命令.类型标识 FROM 节点 "
+                "JOIN 命令 ON 节点.命令ID=命令.ID"
+            )
+        }
+        seen: dict[str, int] = {}
+        records: list[EdgeRecord] = []
+        for source, target in ((str(row[0]), str(row[1])) for row in rows):
+            index = seen.get(source, 0)
+            seen[source] = index + 1
+            kind = metadata.get((source, target))
+            if kind is None:
+                source_type = source_types.get(source, "")
+                if source_type == "条件判断":
+                    kind = (1, 2)[min(index, 1)]
+                elif source_type in {"循环", "条件循环"}:
+                    kind = (3, 4)[min(index, 1)]
+                else:
+                    kind = 0
+                connection.execute(
+                    "INSERT OR IGNORE INTO flow_edge_metadata(source_id, target_id, kind) "
+                    "VALUES (?, ?, ?)",
+                    (source, target, kind),
+                )
+            records.append(EdgeRecord(source, target, kind))
+        return records
+
+    @classmethod
     def _validate_connection(
         cls, connection: sqlite3.Connection, *, require_order: bool
     ) -> list[str]:
@@ -522,12 +583,7 @@ class GraphRepository:
                 "SELECT 节点ID, 命令ID, 节点类型, X, Y FROM 节点"
             )
         ]
-        edges = [
-            EdgeRecord(str(row[0]), str(row[1]))
-            for row in connection.execute(
-                "SELECT 源节点ID, 目标节点ID FROM 节点连接"
-            )
-        ]
+        edges = cls._edge_records(connection)
         return cls._validate_records(
             commands, nodes, edges, require_order=require_order
         )
@@ -552,12 +608,7 @@ class GraphRepository:
                 "SELECT 节点ID, 命令ID, 节点类型, X, Y FROM 节点"
             )
         ]
-        edges = [
-            EdgeRecord(str(row[0]), str(row[1]))
-            for row in connection.execute(
-                "SELECT 源节点ID, 目标节点ID FROM 节点连接"
-            )
-        ]
+        edges = cls._edge_records(connection)
         return cls._validate_records(
             commands, nodes, edges, require_order=False, allow_incomplete=True
         )
@@ -637,16 +688,28 @@ class GraphRepository:
             incoming[edge.target].add(edge.source)
         if incoming[START_NODE_ID] or outgoing[END_NODE_ID]:
             raise GraphValidationError("开始节点不能有输入，结束节点不能有输出")
+        if len(outgoing[START_NODE_ID]) > 1 or (
+            not allow_incomplete and len(outgoing[START_NODE_ID]) != 1
+        ):
+            raise GraphValidationError("开始节点必须连接一条输出")
 
         command_by_id = {command.id: command for command in commands}
         for node in instruction_nodes:
             command = command_by_id[int(node.command_id)]
-            if command.type_id in {"条件判断", "条件循环"}:
+            if command.type_id in {"条件判断", "循环", "条件循环"}:
                 branch_count = len(outgoing[node.node_id])
                 if branch_count > 2:
-                    raise GraphValidationError("条件节点最多只能连接“是、否”两条输出")
+                    raise GraphValidationError("条件或循环节点最多只能连接两条输出")
                 if not allow_incomplete and branch_count != 2:
-                    raise GraphValidationError("条件节点必须连接“是、否”两条输出")
+                    raise GraphValidationError("条件或循环节点必须连接两条输出")
+                expected_kinds = {1, 2} if command.type_id == "条件判断" else {3, 4}
+                actual_kinds = {
+                    int(edge.kind) for edge in edges if edge.source == node.node_id
+                }
+                if not actual_kinds <= expected_kinds or len(actual_kinds) != branch_count:
+                    raise GraphValidationError("条件或循环节点的分支类型无效或重复")
+                if not allow_incomplete and actual_kinds != expected_kinds:
+                    raise GraphValidationError("条件或循环节点缺少完整的分支连线")
 
         command_order = {command.id: command.order for command in commands}
         def sort_key(node_id: str):
@@ -672,7 +735,54 @@ class GraphRepository:
                     ready.append(target)
                     ready.sort(key=sort_key)
         if len(ordered_nodes) != len(node_by_id):
-            raise GraphValidationError("流程连接不能形成环路")
+            if allow_incomplete:
+                remaining = sorted(set(node_by_id) - set(ordered_nodes), key=sort_key)
+                return [*ordered_nodes, *remaining]
+            loop_nodes = {
+                node.node_id
+                for node in instruction_nodes
+                if command_by_id[int(node.command_id)].type_id in {"循环", "条件循环"}
+            }
+            index = 0
+            indexes: dict[str, int] = {}
+            lowlinks: dict[str, int] = {}
+            stack: list[str] = []
+            on_stack: set[str] = set()
+            cyclic_components: list[set[str]] = []
+
+            def strong_connect(node_id: str) -> None:
+                nonlocal index
+                indexes[node_id] = lowlinks[node_id] = index
+                index += 1
+                stack.append(node_id)
+                on_stack.add(node_id)
+                for target_id in outgoing[node_id]:
+                    if target_id not in indexes:
+                        strong_connect(target_id)
+                        lowlinks[node_id] = min(lowlinks[node_id], lowlinks[target_id])
+                    elif target_id in on_stack:
+                        lowlinks[node_id] = min(lowlinks[node_id], indexes[target_id])
+                if lowlinks[node_id] == indexes[node_id]:
+                    component: set[str] = set()
+                    while stack:
+                        member = stack.pop()
+                        on_stack.remove(member)
+                        component.add(member)
+                        if member == node_id:
+                            break
+                    if len(component) > 1 or node_id in outgoing[node_id]:
+                        cyclic_components.append(component)
+
+            for node_id in node_by_id:
+                if node_id not in indexes:
+                    strong_connect(node_id)
+            if not cyclic_components or any(
+                not (component & loop_nodes) for component in cyclic_components
+            ):
+                raise GraphValidationError("流程环路必须由循环或条件循环节点控制")
+            # A structured loop has no topological order.  Preserve the stable
+            # command order while traversal follows persisted links at runtime.
+            ordered_nodes = sorted(node_by_id, key=sort_key)
         if allow_incomplete:
             return ordered_nodes
 
@@ -777,12 +887,11 @@ class GraphRepository:
                 "ORDER BY CASE 节点类型 WHEN 'start' THEN -1 WHEN 'end' THEN 999999 "
                 "ELSE COALESCE((SELECT 排序 FROM 命令 WHERE ID=节点.命令ID), 999998) END"
             ).fetchall()
-            edges = tuple(
-                EdgeRecord(str(row[0]), str(row[1]))
-                for row in connection.execute(
-                    "SELECT 源节点ID, 目标节点ID FROM 节点连接 ORDER BY rowid"
-                )
-            )
+            edges = tuple(self._edge_records(connection))
+            layout_by_node = {
+                str(row[0]): (float(row[1]), float(row[2]))
+                for row in connection.execute("SELECT 节点ID, 宽度, 高度 FROM 节点布局")
+            }
         node_views: list[NodeView] = []
         for row in node_rows:
             node = self._node_from_row(row)
@@ -809,6 +918,9 @@ class GraphRepository:
                     y=node.y,
                     repeat_count=command.repeat_count if command is not None else 1,
                     parameters=dict(command.parameters) if command is not None else None,
+                    note=command.note if command is not None else "",
+                    width=layout_by_node.get(node.node_id, (None, None))[0],
+                    height=layout_by_node.get(node.node_id, (None, None))[1],
                 )
             )
         return GraphSnapshot(commands, tuple(node_views), edges)
@@ -833,9 +945,22 @@ class GraphRepository:
             cursor = connection.execute(
                 f"DELETE FROM 节点连接 WHERE {' OR '.join(clauses)}", parameters
             )
+            if mode == "all":
+                connection.execute(
+                    "DELETE FROM flow_edge_metadata WHERE source_id=? OR target_id=?",
+                    (node_id, node_id),
+                )
+            elif mode == "incoming":
+                connection.execute(
+                    "DELETE FROM flow_edge_metadata WHERE target_id=?", (node_id,)
+                )
+            else:
+                connection.execute(
+                    "DELETE FROM flow_edge_metadata WHERE source_id=?", (node_id,)
+                )
             return int(cursor.rowcount)
 
-    def connect_nodes(self, source_id: str, target_id: str) -> bool:
+    def connect_nodes(self, source_id: str, target_id: str, kind: int | None = None) -> bool:
         """Add one DAG edge and finalize command order when the graph is complete."""
         source_id, target_id = str(source_id), str(target_id)
         if source_id == target_id:
@@ -853,10 +978,48 @@ class GraphRepository:
                 raise GraphValidationError("结束节点不能拉出连接线")
             if node_types[target_id] == START_NODE_TYPE:
                 raise GraphValidationError("开始节点不能接收连接线")
+            source_type = connection.execute(
+                "SELECT 命令.类型标识 FROM 节点 JOIN 命令 ON 节点.命令ID=命令.ID "
+                "WHERE 节点.节点ID=?", (source_id,)
+            ).fetchone()
+            source_type_id = str(source_type[0]) if source_type else ""
+            if source_type_id in {"条件判断", "循环", "条件循环"}:
+                branch_count = int(connection.execute(
+                    "SELECT COUNT(*) FROM 节点连接 WHERE 源节点ID=?", (source_id,)
+                ).fetchone()[0])
+                existing_edge = connection.execute(
+                    "SELECT 1 FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
+                    (source_id, target_id),
+                ).fetchone()
+                if branch_count >= 2 and existing_edge is None:
+                    raise GraphValidationError("条件或循环节点最多只能连接两条输出")
+            existing_edge = connection.execute(
+                "SELECT 1 FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
+                (source_id, target_id),
+            ).fetchone()
             connection.execute(
                 "INSERT OR IGNORE INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
                 (source_id, target_id),
             )
+            if existing_edge is None or kind is not None:
+                if kind is None:
+                    used = {
+                        int(row[0]) for row in connection.execute(
+                            "SELECT kind FROM flow_edge_metadata WHERE source_id=?",
+                            (source_id,),
+                        )
+                    }
+                    candidates = (
+                        (1, 2) if source_type_id == "条件判断"
+                        else (3, 4) if source_type_id in {"循环", "条件循环"}
+                        else (0,)
+                    )
+                    kind = next((item for item in candidates if item not in used), candidates[-1])
+                connection.execute(
+                    "INSERT OR REPLACE INTO flow_edge_metadata(source_id, target_id, kind) "
+                    "VALUES (?, ?, ?)",
+                    (source_id, target_id, int(kind)),
+                )
             self._validate_draft_connection(connection)
             try:
                 ordered_nodes = self._validate_connection(
@@ -1045,6 +1208,14 @@ class GraphRepository:
             raise GraphRepositoryError("修改命令后无法读取记录")
         return record
 
+    def update_command_note(self, command_id: int, note: str) -> None:
+        with self._transaction(validate_graph=False) as connection:
+            cursor = connection.execute(
+                "UPDATE 命令 SET 备注=? WHERE ID=?", (str(note), int(command_id))
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(f"命令不存在：{command_id}")
+
     def duplicate_command(self, command_id: int, *, unconnected: bool = False) -> CommandRecord:
         command = self.get_command(command_id)
         if command is None:
@@ -1130,6 +1301,25 @@ class GraphRepository:
 
     def save_node_position(self, node_id: str, x: float, y: float) -> None:
         self.save_node_positions({node_id: (x, y)})
+
+    def save_node_size(self, node_id: str, width: float, height: float) -> None:
+        width, height = float(width), float(height)
+        if not math.isfinite(width) or not math.isfinite(height):
+            raise ValueError("节点大小必须是有限数值")
+        if width < 90 or height < 40:
+            raise ValueError("节点大小低于允许范围")
+        with self._transaction(validate_graph=False) as connection:
+            row = connection.execute(
+                "SELECT 1 FROM 节点 WHERE 节点ID=? AND 节点类型='instruction'",
+                (node_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"指令节点不存在：{node_id}")
+            connection.execute(
+                "INSERT INTO 节点布局(节点ID, 宽度, 高度) VALUES (?, ?, ?) "
+                "ON CONFLICT(节点ID) DO UPDATE SET 宽度=excluded.宽度, 高度=excluded.高度",
+                (node_id, round(width, 2), round(height, 2)),
+            )
 
     def save_node_positions(
         self, positions: Mapping[str, Sequence[float]]

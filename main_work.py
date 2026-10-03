@@ -213,6 +213,9 @@ class CommandThread(QThread):
     def _execute_commands(
         self, commands_: list[CommandRecord], context_: ExecutionContext
     ) -> None:
+        if self.run_mode[0] == "全部指令":
+            self._execute_flow(self.repository.validate_graph(), context_)
+            return
         active_nodes_: set[str] | None = None
         node_by_command_: dict[int, object] = {}
         outgoing_: dict[str, list[str]] = {}
@@ -264,6 +267,80 @@ class CommandThread(QThread):
                     selected_index_ = 0 if bool(result_) else min(1, len(targets_) - 1)
                     targets_ = [targets_[selected_index_]]
                 active_nodes_.update(targets_)
+
+    def _execute_flow(self, snapshot_, context_: ExecutionContext) -> None:
+        """Follow persisted links, including condition branches and loop backs."""
+        node_by_id_ = {node_.node_id: node_ for node_ in snapshot_.nodes}
+        command_by_id_ = {int(command_.id): command_ for command_ in snapshot_.commands}
+        outgoing_: dict[str, list] = {node_id_: [] for node_id_ in node_by_id_}
+        for edge_ in snapshot_.edges:
+            outgoing_[edge_.source].append(edge_)
+        start_edges_ = outgoing_.get("start", ())
+        if len(start_edges_) != 1:
+            raise GraphValidationError("开始节点必须连接一条流程线")
+        current_id_ = start_edges_[0].target
+        loop_iterations_: dict[str, int] = {}
+        steps_ = 0
+
+        while current_id_ != "end" and self.start_state:
+            steps_ += 1
+            if steps_ > 500_000:
+                raise GraphValidationError("流程执行超过 500000 步，已停止以避免卡死")
+            if not self.check_mutex():
+                return
+            node_ = node_by_id_.get(current_id_)
+            if node_ is None or node_.command_id is None:
+                raise GraphValidationError(f"流程指向了无效节点：{current_id_}")
+            command_ = command_by_id_[int(node_.command_id)]
+            edges_ = list(outgoing_.get(current_id_, ()))
+
+            result_ = None
+            while self.start_state:
+                try:
+                    result_ = self._execute_one(command_, context_)
+                    self._persist_variables(context_.variables)
+                    if context_.stop_requested:
+                        self.request_stop()
+                        return
+                    break
+                except Exception as error_:
+                    action_ = self._handle_command_error(command_, error_)
+                    if action_ == "retry":
+                        continue
+                    if action_ == "continue":
+                        break
+                    self.start_state = False
+                    return
+
+            if command_.type_id == "条件判断":
+                wanted_kind_ = 1 if bool(result_) else 2
+            elif command_.type_id in {"循环", "条件循环"}:
+                mode_ = str(command_.parameters.get("方式", "次数"))
+                if command_.type_id == "条件循环" or mode_ in {"条件", "cond"}:
+                    wanted_kind_ = 3 if bool(result_) else 4
+                else:
+                    completed_ = loop_iterations_.get(current_id_, 0)
+                    count_ = max(0, int(command_.parameters.get("次数", 1)))
+                    if completed_ < count_:
+                        loop_iterations_[current_id_] = completed_ + 1
+                        wanted_kind_ = 3
+                    else:
+                        loop_iterations_.pop(current_id_, None)
+                        wanted_kind_ = 4
+            else:
+                if not edges_:
+                    raise GraphValidationError(
+                        f"指令 {command_.id} 缺少后续流程线"
+                    )
+                current_id_ = edges_[0].target
+                continue
+
+            selected_ = next((edge_ for edge_ in edges_ if edge_.kind == wanted_kind_), None)
+            if selected_ is None:
+                raise GraphValidationError(
+                    f"控制节点 {command_.id} 缺少类型为 {wanted_kind_} 的流程线"
+                )
+            current_id_ = selected_.target
 
     def _execute_one(
         self, command_: CommandRecord, context_: ExecutionContext

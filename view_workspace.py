@@ -603,7 +603,8 @@ class ViewWorkspace:
 
     def _generated_code(self) -> str:
         try:
-            commands = list(self.window.workspace.repository.validate_graph().commands)
+            snapshot = self.window.workspace.repository.validate_graph()
+            commands = list(snapshot.commands)
         except Exception as error:
             return f"# 流程图尚未完成：{error}\n"
         lines = ["# Clicker 多功能代码", "# 双击左侧命令可插入命令提示。", ""]
@@ -611,6 +612,18 @@ class ViewWorkspace:
             params = json.dumps(command.parameters, ensure_ascii=False, sort_keys=True)
             note = f"  # {command.note}" if command.note else ""
             lines.append(f"{command.type_id}({params}, 重复次数={command.repeat_count}, 异常处理={command.error_policy!r}){note}")
+        if snapshot.edges:
+            nodes = {node.node_id: node for node in snapshot.nodes}
+            kind_names = {0: "下一步", 1: "是", 2: "否", 3: "循环体", 4: "完成"}
+            lines.extend(["", "# 流程连线（由流程图自动同步）"])
+            for edge in snapshot.edges:
+                source = nodes[edge.source]
+                target = nodes[edge.target]
+                source_name = "开始" if source.command_id is None else f"#{source.command_id} {source.display_name}"
+                target_name = "结束" if target.command_id is None else f"#{target.command_id} {target.display_name}"
+                lines.append(
+                    f"# {source_name} --{kind_names.get(edge.kind, '下一步')}--> {target_name}"
+                )
         if not commands: lines.append("# 当前流程还没有指令，请先到编辑视图添加。")
         return "\n".join(lines) + "\n"
 

@@ -42,10 +42,17 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
         form_ = QFormLayout()
         self.condition_edit = None
         self.count_spin = None
-        if self.CONDITION:
+        self.mode_combo = None
+        if self.LOOP:
+            self.mode_combo = QComboBox()
+            self.mode_combo.addItems(("次数", "条件"))
+            if self.TYPE_ID == "条件循环":
+                self.mode_combo.setCurrentText("条件")
+            form_.addRow("循环方式", self.mode_combo)
+        if self.CONDITION or self.LOOP:
             self.condition_edit = QLineEdit()
             self.condition_edit.setPlaceholderText("例如：计数 >= 10 或 状态 == '完成'")
-            form_.addRow("判断条件", self.condition_edit)
+            form_.addRow("条件表达式", self.condition_edit)
         if self.LOOP:
             self.count_spin = QSpinBox()
             self.count_spin.setRange(1, 1_000_000)
@@ -76,11 +83,16 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
 
     def get_draft(self) -> InstructionDraft:
         parameters_ = {}
+        if self.mode_combo is not None:
+            parameters_["方式"] = self.mode_combo.currentText()
         if self.condition_edit is not None:
             condition_ = self.condition_edit.text().strip()
-            if not condition_:
+            if not condition_ and (
+                self.CONDITION
+                or (self.mode_combo is not None and self.mode_combo.currentText() == "条件")
+            ):
                 raise ValueError("判断条件不能为空")
-            parameters_["条件"] = condition_
+            parameters_["条件"] = condition_ or "True"
         if self.count_spin is not None:
             parameters_["次数"] = self.count_spin.value()
         return InstructionDraft(
@@ -93,6 +105,8 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
 
     def load_draft(self, draft) -> None:
         draft_ = draft if isinstance(draft, InstructionDraft) else InstructionDraft.from_mapping(draft)
+        if self.mode_combo is not None:
+            self.mode_combo.setCurrentText(str(draft_.parameters.get("方式", "条件" if self.TYPE_ID == "条件循环" else "次数")))
         if self.condition_edit is not None:
             self.condition_edit.setText(str(draft_.parameters.get("条件", "")))
         if self.count_spin is not None:
@@ -157,7 +171,11 @@ def _condition_value(expression_: str, variables_: dict) -> bool:
 class 循环Editor(_ControlEditor):
     TYPE_ID = DISPLAY_NAME = "循环"
     LOOP = True
-    FIELDS = (FieldSpec("次数", "循环次数", "int", 3),)
+    FIELDS = (
+        FieldSpec("方式", "循环方式", "choice", "次数", ("次数", "条件")),
+        FieldSpec("条件", "条件表达式", "text", "True"),
+        FieldSpec("次数", "循环次数", "int", 3),
+    )
 
 
 class 条件判断Editor(_ControlEditor):
@@ -171,6 +189,7 @@ class 条件循环Editor(_ControlEditor):
     CONDITION = True
     LOOP = True
     FIELDS = (
+        FieldSpec("方式", "循环方式", "choice", "条件", ("次数", "条件")),
         FieldSpec("条件", "判断条件", "text", "True", required=True),
         FieldSpec("次数", "循环次数", "int", 3),
     )
@@ -194,6 +213,13 @@ class 循环Executor(_ControlExecutor):
         if delegated_:
             return result_
         count_ = int(command.parameters.get("次数", 1))
+        if str(command.parameters.get("方式", "次数")) == "条件":
+            result_ = _condition_value(
+                str(command.parameters.get("条件", "True")), context.variables
+            )
+            context.metadata[f"flow_condition:{command.id}"] = result_
+            context.emit(f"条件循环结果：{'是' if result_ else '否'}")
+            return result_
         context.metadata[f"flow_loop_count:{command.id}"] = count_
         context.emit(f"循环节点：{count_} 次")
         return count_
