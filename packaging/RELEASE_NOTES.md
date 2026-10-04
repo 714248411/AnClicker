@@ -1,6 +1,6 @@
 # An Clicker v1.0.0 Beat
 
-本版本提供 Windows、macOS 和 Linux 三个平台的独立压缩包。
+本版本提供 Windows、macOS 和 Linux 三个平台的独立压缩包，其中 macOS 同时提供 Intel 与 Apple Silicon 原生版本。
 
 - 统一平台数据目录、文件/文件夹打开方式、提示音与窗口恢复逻辑。
 - Windows 保留原有全局快捷键和便携式 `data` 目录行为。

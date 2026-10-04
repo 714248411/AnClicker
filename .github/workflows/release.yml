@@ -17,10 +17,16 @@ jobs:
         include:
           - os: windows-latest
             shell: pwsh
+            artifact: windows-x64
           - os: macos-15-intel
             shell: bash
+            artifact: macos-x64
+          - os: macos-15
+            shell: bash
+            artifact: macos-arm64
           - os: ubuntu-24.04
             shell: bash
+            artifact: linux-x64
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -54,7 +60,7 @@ jobs:
         run: python packaging/build_release.py --version "${{ github.ref_name }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: package-${{ runner.os }}
+          name: package-${{ matrix.artifact }}
           path: release/*.zip
           if-no-files-found: error
 
