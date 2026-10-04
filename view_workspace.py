@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 
@@ -41,6 +42,7 @@ FLOW_VIEW = 2
 CODE_VIEW = 3
 NAVIGATION_VIEW = 4
 CODE_SETTING = "多功能代码"
+CODE_GRAPH_SIGNATURE_SETTING = "多功能流程签名"
 TASK_NAME_SETTING = "任务名称"
 WINDOW_TITLE_SETTING = "绑定窗口标题"
 THEME_SETTING = "界面主题"
@@ -122,6 +124,7 @@ class ViewWorkspace:
         self.window.workspace.graphFinalized.connect(self._graph_finalized)
         self._build_navigation()
         self.tabs.currentChanged.connect(self._view_changed)
+        self._sync_code_if_needed()
         self.show_main()
         self._view_changed(self.tabs.currentIndex())
 
@@ -298,9 +301,11 @@ class ViewWorkspace:
         return page
 
     def _build_table_view(self) -> None:
-        self.command_table = InstructionTableWidget(0, 5)
+        self.command_table = InstructionTableWidget(0, 7)
         self.command_table.setObjectName("commandTable")
-        self.command_table.setHorizontalHeaderLabels(["序号", "指令", "重复", "异常处理", "备注"])
+        self.command_table.setHorizontalHeaderLabels(
+            ["序号", "编号", "指令", "参数", "重复", "异常处理", "备注"]
+        )
         self.command_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.command_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.command_table.setAlternatingRowColors(True)
@@ -309,9 +314,10 @@ class ViewWorkspace:
         self.command_table.verticalHeader().setVisible(False)
         self.command_table.verticalHeader().setDefaultSectionSize(38)
         header = self.command_table.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
         self.command_table.cellDoubleClicked.connect(self._edit_table_command)
         self.command_table.instructionDropped.connect(self._add_table_command)
 
@@ -554,6 +560,7 @@ class ViewWorkspace:
         elif index == CODE_VIEW: self._load_code()
 
     def refresh_all(self) -> None:
+        self._sync_code_if_needed()
         self.refresh_summary()
         self.refresh_table()
 
@@ -573,25 +580,39 @@ class ViewWorkspace:
             self.main_stats.setText(summary)
 
     def refresh_table(self) -> None:
-        try:
-            snapshot = self.window.workspace.repository.validate_graph()
-        except Exception as error:
-            self.command_table.setRowCount(0)
-            self.table_state.setText(f"等待流程图完成连线：{error}")
-            return
+        snapshot, validation_error = self._current_graph_state()
         commands = list(snapshot.commands)
-        self.table_state.setText(f"流程已生成，共 {len(commands)} 条指令")
+        if validation_error is None:
+            self.table_state.setText(f"流程、表格与多功能已同步，共 {len(commands)} 条指令")
+        else:
+            self.table_state.setText(
+                f"流程草稿，共 {len(commands)} 条指令；完成连线后即可运行：{validation_error}"
+            )
+        nodes_by_command = {
+            node.command_id: node
+            for node in snapshot.nodes
+            if node.command_id is not None
+        }
         self.command_table.setRowCount(len(commands))
         for row, command in enumerate(commands):
-            repeat_text = str(
-                command.parameters.get("次数", command.repeat_count)
-                if command.type_id in {"循环", "条件循环"}
-                else command.repeat_count
+            node = nodes_by_command.get(command.id)
+            display_name = node.display_name if node is not None else command.type_id
+            parameters_text = json.dumps(
+                command.parameters, ensure_ascii=False, sort_keys=True, separators=(", ", ": ")
             )
-            values = (str(command.order + 1), command.type_id, repeat_text, command.error_policy, command.note)
+            values = (
+                str(row + 1),
+                f"#{command.id}",
+                display_name,
+                parameters_text,
+                str(command.repeat_count),
+                command.error_policy,
+                command.note,
+            )
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setData(Qt.ItemDataRole.UserRole, command.id)
+                item.setToolTip(value)
                 self.command_table.setItem(row, column, item)
 
     def _add_table_command(self, type_id: str) -> None:
@@ -600,15 +621,10 @@ class ViewWorkspace:
         self.window.statusBar.showMessage(f"已从指令栏添加：{type_id}", 2500)
 
     def _graph_finalized(self, complete: bool) -> None:
+        self._sync_code_if_needed(force=True)
         self.refresh_summary()
         self.refresh_table()
-        if complete:
-            self.regenerate_code()
-        else:
-            self._loading_code = True
-            self.code_editor.setPlainText("# 请先在流程图中完成全部指令连线。\n")
-            self._loading_code = False
-            self.code_status.setText("等待流程图完成")
+        self.code_status.setText("流程、表格与多功能已同步" if complete else "已同步流程草稿，等待完成连线")
 
     def _edit_table_command(self, row: int, _column: int) -> None:
         item = self.command_table.item(row, 0)
@@ -628,35 +644,112 @@ class ViewWorkspace:
 
     def _load_code(self) -> None:
         if self._code_dirty: return
-        try:
-            self.window.workspace.repository.validate_graph()
-        except Exception:
-            text = self._generated_code()
-        else:
-            text = str(self.window.db.get_setting_value(CODE_SETTING) or "") or self._generated_code()
+        snapshot, validation_error = self._current_graph_state()
+        signature = self._graph_signature(snapshot)
+        saved_signature = str(
+            self.window.db.get_setting_value(CODE_GRAPH_SIGNATURE_SETTING) or ""
+        )
+        text = str(self.window.db.get_setting_value(CODE_SETTING) or "")
+        if not text or saved_signature != signature:
+            text = self._generated_code(snapshot, validation_error)
+            self.window.db.set_setting_value(CODE_SETTING, text)
+            self.window.db.set_setting_value(CODE_GRAPH_SIGNATURE_SETTING, signature)
         self._loading_code = True
         with QSignalBlocker(self.code_editor): self.code_editor.setPlainText(text)
         self._loading_code = False
+        self.code_status.setText(
+            "修改会自动保存在当前任务中"
+            if validation_error is None
+            else "已同步流程草稿，完成连线后即可运行"
+        )
 
     def regenerate_code(self) -> None:
-        self._loading_code = True
-        self.code_editor.setPlainText(self._generated_code())
-        self._loading_code = False
-        self._code_dirty = True
-        self._save_code()
+        self._sync_code_if_needed(force=True)
         self.refresh_summary()
         self.window.statusBar.showMessage("已根据当前流程重新生成多功能代码。", 3000)
 
-    def _generated_code(self) -> str:
+    def _current_graph_state(self):
         try:
             snapshot = self.window.workspace.repository.validate_graph()
-            commands = list(snapshot.commands)
+            return snapshot, None
         except Exception as error:
-            return f"# 流程图尚未完成：{error}\n"
-        lines = ["# Clicker 多功能代码", "# 双击左侧命令可插入命令提示。", ""]
-        for command in commands:
+            return self.window.workspace.repository.snapshot(), str(error)
+
+    @staticmethod
+    def _graph_signature(snapshot) -> str:
+        payload = {
+            "commands": [
+                {
+                    "id": command.id,
+                    "type": command.type_id,
+                    "parameters": command.parameters,
+                    "repeat": command.repeat_count,
+                    "error": command.error_policy,
+                    "note": command.note,
+                    "order": command.order,
+                }
+                for command in snapshot.commands
+            ],
+            "edges": [
+                {"source": edge.source, "target": edge.target, "kind": edge.kind}
+                for edge in snapshot.edges
+            ],
+        }
+        encoded = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _sync_code_if_needed(self, *, force: bool = False) -> bool:
+        snapshot, validation_error = self._current_graph_state()
+        signature = self._graph_signature(snapshot)
+        saved_signature = str(
+            self.window.db.get_setting_value(CODE_GRAPH_SIGNATURE_SETTING) or ""
+        )
+        saved_code = str(self.window.db.get_setting_value(CODE_SETTING) or "")
+        if not force and saved_signature == signature and saved_code:
+            return False
+        text = self._generated_code(snapshot, validation_error)
+        self._loading_code = True
+        with QSignalBlocker(self.code_editor):
+            self.code_editor.setPlainText(text)
+        self._loading_code = False
+        self._code_dirty = False
+        self.window.db.set_setting_value(CODE_SETTING, text)
+        self.window.db.set_setting_value(CODE_GRAPH_SIGNATURE_SETTING, signature)
+        self.code_status.setText(
+            "流程、表格与多功能已同步"
+            if validation_error is None
+            else "已同步流程草稿，等待完成连线"
+        )
+        return True
+
+    def _generated_code(self, snapshot=None, validation_error=None) -> str:
+        if snapshot is None:
+            snapshot, validation_error = self._current_graph_state()
+        commands = list(snapshot.commands)
+        lines = [
+            "# Clicker 多功能代码（由流程图同步）",
+            (
+                "# 状态：流程完整，可执行"
+                if validation_error is None
+                else f"# 状态：流程草稿，尚不可执行：{validation_error}"
+            ),
+            f"# 流程签名：{self._graph_signature(snapshot)[:16]}",
+            "# 在流程不变时可继续编辑；流程改变后会按最新内容重新同步。",
+            "",
+        ]
+        nodes_by_command = {
+            node.command_id: node
+            for node in snapshot.nodes
+            if node.command_id is not None
+        }
+        for sequence, command in enumerate(commands, start=1):
             params = json.dumps(command.parameters, ensure_ascii=False, sort_keys=True)
             note = f"  # {command.note}" if command.note else ""
+            node = nodes_by_command.get(command.id)
+            display_name = node.display_name if node is not None else command.type_id
+            lines.append(f"# [{sequence}] #{command.id} {display_name}")
             lines.append(f"{command.type_id}({params}, 重复次数={command.repeat_count}, 异常处理={command.error_policy!r}){note}")
         if snapshot.edges:
             nodes = {node.node_id: node for node in snapshot.nodes}
@@ -670,7 +763,7 @@ class ViewWorkspace:
                 lines.append(
                     f"# {source_name} --{kind_names.get(edge.kind, '下一步')}--> {target_name}"
                 )
-        if not commands: lines.append("# 当前流程还没有指令，请先到编辑视图添加。")
+        if not commands: lines.append("# 当前流程还没有指令，请先到流程图或表格视图添加。")
         return "\n".join(lines) + "\n"
 
     def _insert_command_hint(self, item: QListWidgetItem) -> None:

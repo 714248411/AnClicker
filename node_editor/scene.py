@@ -67,6 +67,21 @@ class NodeScene(QGraphicsScene):
         self._complete_chain = True
         self._connection_port = None
         self._connection_preview = None
+        self._routing_edges = False
+
+    def reroute_edges(self) -> None:
+        """Recalculate all paths so node avoidance and crossing scores agree."""
+        if self._routing_edges:
+            return
+        self._routing_edges = True
+        try:
+            # A second pass lets earlier edges account for routes selected by
+            # later edges without introducing an unstable recursive update.
+            for _ in range(2):
+                for edge_ in tuple(self.edges):
+                    edge_.update_path()
+        finally:
+            self._routing_edges = False
 
     def begin_port_connection(self, port_) -> None:
         self.cancel_port_connection()
@@ -335,6 +350,7 @@ class NodeScene(QGraphicsScene):
                 else:
                     self._complete_chain = True
                     self._set_chain_order(chain_order_)
+            self.reroute_edges()
         finally:
             self._updating_graph = False
         self.clearSelection()
@@ -490,6 +506,7 @@ class NodeScene(QGraphicsScene):
         self._preview_order = list(self.chain_order)
 
     def node_position_changed(self, node_: NodeItem) -> None:
+        self.reroute_edges()
         if (self._updating_graph or not self._complete_chain
                 or node_ is not self._drag_node or node_.is_terminal):
             return

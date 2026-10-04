@@ -44,8 +44,8 @@ from Window.about_ui import Ui_About
 from Window.mainwindow_ui import Ui_MainWindow
 from WindowControl.设置窗口 import Setting
 from WindowControl.资源文件夹窗口 import Global_s
-from info import CURRENT_VERSION, MAIN_WEBSITE, ISSUE_WEBSITE, QQ_GROUP, QQ, APP_NAME, \
-    Github_WEBSITE
+from info import CURRENT_VERSION, MAIN_WEBSITE, ISSUE_WEBSITE, QQ_GROUP, QQ, \
+    QQ_GROUP_OLD, QQ_OLD, APP_NAME, Github_WEBSITE
 from WindowControl.快捷键说明 import ShortcutTable
 from WindowControl.窗口状态 import install_window_state
 
@@ -704,7 +704,8 @@ class About(QDialog, Ui_About):
         self.db = getattr(parent, "db", None) or DatabaseOperation()
         install_window_state(self, self.db, self.windowTitle())
         self.label_2.setText(f"版本：{CURRENT_VERSION}")  # 设置版本号
-        self.label_7.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP, QQ))
+        self.label_7.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP_OLD, QQ_OLD))
+        self.label_9.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP, QQ))
         # 绑定事件
         self.gitee.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(MAIN_WEBSITE))

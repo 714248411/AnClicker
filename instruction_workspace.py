@@ -237,6 +237,7 @@ class InstructionWorkspace(QObject):
                 {str(node_id): (float(x), float(y))},
             )
             self.reload_graph(focused_[0] if focused_ else None)
+            self.graphFinalized.emit(True)
             self.statusMessage.emit("已保存节点位置和顺序")
         except Exception as error_:
             self.reload_graph()
@@ -285,6 +286,12 @@ class InstructionWorkspace(QObject):
         try:
             self.repository.update_command_note(int(command_id), str(note))
             self.reload_graph(int(command_id))
+            try:
+                self.repository.validate_graph()
+            except Exception:
+                self.graphFinalized.emit(False)
+            else:
+                self.graphFinalized.emit(True)
             self.statusMessage.emit("节点备注已保存")
         except Exception as error_:
             self._show_error("保存节点备注失败", error_)

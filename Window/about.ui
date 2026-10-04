@@ -311,7 +311,7 @@ QPushButton:pressed {
        <item>
         <widget class="QLabel" name="label_6">
          <property name="text">
-          <string>QQ交流群：</string>
+          <string>QQ交流群 1：</string>
          </property>
         </widget>
        </item>
@@ -321,7 +321,7 @@ QPushButton:pressed {
           <string notr="true">color: red; text-decoration: underline</string>
          </property>
          <property name="text">
-          <string>84284936</string>
+          <string>308994839</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
@@ -342,6 +342,30 @@ QPushButton:pressed {
         </size>
        </property>
       </spacer>
+     </item>
+     <item row="2" column="1">
+      <layout class="QHBoxLayout" name="horizontalLayout_qq2">
+       <item>
+        <widget class="QLabel" name="label_8">
+         <property name="text">
+          <string>QQ交流群 2：</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_9">
+         <property name="styleSheet">
+          <string notr="true">color: red; text-decoration: underline</string>
+         </property>
+         <property name="text">
+          <string>84284936</string>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>

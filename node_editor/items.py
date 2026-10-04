@@ -356,16 +356,8 @@ class EdgeItem(QGraphicsPathItem):
     def update_path(self):
         start_ = self.source_port.scenePos()
         end_ = self.target_port.scenePos()
-        path_ = QPainterPath(start_)
-        if QLineF(start_, end_).length() <= STRAIGHT_EDGE_DISTANCE:
-            path_.lineTo(end_)
-        else:
-            distance_ = max(abs(end_.x() - start_.x()) * 0.5, 60.0)
-            path_.cubicTo(
-                QPointF(start_.x() + distance_, start_.y()),
-                QPointF(end_.x() - distance_, end_.y()),
-                end_,
-            )
+        candidates_ = self._route_candidates(start_, end_)
+        path_ = min(candidates_, key=self._route_score)
         self.setPath(path_)
         branch_color_, _ = self._branch_style()
         color_ = (
@@ -381,6 +373,85 @@ class EdgeItem(QGraphicsPathItem):
                 Qt.PenCapStyle.RoundCap,
             )
         )
+
+    @staticmethod
+    def _polyline(points_) -> QPainterPath:
+        path_ = QPainterPath(points_[0])
+        for point_ in points_[1:]:
+            path_.lineTo(point_)
+        return path_
+
+    def _route_candidates(self, start_: QPointF, end_: QPointF) -> list[QPainterPath]:
+        """Build several deterministic routes; scoring selects the clearest one."""
+        direct_ = QPainterPath(start_)
+        distance_ = max(abs(end_.x() - start_.x()) * 0.5, 60.0)
+        direct_.cubicTo(
+            QPointF(start_.x() + distance_, start_.y()),
+            QPointF(end_.x() - distance_, end_.y()),
+            end_,
+        )
+        if QLineF(start_, end_).length() <= STRAIGHT_EDGE_DISTANCE:
+            direct_ = self._polyline((start_, end_))
+
+        scene_ = self.scene()
+        node_rects_ = [
+            node_.sceneBoundingRect()
+            for node_ in getattr(scene_, "nodes_by_id", {}).values()
+        ]
+        top_ = min((rect_.top() for rect_ in node_rects_), default=min(start_.y(), end_.y()))
+        bottom_ = max((rect_.bottom() for rect_ in node_rects_), default=max(start_.y(), end_.y()))
+        try:
+            lane_index_ = max(0, self.source_port.edges.index(self))
+        except ValueError:
+            lane_index_ = 0
+        lane_gap_ = 34.0 + lane_index_ * 18.0
+        start_x_ = start_.x() + 26.0
+        end_x_ = end_.x() - 26.0
+        middle_x_ = (start_x_ + end_x_) / 2.0
+        return [
+            direct_,
+            self._polyline(
+                (start_, QPointF(middle_x_, start_.y()), QPointF(middle_x_, end_.y()), end_)
+            ),
+            self._polyline(
+                (
+                    start_, QPointF(start_x_, start_.y()), QPointF(start_x_, top_ - lane_gap_),
+                    QPointF(end_x_, top_ - lane_gap_), QPointF(end_x_, end_.y()), end_,
+                )
+            ),
+            self._polyline(
+                (
+                    start_, QPointF(start_x_, start_.y()), QPointF(start_x_, bottom_ + lane_gap_),
+                    QPointF(end_x_, bottom_ + lane_gap_), QPointF(end_x_, end_.y()), end_,
+                )
+            ),
+        ]
+
+    def _route_score(self, path_: QPainterPath) -> float:
+        scene_ = self.scene()
+        node_hits_ = 0
+        crossing_hits_ = 0
+        stroker_ = QPainterPathStroker()
+        stroker_.setWidth(4.0)
+        route_shape_ = stroker_.createStroke(path_)
+        if scene_ is not None:
+            for node_ in getattr(scene_, "nodes_by_id", {}).values():
+                if node_ in {self.source_node, self.target_node}:
+                    continue
+                if route_shape_.intersects(node_.sceneBoundingRect().adjusted(-10.0, -10.0, 10.0, 10.0)):
+                    node_hits_ += 1
+            for other_ in getattr(scene_, "edges", ()):
+                if other_ is self or not isinstance(other_, EdgeItem):
+                    continue
+                if {
+                    self.source_node, self.target_node
+                } & {other_.source_node, other_.target_node}:
+                    continue
+                if route_shape_.intersects(stroker_.createStroke(other_.path())):
+                    crossing_hits_ += 1
+        # Node overlap is always worse than a longer detour.  Crossings are
+        # the next priority, then path length keeps unobstructed routes tidy.
+        return node_hits_ * 1_000_000.0 + crossing_hits_ * 10_000.0 + path_.length()
 
     def paint(self, painter_, option_, widget_=None):
         super().paint(painter_, option_, widget_)

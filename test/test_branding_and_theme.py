@@ -5,7 +5,7 @@ import unittest
 from PySide6.QtGui import QImage
 
 from functions import RESOURCE_FOLDER
-from info import CURRENT_VERSION, QQ, QQ_GROUP
+from info import CURRENT_VERSION, QQ, QQ_GROUP, QQ_GROUP_OLD, QQ_OLD
 from 数据库操作 import DatabaseOperation
 
 
@@ -15,6 +15,8 @@ class BrandingAndThemeTests(unittest.TestCase):
         self.assertEqual(QQ, "84284936")
         self.assertIn("group_code=84284936", QQ_GROUP)
         self.assertTrue(QQ_GROUP.startswith("http://qm.qq.com/cgi-bin/qm/qr?"))
+        self.assertEqual(QQ_OLD, "308994839")
+        self.assertEqual(QQ_GROUP_OLD, "https://qm.qq.com/q/3ih3PE16Mg")
 
     def test_light_theme_is_default_but_later_choice_is_preserved(self):
         with tempfile.TemporaryDirectory() as directory:

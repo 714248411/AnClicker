@@ -189,6 +189,23 @@ class Ui_About(object):
 
         self.gridLayout_2.addItem(self.horizontalSpacer_6, 1, 2, 1, 1)
 
+        self.horizontalLayout_qq2 = QHBoxLayout()
+        self.horizontalLayout_qq2.setObjectName(u"horizontalLayout_qq2")
+        self.label_8 = QLabel(About)
+        self.label_8.setObjectName(u"label_8")
+
+        self.horizontalLayout_qq2.addWidget(self.label_8)
+
+        self.label_9 = QLabel(About)
+        self.label_9.setObjectName(u"label_9")
+        self.label_9.setStyleSheet(u"color: red; text-decoration: underline")
+        self.label_9.setOpenExternalLinks(True)
+
+        self.horizontalLayout_qq2.addWidget(self.label_9)
+
+
+        self.gridLayout_2.addLayout(self.horizontalLayout_qq2, 2, 1, 1, 1)
+
 
         self.verticalLayout_2.addLayout(self.gridLayout_2)
 
@@ -249,8 +266,10 @@ class Ui_About(object):
         self.label_2.setText(QCoreApplication.translate("About", u"\u7248\u672c\uff1av1.0.0 Beat", None))
         self.pushButton_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae", None))
         self.label_3.setText(QCoreApplication.translate("About", u"PyAutoGUI\u53ef\u89c6\u5316\uff0c\u81ea\u52a8\u5904\u7406\u9700\u8981\u5927\u91cf\u91cd\u590d\u64cd\u4f5c\u9f20\u6807\u952e\u76d8\u7684\u4e8b\u4ef6\u3002", None))
-        self.label_6.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4\uff1a", None))
-        self.label_7.setText(QCoreApplication.translate("About", u"84284936", None))
+        self.label_6.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4 1\uff1a", None))
+        self.label_7.setText(QCoreApplication.translate("About", u"308994839", None))
+        self.label_8.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4 2\uff1a", None))
+        self.label_9.setText(QCoreApplication.translate("About", u"84284936", None))
         self.gitee.setText(QCoreApplication.translate("About", u"gitee\u5730\u5740", None))
         self.gitee_2.setText(QCoreApplication.translate("About", u"gitee\u5730\u5740", None))
         self.label_4.setText(QCoreApplication.translate("About", u"federalsadler@sohu.com Copyright (c) [2022] ", None))
