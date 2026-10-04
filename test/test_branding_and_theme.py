@@ -13,6 +13,7 @@ from info import (
     GITEE_WEBSITE_SECOND,
     GITHUB_WEBSITE_OLD,
     Github_WEBSITE,
+    ISSUE_WEBSITE_2,
     MAIN_WEBSITE,
     QQ,
     QQ_CONTACTS,
@@ -34,16 +35,19 @@ class BrandingAndThemeTests(unittest.TestCase):
         self.assertTrue(QQ_GROUP.startswith("http://qm.qq.com/cgi-bin/qm/qr?"))
         self.assertEqual(QQ_OLD, "308994839")
         self.assertEqual(QQ_GROUP_OLD, "https://qm.qq.com/q/3ih3PE16Mg")
-        self.assertEqual(QQ_CONTACTS, ("2309636438", "714248411"))
+        self.assertEqual(QQ_CONTACTS, ("714248411", "2309636438"))
         self.assertEqual(
-            EMAIL_CONTACTS, ("federalsadler@sohu.com", "714248411@qq.com")
+            EMAIL_CONTACTS, ("714248411@qq.com", "federalsadler@sohu.com")
         )
         self.assertEqual(CONTRIBUTORS, ("FasterThanLight", "YanYi"))
         self.assertEqual(
             MAIN_WEBSITE, "https://gitee.com/fasterthanlight/automatic_clicker_2"
         )
-        self.assertEqual(Github_WEBSITE, "https://github.com/714248411/YanYiClicker")
-        self.assertEqual(GITEE_WEBSITE_SECOND, "https://gitee.com")
+        self.assertEqual(Github_WEBSITE, "https://github.com/714248411/AnClicker")
+        self.assertEqual(GITEE_WEBSITE_SECOND, "https://gitee.com/714248411/AnClicker")
+        self.assertEqual(
+            ISSUE_WEBSITE_2, "https://gitee.com/714248411/AnClicker/issues"
+        )
         self.assertEqual(
             GITHUB_WEBSITE_OLD,
             "https://github.com/FsterThanLight/automatic_clicker_2",

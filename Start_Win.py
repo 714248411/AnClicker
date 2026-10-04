@@ -44,7 +44,7 @@ from Window.about_ui import Ui_About
 from Window.mainwindow_ui import Ui_MainWindow
 from WindowControl.设置窗口 import Setting
 from WindowControl.资源文件夹窗口 import Global_s
-from info import CURRENT_VERSION, MAIN_WEBSITE, ISSUE_WEBSITE, QQ_GROUP, QQ, \
+from info import CURRENT_VERSION, MAIN_WEBSITE, ISSUE_WEBSITE, ISSUE_WEBSITE_2, QQ_GROUP, QQ, \
     QQ_GROUP_OLD, QQ_OLD, QQ_CONTACTS, EMAIL_CONTACTS, CONTRIBUTORS, APP_NAME, \
     GITEE_WEBSITE_SECOND, GITHUB_WEBSITE_OLD, Github_WEBSITE, WINDOW_TITLE
 from WindowControl.快捷键说明 import ShortcutTable
@@ -705,49 +705,43 @@ class About(QDialog, Ui_About):
         self.db = getattr(parent, "db", None) or DatabaseOperation()
         install_window_state(self, self.db, self.windowTitle())
         self.label_2.setText(f"版本：{CURRENT_VERSION}")  # 设置版本号
-        self.label_7.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP_OLD, QQ_OLD))
-        self.label_9.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP, QQ))
+        self.label_7.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP, QQ))
+        self.label_9.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP_OLD, QQ_OLD))
         self.label_4.setText(
             "<b>贡献者：</b>{}　　{}<br>"
             "<b>QQ：</b>{}　　{}<br>"
             "<b>邮箱：</b><a href=\"mailto:{}\">{}</a>　　"
             "<a href=\"mailto:{}\">{}</a><br>"
-            "<b>代码仓库：</b><br>"
-            "<a href=\"{}\">{}</a><br>"
-            "<a href=\"{}\">{}</a><br>"
-            "<a href=\"{}\">{}</a><br>"
-            "<a href=\"{}\">{}</a><br>"
             "Copyright © 2022–2026".format(
                 *CONTRIBUTORS,
                 *QQ_CONTACTS,
                 EMAIL_CONTACTS[0], EMAIL_CONTACTS[0],
                 EMAIL_CONTACTS[1], EMAIL_CONTACTS[1],
-                MAIN_WEBSITE, MAIN_WEBSITE,
-                GITEE_WEBSITE_SECOND, GITEE_WEBSITE_SECOND,
-                GITHUB_WEBSITE_OLD, GITHUB_WEBSITE_OLD,
-                Github_WEBSITE, Github_WEBSITE,
             )
         )
         self.label_4.setOpenExternalLinks(True)
-        self.gitee.setToolTip(MAIN_WEBSITE)
-        self.gitee_3.setToolTip(GITEE_WEBSITE_SECOND)
-        self.gitee_2.setToolTip(GITHUB_WEBSITE_OLD)
-        self.gitee_4.setToolTip(Github_WEBSITE)
+        self.gitee.setToolTip(GITEE_WEBSITE_SECOND)
+        self.gitee_3.setToolTip(MAIN_WEBSITE)
+        self.gitee_2.setToolTip(Github_WEBSITE)
+        self.gitee_4.setToolTip(GITHUB_WEBSITE_OLD)
         # 绑定事件
         self.gitee.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl(MAIN_WEBSITE))
-        )
-        self.gitee_2.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl(GITHUB_WEBSITE_OLD))
-        )
-        self.gitee_3.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(GITEE_WEBSITE_SECOND))
         )
-        self.gitee_4.clicked.connect(
+        self.gitee_2.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(Github_WEBSITE))
+        )
+        self.gitee_3.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(MAIN_WEBSITE))
+        )
+        self.gitee_4.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(GITHUB_WEBSITE_OLD))
         )
         self.pushButton_2.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(ISSUE_WEBSITE))
+        )
+        self.pushButton_feedback_2.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(ISSUE_WEBSITE_2))
         )
 
     def closeEvent(self, event):

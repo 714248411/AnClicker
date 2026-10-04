@@ -230,7 +230,7 @@
     </layout>
    </item>
    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1">
+     <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1,1">
      <item>
       <widget class="QPushButton" name="pushButton_2">
        <property name="font">
@@ -261,7 +261,21 @@ QPushButton:pressed {
 </string>
        </property>
        <property name="text">
-        <string>反馈及建议</string>
+        <string>反馈及建议 1</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_feedback_2">
+       <property name="font">
+        <font>
+         <family>Microsoft YaHei</family>
+         <pointsize>-1</pointsize>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>反馈及建议 2</string>
        </property>
       </widget>
      </item>
@@ -275,7 +289,7 @@ QPushButton:pressed {
       </font>
      </property>
      <property name="text">
-      <string>PyAutoGUI可视化，自动处理需要大量重复操作鼠标键盘的事件。</string>
+      <string>自动化可视化，处理需要大量重复操作鼠标键盘的事件。</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -321,7 +335,7 @@ QPushButton:pressed {
           <string notr="true">color: red; text-decoration: underline</string>
          </property>
          <property name="text">
-          <string>308994839</string>
+          <string>84284936</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
@@ -358,7 +372,7 @@ QPushButton:pressed {
           <string notr="true">color: red; text-decoration: underline</string>
          </property>
          <property name="text">
-          <string>84284936</string>
+          <string>308994839</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>
@@ -500,7 +514,7 @@ QPushButton:pressed {
       </font>
      </property>
      <property name="text">
-      <string>&lt;b&gt;贡献者：&lt;/b&gt;FasterThanLight　　YanYi&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;2309636438　　714248411&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;federalsadler@sohu.com　　714248411@qq.com&lt;br&gt;&lt;b&gt;代码仓库：&lt;/b&gt;&lt;br&gt;https://gitee.com/fasterthanlight/automatic_clicker_2&lt;br&gt;https://gitee.com&lt;br&gt;https://github.com/FsterThanLight/automatic_clicker_2&lt;br&gt;https://github.com/714248411/YanYiClicker&lt;br&gt;Copyright © 2022–2026</string>
+      <string>&lt;b&gt;贡献者：&lt;/b&gt;FasterThanLight　　YanYi&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;714248411　　2309636438&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;714248411@qq.com　　federalsadler@sohu.com&lt;br&gt;Copyright © 2022–2026</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

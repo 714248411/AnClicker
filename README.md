@@ -1,6 +1,6 @@
-# YanYiClicker
+# An Clicker
 
-YanYiClicker 是一款基于 PySide6 的 Windows 自动化工具，由 Clicker 项目扩展而来。启动入口为 `main.py`，主窗口控制器位于 `Start_Win.py`。
+An Clicker 是一款基于 PySide6 的 Windows 自动化工具，由 Clicker 项目扩展而来。启动入口为 `main.py`，主窗口控制器位于 `Start_Win.py`。
 
 ## 当前架构
 
@@ -89,9 +89,9 @@ PyInstaller 打包说明见 `packaging/打包文件说明.md`。
 
 - FasterThanLight
 - YanYi
-- 邮箱：federalsadler@sohu.com
 - 邮箱：714248411@qq.com
-- QQ：2309636438
+- 邮箱：federalsadler@sohu.com
 - QQ：714248411
-- QQ 群 1：308994839（[加入群聊](https://qm.qq.com/q/3ih3PE16Mg)）
-- QQ 群 2：84284936（[加入群聊](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XCOQZMwDVB3y-vIz4LXdMITq-7sqGP3A&authKey=6FPrdTF0o6JIfJoc58deZ1cEWvUURazs%2FDh%2BJOz1aJI2DS%2BMFr3jRIai2%2F7bbvwN&noverify=0&group_code=84284936)）
+- QQ：2309636438
+- QQ 群 1：84284936（[加入群聊](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XCOQZMwDVB3y-vIz4LXdMITq-7sqGP3A&authKey=6FPrdTF0o6JIfJoc58deZ1cEWvUURazs%2FDh%2BJOz1aJI2DS%2BMFr3jRIai2%2F7bbvwN&noverify=0&group_code=84284936)）
+- QQ 群 2：308994839（[加入群聊](https://qm.qq.com/q/3ih3PE16Mg)）

@@ -146,7 +146,14 @@ class Ui_About(object):
 
         self.horizontalLayout_4.addWidget(self.pushButton_2)
 
+        self.pushButton_feedback_2 = QPushButton(About)
+        self.pushButton_feedback_2.setObjectName(u"pushButton_feedback_2")
+        self.pushButton_feedback_2.setFont(font2)
+
+        self.horizontalLayout_4.addWidget(self.pushButton_feedback_2)
+
         self.horizontalLayout_4.setStretch(0, 1)
+        self.horizontalLayout_4.setStretch(1, 1)
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_4)
 
@@ -285,16 +292,17 @@ class Ui_About(object):
         self.label.setText("")
         self.label_5.setText(QCoreApplication.translate("About", u"An Clicker", None))
         self.label_2.setText(QCoreApplication.translate("About", u"\u7248\u672c\uff1av1.0.0 Beat", None))
-        self.pushButton_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae", None))
-        self.label_3.setText(QCoreApplication.translate("About", u"PyAutoGUI\u53ef\u89c6\u5316\uff0c\u81ea\u52a8\u5904\u7406\u9700\u8981\u5927\u91cf\u91cd\u590d\u64cd\u4f5c\u9f20\u6807\u952e\u76d8\u7684\u4e8b\u4ef6\u3002", None))
+        self.pushButton_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae 1", None))
+        self.pushButton_feedback_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae 2", None))
+        self.label_3.setText(QCoreApplication.translate("About", u"\u81ea\u52a8\u5316\u53ef\u89c6\u5316\uff0c\u5904\u7406\u9700\u8981\u5927\u91cf\u91cd\u590d\u64cd\u4f5c\u9f20\u6807\u952e\u76d8\u7684\u4e8b\u4ef6\u3002", None))
         self.label_6.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4 1\uff1a", None))
-        self.label_7.setText(QCoreApplication.translate("About", u"308994839", None))
+        self.label_7.setText(QCoreApplication.translate("About", u"84284936", None))
         self.label_8.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4 2\uff1a", None))
-        self.label_9.setText(QCoreApplication.translate("About", u"84284936", None))
+        self.label_9.setText(QCoreApplication.translate("About", u"308994839", None))
         self.gitee.setText(QCoreApplication.translate("About", u"Gitee 1", None))
         self.gitee_3.setText(QCoreApplication.translate("About", u"Gitee 2", None))
         self.gitee_2.setText(QCoreApplication.translate("About", u"GitHub 1", None))
         self.gitee_4.setText(QCoreApplication.translate("About", u"GitHub 2", None))
-        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>FasterThanLight\u3000\u3000YanYi<br><b>QQ\uff1a</b>2309636438\u3000\u3000714248411<br><b>\u90ae\u7bb1\uff1a</b>federalsadler@sohu.com\u3000\u3000714248411@qq.com<br><b>\u4ee3\u7801\u4ed3\u5e93\uff1a</b><br>https://gitee.com/fasterthanlight/automatic_clicker_2<br>https://gitee.com<br>https://github.com/FsterThanLight/automatic_clicker_2<br>https://github.com/714248411/YanYiClicker<br>Copyright \u00a9 2022\u20132026", None))
+        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>FasterThanLight\u3000\u3000YanYi<br><b>QQ\uff1a</b>714248411\u3000\u30002309636438<br><b>\u90ae\u7bb1\uff1a</b>714248411@qq.com\u3000\u3000federalsadler@sohu.com<br>Copyright \u00a9 2022\u20132026", None))
     # retranslateUi
 
