@@ -114,6 +114,9 @@ class InstructionFallbackTests(unittest.TestCase):
         process_result_ = SimpleNamespace(stdout="ok\n", returncode=0)
 
         with ExitStack() as stack_:
+            # This case verifies the legacy Windows fallbacks and their exact
+            # API calls. Cross-platform routing has dedicated platform tests.
+            stack_.enter_context(patch.object(sys, "platform", "win32"))
             stack_.enter_context(patch.object(actions, "pyautogui_module", return_value=self.gui_))
             stack_.enter_context(patch.object(actions, "wait_seconds"))
             stack_.enter_context(patch.object(actions, "locate_image", return_value=_Point()))
