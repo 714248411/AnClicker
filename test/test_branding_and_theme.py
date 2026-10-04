@@ -44,9 +44,9 @@ class BrandingAndThemeTests(unittest.TestCase):
             MAIN_WEBSITE, "https://gitee.com/fasterthanlight/automatic_clicker_2"
         )
         self.assertEqual(Github_WEBSITE, "https://github.com/714248411/AnClicker")
-        self.assertEqual(GITEE_WEBSITE_SECOND, "https://gitee.com/714248411/AnClicker")
+        self.assertEqual(GITEE_WEBSITE_SECOND, "https://gitee.com/YiZhiYanYi/AnClicker")
         self.assertEqual(
-            ISSUE_WEBSITE_2, "https://gitee.com/714248411/AnClicker/issues"
+            ISSUE_WEBSITE_2, "https://gitee.com/YiZhiYanYi/AnClicker/issues"
         )
         self.assertEqual(
             GITHUB_WEBSITE_OLD,

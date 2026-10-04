@@ -2,6 +2,8 @@
 
 An Clicker 是一款基于 PySide6 的 Windows 自动化工具，由 Clicker 项目扩展而来。启动入口为 `main.py`，主窗口控制器位于 `Start_Win.py`。
 
+项目同步发布于 [Gitee](https://gitee.com/YiZhiYanYi/AnClicker) 与 [GitHub](https://github.com/714248411/AnClicker)；应用内“反馈及建议2”直接打开 Gitee 仓库的 [Issues](https://gitee.com/YiZhiYanYi/AnClicker/issues)。
+
 ## 当前架构
 
 ### 流程图复刻与运行语义
