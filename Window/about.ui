@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>218</width>
-    <height>396</height>
+    <width>580</width>
+    <height>560</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -387,7 +387,7 @@ QPushButton:pressed {
      <item>
       <widget class="QToolButton" name="gitee">
        <property name="text">
-        <string>gitee地址</string>
+        <string>Gitee 仓库</string>
        </property>
        <property name="icon">
         <iconset resource="../images.qrc">
@@ -402,12 +402,15 @@ QPushButton:pressed {
        <property name="autoRaise">
         <bool>true</bool>
        </property>
+       <property name="toolButtonStyle">
+        <enum>Qt::ToolButtonStyle::ToolButtonTextUnderIcon</enum>
+       </property>
       </widget>
      </item>
      <item>
       <widget class="QToolButton" name="gitee_2">
        <property name="text">
-        <string>gitee地址</string>
+        <string>GitHub 仓库</string>
        </property>
        <property name="icon">
         <iconset resource="../images.qrc">
@@ -421,6 +424,9 @@ QPushButton:pressed {
        </property>
        <property name="autoRaise">
         <bool>true</bool>
+       </property>
+       <property name="toolButtonStyle">
+        <enum>Qt::ToolButtonStyle::ToolButtonTextUnderIcon</enum>
        </property>
       </widget>
      </item>
@@ -444,16 +450,19 @@ QPushButton:pressed {
      <property name="font">
       <font>
        <family>微软雅黑</family>
-       <pointsize>7</pointsize>
+       <pointsize>9</pointsize>
       </font>
      </property>
      <property name="text">
-      <string>federalsadler@sohu.com Copyright (c) [2022] </string>
+      <string>&lt;b&gt;贡献者：&lt;/b&gt;FasterThanLight　　YanYi&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;2309636438　　714248411&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;federalsadler@sohu.com　　714248411@qq.com&lt;br&gt;&lt;b&gt;代码仓库：&lt;/b&gt;&lt;br&gt;https://gitee.com/fasterthanlight/automatic_clicker_2&lt;br&gt;https://github.com/714248411/YanYiClicker&lt;br&gt;Copyright © 2022–2026</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
      <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+     <property name="openExternalLinks">
       <bool>true</bool>
      </property>
     </widget>

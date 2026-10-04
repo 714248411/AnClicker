@@ -5,7 +5,18 @@ import unittest
 from PySide6.QtGui import QImage
 
 from functions import RESOURCE_FOLDER
-from info import CURRENT_VERSION, QQ, QQ_GROUP, QQ_GROUP_OLD, QQ_OLD
+from info import (
+    CONTRIBUTORS,
+    CURRENT_VERSION,
+    EMAIL_CONTACTS,
+    Github_WEBSITE,
+    MAIN_WEBSITE,
+    QQ,
+    QQ_CONTACTS,
+    QQ_GROUP,
+    QQ_GROUP_OLD,
+    QQ_OLD,
+)
 from 数据库操作 import DatabaseOperation
 
 
@@ -17,6 +28,15 @@ class BrandingAndThemeTests(unittest.TestCase):
         self.assertTrue(QQ_GROUP.startswith("http://qm.qq.com/cgi-bin/qm/qr?"))
         self.assertEqual(QQ_OLD, "308994839")
         self.assertEqual(QQ_GROUP_OLD, "https://qm.qq.com/q/3ih3PE16Mg")
+        self.assertEqual(QQ_CONTACTS, ("2309636438", "714248411"))
+        self.assertEqual(
+            EMAIL_CONTACTS, ("federalsadler@sohu.com", "714248411@qq.com")
+        )
+        self.assertEqual(CONTRIBUTORS, ("FasterThanLight", "YanYi"))
+        self.assertEqual(
+            MAIN_WEBSITE, "https://gitee.com/fasterthanlight/automatic_clicker_2"
+        )
+        self.assertEqual(Github_WEBSITE, "https://github.com/714248411/YanYiClicker")
 
     def test_light_theme_is_default_but_later_choice_is_preserved(self):
         with tempfile.TemporaryDirectory() as directory:

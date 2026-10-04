@@ -88,7 +88,10 @@ PyInstaller 打包说明见 `packaging/打包文件说明.md`。
 ## 贡献者
 
 - FasterThanLight
+- YanYi
 - 邮箱：federalsadler@sohu.com
+- 邮箱：714248411@qq.com
 - QQ：2309636438
+- QQ：714248411
 - QQ 群 1：308994839（[加入群聊](https://qm.qq.com/q/3ih3PE16Mg)）
 - QQ 群 2：84284936（[加入群聊](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XCOQZMwDVB3y-vIz4LXdMITq-7sqGP3A&authKey=6FPrdTF0o6JIfJoc58deZ1cEWvUURazs%2FDh%2BJOz1aJI2DS%2BMFr3jRIai2%2F7bbvwN&noverify=0&group_code=84284936)）

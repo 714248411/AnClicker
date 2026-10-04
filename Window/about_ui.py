@@ -24,7 +24,7 @@ class Ui_About(object):
     def setupUi(self, About):
         if not About.objectName():
             About.setObjectName(u"About")
-        About.resize(218, 396)
+        About.resize(580, 560)
         icon = QIcon()
         icon.addFile(u":/\u6309\u94ae\u56fe\u6807/Window/res/\u56fe\u6807.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         About.setWindowIcon(icon)
@@ -222,6 +222,7 @@ class Ui_About(object):
         self.gitee.setIcon(icon1)
         self.gitee.setIconSize(QSize(50, 50))
         self.gitee.setAutoRaise(True)
+        self.gitee.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
 
         self.horizontalLayout_3.addWidget(self.gitee)
 
@@ -232,6 +233,7 @@ class Ui_About(object):
         self.gitee_2.setIcon(icon2)
         self.gitee_2.setIconSize(QSize(50, 50))
         self.gitee_2.setAutoRaise(True)
+        self.gitee_2.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
 
         self.horizontalLayout_3.addWidget(self.gitee_2)
 
@@ -246,10 +248,11 @@ class Ui_About(object):
         self.label_4.setObjectName(u"label_4")
         font4 = QFont()
         font4.setFamilies([u"\u5fae\u8f6f\u96c5\u9ed1"])
-        font4.setPointSize(7)
+        font4.setPointSize(9)
         self.label_4.setFont(font4)
         self.label_4.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_4.setWordWrap(True)
+        self.label_4.setOpenExternalLinks(True)
 
         self.verticalLayout_2.addWidget(self.label_4)
 
@@ -270,8 +273,8 @@ class Ui_About(object):
         self.label_7.setText(QCoreApplication.translate("About", u"308994839", None))
         self.label_8.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4 2\uff1a", None))
         self.label_9.setText(QCoreApplication.translate("About", u"84284936", None))
-        self.gitee.setText(QCoreApplication.translate("About", u"gitee\u5730\u5740", None))
-        self.gitee_2.setText(QCoreApplication.translate("About", u"gitee\u5730\u5740", None))
-        self.label_4.setText(QCoreApplication.translate("About", u"federalsadler@sohu.com Copyright (c) [2022] ", None))
+        self.gitee.setText(QCoreApplication.translate("About", u"Gitee \u4ed3\u5e93", None))
+        self.gitee_2.setText(QCoreApplication.translate("About", u"GitHub \u4ed3\u5e93", None))
+        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>FasterThanLight\u3000\u3000YanYi<br><b>QQ\uff1a</b>2309636438\u3000\u3000714248411<br><b>\u90ae\u7bb1\uff1a</b>federalsadler@sohu.com\u3000\u3000714248411@qq.com<br><b>\u4ee3\u7801\u4ed3\u5e93\uff1a</b><br>https://gitee.com/fasterthanlight/automatic_clicker_2<br>https://github.com/714248411/YanYiClicker<br>Copyright \u00a9 2022\u20132026", None))
     # retranslateUi
 
