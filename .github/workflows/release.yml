@@ -38,7 +38,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb scrot xdotool libxcb-cursor0 libxkbcommon-x11-0
+          sudo apt-get install -y \
+            xvfb scrot xdotool \
+            libegl1 libgl1 libopengl0 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-render-util0 libxcb-xinerama0 libxkbcommon-x11-0
           Xvfb :99 -screen 0 1920x1080x24 >/tmp/anclicker-xvfb.log 2>&1 &
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pytest
