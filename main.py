@@ -125,12 +125,9 @@ def main():
 
     start_window = importlib.import_module("Start_Win")
     main_window = start_window.Main_window()
-    try:
-        main_window.setStyleSheet(
-            read_qss_file(os.path.join(flat_dir, "Combinear.qss"))
-        )
-    except FileNotFoundError:
-        pass
+    # Main_window installs the active dark/light theme itself.  Reapplying the
+    # legacy Combinear.qss here used to overwrite it after construction and
+    # left native-white table viewports and corners in the dark theme.
 
     main_window.show()
     splash.finish(main_window)

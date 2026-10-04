@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from PySide6.QtCore import QSignalBlocker, Signal, Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
@@ -112,6 +112,9 @@ class ViewWorkspace:
         self._normalize_existing_controls()
         self._apply_theme()
         self._assemble_views()
+        # The first pass themes widgets loaded from the .ui file; this pass
+        # also covers the table/code/navigation widgets created above.
+        self._apply_theme()
         self.window.workspace.graphFinalized.connect(self._graph_finalized)
         self._build_navigation()
         self.tabs.currentChanged.connect(self._view_changed)
@@ -646,10 +649,37 @@ class ViewWorkspace:
 
     def _apply_theme(self) -> None:
         c = self.THEMES[self.theme_mode]
+        try:
+            scheme = (
+                Qt.ColorScheme.Dark
+                if self.theme_mode == "dark"
+                else Qt.ColorScheme.Light
+            )
+            QGuiApplication.styleHints().setColorScheme(scheme)
+        except AttributeError:
+            pass
+        if hasattr(self, "command_table"):
+            table_palette = self.command_table.palette()
+            for role, color in (
+                (QPalette.ColorRole.Window, c["surface"]),
+                (QPalette.ColorRole.Base, c["surface"]),
+                (QPalette.ColorRole.AlternateBase, c["surface2"]),
+                (QPalette.ColorRole.Text, c["text"]),
+                (QPalette.ColorRole.WindowText, c["text"]),
+                (QPalette.ColorRole.Button, c["surface2"]),
+                (QPalette.ColorRole.Highlight, c["accent2"]),
+                (QPalette.ColorRole.HighlightedText, c["accent_text"]),
+            ):
+                table_palette.setColor(role, QColor(color))
+            self.command_table.setPalette(table_palette)
+            self.command_table.viewport().setPalette(table_palette)
+            self.command_table.viewport().setAutoFillBackground(True)
         self.window.workspace.editor.set_theme(self.theme_mode)
         self.window.setStyleSheet(f"""
             QMainWindow, QWidget#centralwidget {{ background: {c['bg']}; color: {c['text']}; }}
             QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
+            QWidget#tab, QWidget#editorView, QWidget#multifunctionView,
+            QWidget#beginnerView, QStackedWidget {{ background: {c['bg']}; color: {c['text']}; }}
             QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
             QMenuBar::item:selected, QMenu::item:selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 5px; }}
@@ -686,18 +716,26 @@ class ViewWorkspace:
             QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px; }}
             QCheckBox::indicator:unchecked, QRadioButton::indicator:unchecked {{ background: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 5px; }}
             QCheckBox::indicator:checked, QRadioButton::indicator:checked {{ background: {c['accent']}; border: 2px solid {c['surface2']}; border-radius: 5px; }}
+            QAbstractScrollArea, QAbstractScrollArea QWidget#qt_scrollarea_viewport,
             QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
+            QTableWidget#commandTable {{ background-color: {c['surface']}; alternate-background-color: {c['surface2']}; }}
+            QTableWidget#commandTable::item {{ background-color: transparent; color: {c['text']}; border: none; padding: 5px; }}
+            QTableWidget#commandTable::item:alternate {{ background-color: {c['surface2']}; }}
             QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 10px; padding: 8px; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
+            QHeaderView {{ background: {c['surface2']}; color: {c['accent']}; }}
             QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}
+            QTableCornerButton::section, QAbstractScrollArea::corner {{ background: {c['surface2']}; border: none; border-right: 1px solid {c['line']}; border-bottom: 1px solid {c['line']}; }}
             QToolTip {{ background: {c['surface3']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 6px; padding: 5px; }}
             QDialog {{ background: {c['bg']}; color: {c['text']}; }}
             QDialogButtonBox QPushButton {{ min-width: 76px; }}
             QScrollBar:vertical {{ background: {c['bg']}; width: 11px; }}
             QScrollBar::handle:vertical {{ background: {c['surface3']}; min-height: 24px; border-radius: 5px; }}
             QScrollBar::handle:vertical:hover {{ background: {c['accent2']}; }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: {c['bg']}; }}
             QScrollBar:horizontal {{ background: {c['bg']}; height: 11px; }}
             QScrollBar::handle:horizontal {{ background: {c['surface3']}; min-width: 24px; border-radius: 5px; }}
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: {c['bg']}; }}
             QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; }}
             QSplitter::handle {{ background: {c['bg']}; }}
             QSplitter#tableLogSplitter::handle {{ background: {c['bg']}; height: 8px; }}
