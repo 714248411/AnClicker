@@ -220,7 +220,7 @@
         </font>
        </property>
        <property name="text">
-        <string>版本：v0.25 Bate</string>
+        <string>版本：v1.0.0 Beat</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -293,44 +293,6 @@ QPushButton:pressed {
      <property name="verticalSpacing">
       <number>4</number>
      </property>
-     <item row="0" column="0" colspan="3">
-      <widget class="QPushButton" name="pushButton_3">
-       <property name="font">
-        <font>
-         <family>Microsoft YaHei</family>
-         <pointsize>-1</pointsize>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">QPushButton {
-    background-color: rgb(219, 58, 150); /* 设置背景颜色为粉红色 */
-    color: white;
-    border-radius: 10px; /* 设置圆角半径 */
-    font-family: 'Microsoft YaHei'; /* 设置字体为微软雅黑 */
-    font-size: 18px; /* 设置字体大小，可以根据需要调整 */
-    padding: 5px 10px; /* 设置内边距，使按钮看起来更美观 */
-    border: 2px solid transparent; /* 设置边框为透明 */
-}
-
-QPushButton:hover {
-    background-color: rgb(180, 40, 120); /* 设置鼠标悬停时的背景颜色为加深的粉红色 */
-}
-
-QPushButton:pressed {
-    background-color: rgb(85, 85, 127); /* 设置按钮按下时的背景颜色 */
-}
-</string>
-       </property>
-       <property name="text">
-        <string>捐赠支持开发者</string>
-       </property>
-       <property name="icon">
-        <iconset resource="../images.qrc">
-         <normaloff>:/按钮图标/Window/res/捐赠.png</normaloff>:/按钮图标/Window/res/捐赠.png</iconset>
-       </property>
-      </widget>
-     </item>
      <item row="1" column="0">
       <spacer name="horizontalSpacer_5">
        <property name="orientation">
@@ -359,7 +321,7 @@ QPushButton:pressed {
           <string notr="true">color: red; text-decoration: underline</string>
          </property>
          <property name="text">
-          <string>308994839</string>
+          <string>84284936</string>
          </property>
          <property name="openExternalLinks">
           <bool>true</bool>

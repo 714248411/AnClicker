@@ -45,7 +45,7 @@ from Window.mainwindow_ui import Ui_MainWindow
 from WindowControl.设置窗口 import Setting
 from WindowControl.资源文件夹窗口 import Global_s
 from info import CURRENT_VERSION, MAIN_WEBSITE, ISSUE_WEBSITE, QQ_GROUP, QQ, APP_NAME, \
-    Github_WEBSITE, DONATE_WEBSITE
+    Github_WEBSITE
 from WindowControl.快捷键说明 import ShortcutTable
 from WindowControl.窗口状态 import install_window_state
 
@@ -714,9 +714,6 @@ class About(QDialog, Ui_About):
         )
         self.pushButton_2.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(ISSUE_WEBSITE))
-        )
-        self.pushButton_3.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl(DONATE_WEBSITE))
         )
 
     def closeEvent(self, event):

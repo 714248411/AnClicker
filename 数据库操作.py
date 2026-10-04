@@ -38,6 +38,7 @@ DEFAULT_SETTINGS = {
     "退出提醒清空指令": "False",
     "系统提示音": "False",
     "显示工具栏": "True",
+    "界面主题": "light",
     "任务完成后显示主窗口": "False",
     "当前文件路径": "None",
     "运行重复次数": "1",
@@ -107,6 +108,21 @@ class DatabaseOperation:
                 cursor.execute(
                     "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '工具栏紧凑布局版本', '2')",
                     (get_setting_type("工具栏紧凑布局版本"),),
+                )
+            light_theme_version = cursor.execute(
+                "SELECT 值 FROM 设置 WHERE 设置项='浅色默认主题版本'"
+            ).fetchone()
+            if light_theme_version is None:
+                # Apply the new light default once to existing installations;
+                # later theme choices are preserved by the migration marker.
+                cursor.execute(
+                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '界面主题', 'light') "
+                    "ON CONFLICT(设置项) DO UPDATE SET 值='light'",
+                    (get_setting_type("界面主题"),),
+                )
+                cursor.execute(
+                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '浅色默认主题版本', '1')",
+                    (get_setting_type("浅色默认主题版本"),),
                 )
             cursor.execute(
                 "DELETE FROM 设置 WHERE 设置项 IN ({})".format(

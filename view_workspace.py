@@ -1,13 +1,15 @@
-"""Linked Clicker workspaces and the dark cyan desktop theme."""
+"""Linked Clicker workspaces and the light/dark desktop themes."""
 
 from __future__ import annotations
 
 import json
+import os
 
 from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QDialog,
     QFormLayout,
     QFrame,
     QHBoxLayout,
@@ -17,6 +19,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSplitter,
@@ -29,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from instructions.registry import iter_instruction_specs
 from node_editor.palette import INSTRUCTION_MIME_TYPE
+from functions import RESOURCE_FOLDER
 
 
 MAIN_VIEW = 0
@@ -104,9 +108,9 @@ class ViewWorkspace:
         self.tabs = window.tabWidget
         self._loading_code = False
         self._code_dirty = False
-        self.theme_mode = str(window.db.get_setting_value(THEME_SETTING) or "dark")
+        self.theme_mode = str(window.db.get_setting_value(THEME_SETTING) or "light")
         if self.theme_mode not in self.THEMES:
-            self.theme_mode = "dark"
+            self.theme_mode = "light"
         self.palette_side = "left"
         self.palette_collapsed = False
         self._normalize_existing_controls()
@@ -422,6 +426,8 @@ class ViewWorkspace:
         self.palette_collapse_action.triggered.connect(self.toggle_palette)
         self.theme_action = QAction("切换浅色", self.window)
         self.theme_action.triggered.connect(self.toggle_theme)
+        self.donation_action = QAction("捐赠", self.window)
+        self.donation_action.triggered.connect(self.show_donation)
         self.window.toolBar.addSeparator()
         self.window.toolBar.addAction(self.primary_action)
         self.window.toolBar.addAction(self.code_action)
@@ -429,6 +435,7 @@ class ViewWorkspace:
         self.window.toolBar.addAction(self.palette_side_action)
         self.window.toolBar.addAction(self.palette_collapse_action)
         self.window.toolBar.addAction(self.theme_action)
+        self.window.toolBar.addAction(self.donation_action)
         menu = QMenu("视图", self.window)
         for label, shortcut, callback in (
             ("主界面", "Ctrl+1", self.show_main),
@@ -471,6 +478,37 @@ class ViewWorkspace:
         self.window.db.set_setting_value(THEME_SETTING, self.theme_mode)
         self._apply_theme()
         self._update_view_actions()
+
+    def show_donation(self) -> None:
+        """Show the bundled donation QR code without opening a web page."""
+        image_path = os.path.join(RESOURCE_FOLDER, "Window", "res", "donation_qr.png")
+        pixmap = QPixmap(image_path)
+        if pixmap.isNull():
+            QMessageBox.warning(self.window, "捐赠", "捐赠二维码加载失败，请检查程序资源。")
+            return
+
+        dialog = QDialog(self.window)
+        dialog.setObjectName("donationDialog")
+        dialog.setWindowTitle("捐赠")
+        dialog.setModal(True)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(18, 18, 18, 14)
+        layout.setSpacing(12)
+        image = QLabel(dialog)
+        image.setObjectName("donationQrCode")
+        image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        image.setPixmap(
+            pixmap.scaled(
+                QSize(435, 381),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        close_button = QPushButton("关闭", dialog)
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(image)
+        layout.addWidget(close_button, 0, Qt.AlignmentFlag.AlignCenter)
+        dialog.exec()
 
     def _place_palette(self) -> None:
         grid = self.window.gridLayout_4
@@ -694,7 +732,9 @@ class ViewWorkspace:
             QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 9px 18px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
             QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
             QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
-            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; }}
+            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; }}
+            QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,
+            QGroupBox#groupBox_3 QTextEdit {{ background: {c['surface2']}; color: {c['text']}; }}
             QFrame#viewNavigation {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; min-width: 175px; max-width: 220px; }}
             QLabel#navTitle, QLabel#pageTitle {{ color: {c['accent']}; font-size: 17px; font-weight: 700; padding: 8px; }}
             QListWidget#beginnerNavigation {{ background: transparent; border: none; outline: none; }}
