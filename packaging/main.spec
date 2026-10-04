@@ -90,7 +90,10 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name=f'{app_name}.app',
-        icon=None,
+        # The PyInstaller wheel used by GitHub's Intel runner does not ship
+        # the fallback icon-windowed.icns.  Supplying our Windows icon is
+        # portable: PyInstaller converts it to ICNS through Pillow on macOS.
+        icon=os.path.join(project_root, 'clicker.ico'),
         bundle_identifier='com.yanyi.anclicker',
         info_plist={
             'NSHighResolutionCapable': True,
