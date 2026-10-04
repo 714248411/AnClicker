@@ -1,25 +1,26 @@
 [project]
-name = "automatic-clicker-2"
-version = "0.1.0"
-description = "Add your description here"
-requires-python = ">=3.7"
+name = "an-clicker"
+version = "1.0.0b1"
+description = "Cross-platform visual automation workspace for Windows, macOS, and Linux"
+requires-python = ">=3.10"
 dependencies = [
     "PySide6",
     "pyttsx4",
     "pymsgbox",
     "pyautogui",
-    "mouse",
-    "keyboard",
+    "PyWinCtl>=0.4.1",
+    "mouse; sys_platform != 'darwin'",
+    "keyboard; sys_platform != 'darwin'",
+    "pynput; sys_platform == 'darwin'",
     "pandas",
     "pillow",
     "openpyxl",
     "requests",
-    "system_hotkey",
+    "system_hotkey; sys_platform != 'darwin'",
     "pygments",
     "opencv-python",
     "baidu-aip",
     "chardet",
-    "system_hotkey",
     "pyinstaller",
     "python-dateutil",
     "psutil",

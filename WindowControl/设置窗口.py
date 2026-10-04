@@ -1,9 +1,7 @@
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QDialog, QMessageBox
-from system_hotkey import SystemHotkey
-
-from functions import is_hotkey_valid
+from functions import create_system_hotkey, global_hotkeys_supported, is_hotkey_valid
 from 数据库操作 import DatabaseOperation
 from Window.setting_ui import Ui_Setting
 from WindowControl.窗口状态 import install_window_state
@@ -50,7 +48,9 @@ class Setting(QDialog, Ui_Setting):
             if self.main_window_open:
                 key_sequence = key_sequence_edit_.keySequence().toString().lower().split('+')
                 key_sequence = [key.replace('ctrl', 'control') for key in key_sequence]
-                if is_hotkey_valid(hotkey, key_sequence):
+                if not global_hotkeys_supported(hotkey):
+                    self.db.set_global_shortcut(**{action_: key_sequence})
+                elif is_hotkey_valid(hotkey, key_sequence):
                     self.db.set_global_shortcut(**{action_: key_sequence})
                 else:
                     QMessageBox.information(
@@ -81,7 +81,7 @@ class Setting(QDialog, Ui_Setting):
             '暂停和恢复': self.keySequenceEdit_4
         }
         for action, key_sequence_edit in key_mapping.items():
-            validate_and_set_hotkey(SystemHotkey(), key_sequence_edit, action)
+            validate_and_set_hotkey(create_system_hotkey(), key_sequence_edit, action)
 
 
     def save_setting(self):

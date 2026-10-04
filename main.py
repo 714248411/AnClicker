@@ -21,7 +21,9 @@ from PySide6.QtWidgets import QApplication, QSplashScreen
 from functions import RESOURCE_FOLDER, ensure_data_directories, show_window
 from info import APP_NAME, CURRENT_VERSION, WINDOW_TITLE
 
-SINGLETON_KEY = f"FasterThanLight_{APP_NAME}_SingletonKey"
+SINGLETON_KEY = os.environ.get(
+    "ANCLICKER_SINGLETON_KEY", f"FasterThanLight_{APP_NAME}_SingletonKey"
+)
 
 
 class LoadingSplashScreen(QSplashScreen):

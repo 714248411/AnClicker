@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import sys
+
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
 from instructions.models import CommandRecord, ExecutionContext
+from functions import play_system_tone
 from .提示音_ui import Ui_InstructionEditor
 
 
@@ -43,23 +46,30 @@ class InstructionExecutor(InstructionExecutorBase):
             engine_.say(str(actions.parameter(p_, "内容", default="")))
             engine_.runAndWait()
         else:
-            import winsound
             for index_ in range(count_):
                 if type_ in {"蜂鸣", "音频信号"}:
-                    winsound.Beep(int(actions.parameter(p_, "频率", default=800)), int(actions.parameter(p_, "持续", default=300)))
+                    play_system_tone(
+                        int(actions.parameter(p_, "频率", default=800)),
+                        int(actions.parameter(p_, "持续", default=300)),
+                    )
                 else:
                     sound_type_ = str(actions.parameter(p_, "提示类型", default="信息"))
-                    sound_alias_ = {
-                        "警告": "SystemAsterisk", "系统警告": "SystemAsterisk",
-                        "错误": "SystemExclamation", "系统错误": "SystemExclamation",
-                        "询问": "SystemQuestion", "系统询问": "SystemQuestion",
-                        "信息": "SystemHand", "系统信息": "SystemHand",
-                        "系统启动": "SystemStart", "系统关闭": "SystemExit",
-                    }.get(sound_type_)
-                    if sound_alias_:
-                        winsound.PlaySound(sound_alias_, winsound.SND_ALIAS)
+                    if sys.platform == "win32":
+                        import winsound
+
+                        sound_alias_ = {
+                            "警告": "SystemAsterisk", "系统警告": "SystemAsterisk",
+                            "错误": "SystemExclamation", "系统错误": "SystemExclamation",
+                            "询问": "SystemQuestion", "系统询问": "SystemQuestion",
+                            "信息": "SystemHand", "系统信息": "SystemHand",
+                            "系统启动": "SystemStart", "系统关闭": "SystemExit",
+                        }.get(sound_type_)
+                        if sound_alias_:
+                            winsound.PlaySound(sound_alias_, winsound.SND_ALIAS)
+                        else:
+                            winsound.MessageBeep()
                     else:
-                        winsound.MessageBeep()
+                        play_system_tone(500, 300)
                 if index_ + 1 < count_:
                     actions.wait_seconds(float(actions.parameter(p_, "间隔", default=0.1)))
         context.emit("提示音播放完成")

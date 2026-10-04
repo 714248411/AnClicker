@@ -22,6 +22,7 @@ bin-release/
 .vscode/
 build/
 dist/
+release/
 images/!/test.png
 !/Clicker.build/
 !/Clicker.onefile-build/

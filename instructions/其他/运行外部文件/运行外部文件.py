@@ -7,6 +7,7 @@ import shlex
 import subprocess
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
+from functions import open_path
 from instructions.models import CommandRecord, ExecutionContext
 from .运行外部文件_ui import Ui_InstructionEditor
 
@@ -36,7 +37,7 @@ class InstructionExecutor(InstructionExecutorBase):
             process_ = subprocess.Popen([path_, *shlex.split(arguments_)])
             result_ = process_.pid
         else:
-            os.startfile(path_)
+            open_path(path_)
             result_ = path_
         context.emit(f"运行外部文件：{path_}")
         return result_

@@ -1,5 +1,4 @@
 import contextlib
-import ctypes
 import datetime
 import json
 import os
@@ -7,11 +6,14 @@ import re
 import sqlite3
 import time
 
-import win32con
-import win32gui
-import winsound
-
-from functions import DATA_FOLDER, DATABASE_PATH, IMAGES_FOLDER
+from functions import (
+    DATA_FOLDER,
+    DATABASE_PATH,
+    IMAGES_FOLDER,
+    get_screen_resolution,
+    play_system_tone,
+    show_window,
+)
 from graph_repository import COMMAND_COLUMNS, GraphRepository
 
 SETTING_TYPE_BASIC = "基础设置"
@@ -387,8 +389,7 @@ class DatabaseOperation:
 
     @staticmethod
     def get_screen_resolution() -> str:
-        user32 = ctypes.windll.user32
-        return f"{user32.GetSystemMetrics(0)}*{user32.GetSystemMetrics(1)}"
+        return get_screen_resolution()
 
     @classmethod
     def _parse_size_value(cls, value):
@@ -671,22 +672,17 @@ class DatabaseOperation:
             return
         if judge == "线程结束":
             for _ in range(3):
-                winsound.Beep(500, 300)
+                play_system_tone(500, 300)
         elif judge == "全局快捷键":
-            winsound.Beep(500, 300)
+            play_system_tone(500, 300)
         elif judge == "执行异常":
-            winsound.Beep(1000, 1000)
+            play_system_tone(1000, 1000)
 
     def show_normal_window_with_specified_title(self, title: str) -> None:
         if not self.get_bool_setting("任务完成后显示主窗口"):
             return
-        titles = {}
-        win32gui.EnumWindows(lambda hwnd, result: result.update({hwnd: win32gui.GetWindowText(hwnd)}), titles)
-        for hwnd, window_title in titles.items():
-            if window_title == title:
-                time.sleep(0.5)
-                win32gui.ShowWindow(hwnd, win32con.SW_SHOWNORMAL)
-                break
+        time.sleep(0.5)
+        show_window(title)
 
     def extract_excel_from_resource_folders(self) -> list:
         """从所有资源文件夹路径中提取全部 Excel 文件

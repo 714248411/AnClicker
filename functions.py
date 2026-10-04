@@ -1,6 +1,9 @@
 import datetime
 import os
+import platform
 import re
+import shutil
+import subprocess
 import sys
 import time
 import typing
@@ -8,9 +11,22 @@ import typing
 import cv2
 import numpy as np
 import pyscreeze
-import win32con
-import win32gui
-from system_hotkey import SystemHotkey, user32
+try:
+    import win32con
+    import win32gui
+except ImportError:  # pragma: no cover - exercised on macOS/Linux runners
+    win32con = None
+    win32gui = None
+
+try:
+    from system_hotkey import SystemHotkey
+    try:
+        from system_hotkey import user32
+    except ImportError:
+        user32 = None
+except (ImportError, OSError):  # macOS has no supported system-hotkey backend
+    SystemHotkey = None
+    user32 = None
 
 
 _INVALID_WINDOWS_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -90,7 +106,7 @@ def get_str_now_time():
 
 
 def get_install_folder() -> str:
-    """获取程序安装目录，用户数据保存在此目录下。"""
+    """获取程序安装目录。"""
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
@@ -105,7 +121,29 @@ def get_resource_folder() -> str:
 
 INSTALL_FOLDER = get_install_folder()
 RESOURCE_FOLDER = get_resource_folder()
-DATA_FOLDER = os.path.join(INSTALL_FOLDER, "data")
+
+
+def get_platform_data_folder() -> str:
+    """Return a writable per-user data directory on each supported desktop OS."""
+    override_ = os.environ.get("ANCLICKER_DATA_DIR", "").strip()
+    if override_:
+        return os.path.abspath(os.path.expanduser(override_))
+    if not getattr(sys, "frozen", False):
+        return os.path.join(INSTALL_FOLDER, "data")
+    if sys.platform == "win32":
+        # Keep compatibility with existing portable Windows releases.
+        return os.path.join(INSTALL_FOLDER, "data")
+    if sys.platform == "darwin":
+        return os.path.join(
+            os.path.expanduser("~/Library/Application Support"), "AnClicker"
+        )
+    xdg_data_home_ = os.environ.get(
+        "XDG_DATA_HOME", os.path.expanduser("~/.local/share")
+    )
+    return os.path.join(xdg_data_home_, "AnClicker")
+
+
+DATA_FOLDER = get_platform_data_folder()
 DATABASE_PATH = os.path.join(DATA_FOLDER, "命令集.db")
 IMAGES_FOLDER = os.path.join(DATA_FOLDER, "images")
 EXPORTS_FOLDER = os.path.join(DATA_FOLDER, "exports")
@@ -123,6 +161,9 @@ def ensure_data_directories() -> None:
         TEMP_FOLDER,
     ):
         os.makedirs(folder, exist_ok=True)
+    seed_database_ = os.path.join(RESOURCE_FOLDER, "data", "命令集.db")
+    if not os.path.exists(DATABASE_PATH) and os.path.isfile(seed_database_):
+        shutil.copy2(seed_database_, DATABASE_PATH)
 
 
 def line_number_increment(old_value, number=1):
@@ -140,14 +181,50 @@ def line_number_increment(old_value, number=1):
     return new_cell_position
 
 
-def is_hotkey_valid(hkobj: SystemHotkey, hk: typing.List[str]):
+class NullSystemHotkey:
+    """No-op backend used when global hotkeys are unavailable on the host."""
+
+    supported = False
+
+    def register(self, *args, **kwargs):
+        del args, kwargs
+        raise RuntimeError("当前系统没有可用的全局快捷键后端")
+
+    def unregister(self, *args, **kwargs):
+        del args, kwargs
+
+
+def create_system_hotkey():
+    """Create the native global-hotkey backend without breaking app startup."""
+    if SystemHotkey is None:
+        return NullSystemHotkey()
+    try:
+        backend_ = SystemHotkey()
+        backend_.supported = True
+        return backend_
+    except Exception:
+        return NullSystemHotkey()
+
+
+def global_hotkeys_supported(hkobj=None) -> bool:
+    return bool(getattr(hkobj, "supported", SystemHotkey is not None))
+
+
+def is_hotkey_valid(hkobj, hk: typing.List[str]):
     """判断快捷键是否有效"""
+    if not global_hotkeys_supported(hkobj):
+        return False
     hk = hkobj.order_hotkey(hk)
     try:
-        keycode, masks = hkobj.parse_hotkeylist(hk)
-        reg_hk_res = user32.RegisterHotKey(None, 1, masks, keycode)
-        if reg_hk_res:
-            user32.UnregisterHotKey(None, reg_hk_res)
+        if sys.platform == "win32" and user32 is not None:
+            keycode, masks = hkobj.parse_hotkeylist(hk)
+            reg_hk_res = user32.RegisterHotKey(None, 1, masks, keycode)
+            if reg_hk_res:
+                user32.UnregisterHotKey(None, 1)
+                return True
+        else:
+            hkobj.register(hk, callback=lambda *_: None, overwrite=False)
+            hkobj.unregister(tuple(hk))
             return True
     except Exception as e:
         print("获取快捷键注册信息失败！", e)
@@ -156,6 +233,9 @@ def is_hotkey_valid(hkobj: SystemHotkey, hk: typing.List[str]):
 
 def show_window(title):
     """将指定标题的窗口正常显示，主要用于主窗口显示"""
+
+    if win32gui is None or win32con is None:
+        return False
 
     def get_window_titles(hwnd, titles):
         titles[hwnd] = win32gui.GetWindowText(hwnd)
@@ -167,6 +247,57 @@ def show_window(title):
             if t == title:
                 win32gui.ShowWindow(h, win32con.SW_SHOWNORMAL)  # 正常显示窗口
                 win32gui.SetForegroundWindow(h)
-                break
+                return True
     except Exception as e:
         print(f"显示窗口出现错误: {e}")
+    return False
+
+
+def open_path(path_: str) -> None:
+    """Open a file or directory with the host desktop's default application."""
+    normalized_ = os.path.abspath(os.path.expanduser(path_))
+    if sys.platform == "win32":
+        os.startfile(normalized_)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", normalized_])
+    else:
+        opener_ = shutil.which("xdg-open") or shutil.which("gio")
+        if opener_ is None:
+            raise OSError("未找到 xdg-open 或 gio，无法打开路径")
+        command_ = [opener_, normalized_]
+        if os.path.basename(opener_) == "gio":
+            command_.insert(1, "open")
+        subprocess.Popen(command_)
+
+
+def get_screen_resolution() -> str:
+    """Return the primary screen size using Qt on every desktop platform."""
+    try:
+        from PySide6.QtGui import QGuiApplication
+
+        app_ = QGuiApplication.instance()
+        screen_ = app_.primaryScreen() if app_ is not None else None
+        if screen_ is not None:
+            size_ = screen_.size()
+            return f"{size_.width()}*{size_.height()}"
+    except Exception:
+        pass
+    return "1920*1080"
+
+
+def play_system_tone(frequency_: int = 500, duration_ms_: int = 300) -> None:
+    """Play a notification tone with a Windows-native and Qt fallback path."""
+    if sys.platform == "win32":
+        try:
+            import winsound
+
+            winsound.Beep(frequency_, duration_ms_)
+            return
+        except (ImportError, RuntimeError):
+            pass
+    try:
+        from PySide6.QtWidgets import QApplication
+
+        QApplication.beep()
+    except Exception:
+        pass

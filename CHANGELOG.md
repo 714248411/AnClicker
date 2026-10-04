@@ -2,6 +2,13 @@
 
 ## 2026-10-04
 
+### Windows、macOS、Linux 适配与发行
+
+- 移除活动代码对 `pywin32`、`winsound`、`ctypes.windll` 和 `os.startfile` 的无条件依赖，统一通过平台适配函数恢复窗口、打开路径和播放提示音。
+- Windows 保留便携数据目录；macOS 使用 `~/Library/Application Support/AnClicker`，Linux 遵循 XDG 数据目录，并支持 `ANCLICKER_DATA_DIR` 覆盖。
+- 无全局快捷键后端的桌面环境自动降级为界面按钮，不再阻止应用启动或保存设置。
+- PyInstaller spec 可在三个系统原生构建，并新增跨平台测试、ZIP 归档脚本及 GitHub Release 自动发布工作流。
+
 ### 关于页面联系信息
 
 - 关于页移除 “PyAutoGUI” 字样及下方重复的代码仓库文字地址；四个仓库图标继续负责跳转。

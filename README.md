@@ -1,6 +1,6 @@
 # An Clicker
 
-An Clicker 是一款基于 PySide6 的 Windows 自动化工具，由 Clicker 项目扩展而来。启动入口为 `main.py`，主窗口控制器位于 `Start_Win.py`。
+An Clicker 是一款基于 PySide6 的 Windows、macOS、Linux 桌面自动化工具，由 Clicker 项目扩展而来。启动入口为 `main.py`，主窗口控制器位于 `Start_Win.py`。
 
 项目同步发布于 [Gitee](https://gitee.com/YiZhiYanYi/AnClicker) 与 [GitHub](https://github.com/714248411/AnClicker)；应用内“反馈及建议2”直接打开 Gitee 仓库的 [Issues](https://gitee.com/YiZhiYanYi/AnClicker/issues)。
 
@@ -86,6 +86,15 @@ Excel 导入导出采用节点协议，工作表固定为“命令、节点、�
 ```
 
 PyInstaller 打包说明见 `packaging/打包文件说明.md`。
+
+## 跨平台发布
+
+- Windows：保留便携式 `data` 目录、系统提示音和全局快捷键。
+- macOS：用户数据写入 `~/Library/Application Support/AnClicker`；全局快捷键不可用时自动使用界面按钮。键鼠自动化需在系统设置中授权辅助功能与屏幕录制。
+- Linux：用户数据遵循 `$XDG_DATA_HOME/AnClicker`（默认 `~/.local/share/AnClicker`）；X11 下启用全局快捷键，Wayland 或无全局后端时自动使用界面按钮。
+- 设置 `ANCLICKER_DATA_DIR` 可在三个平台显式指定数据目录。
+
+推送 `v*` 标签会触发 `.github/workflows/release.yml`，分别在 Windows、macOS、Linux 原生运行器执行测试与 PyInstaller 构建，生成三个 ZIP 并上传至 GitHub Release。
 
 ## 贡献者
 

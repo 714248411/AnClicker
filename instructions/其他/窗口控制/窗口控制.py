@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
 from instructions.models import CommandRecord, ExecutionContext
@@ -28,10 +30,13 @@ class InstructionExecutor(InstructionExecutorBase):
         delegated_, result_ = actions.delegated(context, self.TYPE_ID, command)
         if delegated_:
             return result_
-        import pygetwindow
+        if sys.platform == "win32":
+            import pygetwindow as window_backend_
+        else:
+            import pywinctl as window_backend_
         p_ = command.parameters
         title_ = str(actions.parameter(p_, "标题包含", default=""))
-        windows_ = pygetwindow.getWindowsWithTitle(title_)
+        windows_ = window_backend_.getWindowsWithTitle(title_)
         if not windows_:
             if actions.parameter(p_, "报错", default=True):
                 raise RuntimeError(f"未找到窗口：{title_}")

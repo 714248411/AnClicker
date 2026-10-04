@@ -31,10 +31,9 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QVBoxLayout,
 )
-from system_hotkey import SystemHotkey
-
 from functions import EXPORTS_FOLDER, LOGS_FOLDER, RESOURCE_FOLDER, \
-    get_str_now_time, is_hotkey_valid
+    create_system_hotkey, get_str_now_time, global_hotkeys_supported, \
+    is_hotkey_valid, open_path
 from graph_repository import WorkbookValidationError
 from instruction_workspace import InstructionWorkspace
 from main_work import CommandThread
@@ -51,6 +50,9 @@ from WindowControl.快捷键说明 import ShortcutTable
 from WindowControl.窗口状态 import install_window_state
 
 collections.Iterable = collections.abc.Iterable
+
+# Compatibility alias kept for extensions/tests that replace the hotkey factory.
+SystemHotkey = create_system_hotkey
 
 
 # todo: 指令可编译为python代码
@@ -269,6 +271,8 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 global_shortcut[shortcut_name] = [
                     key.replace("ctrl", "control") for key in global_shortcut[shortcut_name]
                 ]
+                if not global_hotkeys_supported(self.hk_stop):
+                    continue
                 if is_hotkey_valid(self.hk_stop, global_shortcut[shortcut_name]):
                     self.hk_stop.register(
                         global_shortcut[shortcut_name],
@@ -286,10 +290,14 @@ class Main_window(QMainWindow, Ui_MainWindow):
                         f"\n\n请在设置窗口中重新设置全局快捷键。",
                         QMessageBox.StandardButton.Ok,
                     )
-                # 将主界面的按钮显示为快捷键
-                self.pushButton_5.setText(f"开始运行\t{'+'.join(global_shortcut['开始运行'])}".upper())
-                self.pushButton_6.setText(f"结束任务\t{'+'.join(global_shortcut['结束运行'])}".upper())
-                self.pushButton_7.setText(f"暂停和恢复\t{'+'.join(global_shortcut['暂停和恢复'])}".upper())
+            # 将主界面的按钮显示为快捷键；无全局后端时这些仍是操作提示。
+            self.pushButton_5.setText(f"开始运行\t{'+'.join(global_shortcut['开始运行'])}".upper())
+            self.pushButton_6.setText(f"结束任务\t{'+'.join(global_shortcut['结束运行'])}".upper())
+            self.pushButton_7.setText(f"暂停和恢复\t{'+'.join(global_shortcut['暂停和恢复'])}".upper())
+            if not global_hotkeys_supported(self.hk_stop):
+                self.statusBar.showMessage(
+                    "当前桌面环境不支持全局快捷键，请使用界面按钮操作。", 5000
+                )
         except Exception as e:
             print(e)
             QMessageBox.critical(self, "错误", "全局快捷键已失效！", QMessageBox.StandardButton.Ok,
@@ -490,7 +498,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
             QMessageBox.StandardButton.No,
         ) == QMessageBox.StandardButton.Yes:
             try:
-                os.startfile(os.path.dirname(save_path_))
+                open_path(os.path.dirname(save_path_))
             except OSError as error_:
                 self.statusBar.showMessage(f"无法打开文件夹：{error_}", 3000)
         self.statusBar.showMessage(f"指令数据已保存至{save_path_}。", 3000)

@@ -5,12 +5,12 @@ certifi==2024.8.30
 cffi==1.17.1
 chardet==5.2.0
 charset-normalizer==3.4.0
-comtypes==1.4.8
+comtypes==1.4.8; sys_platform == "win32"
 et-xmlfile==1.1.0
 h11==0.14.0
 idna==3.10
-keyboard==0.13.5
-mouse==0.7.1
+keyboard==0.13.5; sys_platform != "darwin"
+mouse==0.7.1; sys_platform != "darwin"
 MouseInfo==0.1.3
 Nuitka==2.4.10
 numpy==2.1.2
@@ -20,7 +20,7 @@ ordered-set==4.1.0
 outcome==1.3.0.post0
 packaging==24.1
 pandas==2.2.3
-pefile==2023.2.7
+pefile==2023.2.7; sys_platform == "win32"
 pillow==11.0.0
 psutil==6.1.0
 PyAutoGUI==0.9.54
@@ -31,27 +31,29 @@ pyinstaller==6.11.0
 pyinstaller-hooks-contrib==2024.9
 PyMsgBox==1.0.9
 pyperclip==1.9.0
-pypiwin32==223
+pynput==1.7.7; sys_platform == "darwin"
+pypiwin32==223; sys_platform == "win32"
 PyRect==0.2.0
 PyScreeze==1.0.1
 PySide6==6.8.1.1
 PySide6_Addons==6.8.1.1
 PySide6_Essentials==6.8.1.1
 PySocks==1.7.1
+PyWinCtl==0.4.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pyttsx4==3.0.15
 pytweening==1.2.0
 pytz==2024.2
-pywin32==308
-pywin32-ctypes==0.2.3
+pywin32==308; sys_platform == "win32"
+pywin32-ctypes==0.2.3; sys_platform == "win32"
 requests==2.32.3
 setuptools==75.2.0
 shiboken6==6.8.1.1
 six==1.16.0
 sniffio==1.3.1
 sortedcontainers==2.4.0
-system-hotkey==1.0.3
+system-hotkey==1.0.3; sys_platform != "darwin"
 trio==0.27.0
 trio-websocket==0.11.1
 typing_extensions==4.12.2

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
 from instructions.models import CommandRecord, ExecutionContext
@@ -27,11 +29,27 @@ class InstructionExecutor(InstructionExecutorBase):
         delegated_, result_ = actions.delegated(context, self.TYPE_ID, command)
         if delegated_:
             return result_
-        import keyboard
         wait_type_ = str(actions.parameter(command.parameters, "等待类型", default="按键等待"))
         if wait_type_ != "按键等待":
             raise ValueError(f"不支持的按键等待类型：{wait_type_}")
         key_ = str(actions.parameter(command.parameters, "按键", default="enter"))
-        keyboard.wait(key_)
+        if sys.platform == "darwin":
+            from pynput import keyboard as pynput_keyboard
+
+            expected_ = getattr(pynput_keyboard.Key, key_.lower(), None)
+
+            def on_press(pressed_):
+                if expected_ is not None and pressed_ == expected_:
+                    return False
+                if getattr(pressed_, "char", None) == key_:
+                    return False
+                return None
+
+            with pynput_keyboard.Listener(on_press=on_press) as listener_:
+                listener_.join()
+        else:
+            import keyboard
+
+            keyboard.wait(key_)
         context.emit(f"检测到按键：{key_}")
         return key_

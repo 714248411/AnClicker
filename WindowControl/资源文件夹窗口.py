@@ -4,6 +4,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from Window.global_s_ui import Ui_Global
+from functions import open_path
 from WindowControl.窗口状态 import install_window_state
 from 数据库操作 import DatabaseOperation
 
@@ -42,7 +43,7 @@ class Global_s(QDialog, Ui_Global):
         try:
             indexes = self.listView.selectedIndexes()
             value = self.listView.model().itemFromIndex(indexes[0]).text()
-            os.startfile(value)
+            open_path(value)
         except Exception as e:
             # 删除不存在的文件夹路径
             print(e)

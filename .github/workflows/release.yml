@@ -1,0 +1,75 @@
+name: Build cross-platform release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            shell: pwsh
+          - os: macos-13
+            shell: bash
+          - os: ubuntu-24.04
+            shell: bash
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+      DISPLAY: ":99"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb scrot xdotool libxcb-cursor0 libxkbcommon-x11-0
+          Xvfb :99 -screen 0 1920x1080x24 >/tmp/anclicker-xvfb.log 2>&1 &
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pytest
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Build native application
+        run: python -m PyInstaller --clean -y packaging/main.spec
+      - name: Create ZIP archive
+        run: python packaging/build_release.py --version "${{ github.ref_name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ runner.os }}
+          path: release/*.zip
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${{ github.ref_name }}"
+          release-assets/*.zip
+          --repo "${{ github.repository }}"
+          --title "An Clicker [v1.0.0 Beat]"
+          --notes-file packaging/RELEASE_NOTES.md

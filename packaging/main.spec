@@ -32,6 +32,8 @@ def collect_instruction_datas():
 
 instruction_datas = collect_instruction_datas()
 dynamic_instruction_imports = list(instruction_hidden_imports())
+app_name = 'AnClicker'
+icon_path = os.path.join(project_root, 'clicker.ico') if sys.platform == 'win32' else None
 
 
 a = Analysis(
@@ -59,7 +61,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Clicker',
+    name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -71,8 +73,8 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     contents_directory='.',
-    uac_admin=True,
-    icon=os.path.join(project_root, 'clicker.ico'),
+    uac_admin=False,
+    icon=icon_path,
 )
 coll = COLLECT(
     exe,
@@ -81,5 +83,17 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='Clicker',
+    name=app_name,
 )
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name=f'{app_name}.app',
+        icon=None,
+        bundle_identifier='com.yanyi.anclicker',
+        info_plist={
+            'NSHighResolutionCapable': True,
+            'NSHumanReadableCopyright': 'Copyright © 2022–2026 YanYi and contributors',
+        },
+    )
