@@ -158,7 +158,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Clicker</string>
+          <string>An Clicker</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -387,7 +387,7 @@ QPushButton:pressed {
      <item>
       <widget class="QToolButton" name="gitee">
        <property name="text">
-        <string>Gitee 仓库</string>
+        <string>Gitee 1</string>
        </property>
        <property name="icon">
         <iconset resource="../images.qrc">
@@ -405,12 +405,35 @@ QPushButton:pressed {
        <property name="toolButtonStyle">
         <enum>Qt::ToolButtonStyle::ToolButtonTextUnderIcon</enum>
        </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="gitee_2">
+     </widget>
+    </item>
+    <item>
+     <widget class="QToolButton" name="gitee_3">
+      <property name="text">
+       <string>Gitee 2</string>
+      </property>
+      <property name="icon">
+       <iconset resource="../images.qrc">
+        <normaloff>:/按钮图标/Window/res/gitee.png</normaloff>:/按钮图标/Window/res/gitee.png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>50</width>
+        <height>50</height>
+       </size>
+      </property>
+      <property name="autoRaise">
+       <bool>true</bool>
+      </property>
+      <property name="toolButtonStyle">
+       <enum>Qt::ToolButtonStyle::ToolButtonTextUnderIcon</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QToolButton" name="gitee_2">
        <property name="text">
-        <string>GitHub 仓库</string>
+        <string>GitHub 1</string>
        </property>
        <property name="icon">
         <iconset resource="../images.qrc">
@@ -428,8 +451,31 @@ QPushButton:pressed {
        <property name="toolButtonStyle">
         <enum>Qt::ToolButtonStyle::ToolButtonTextUnderIcon</enum>
        </property>
-      </widget>
-     </item>
+     </widget>
+    </item>
+    <item>
+     <widget class="QToolButton" name="gitee_4">
+      <property name="text">
+       <string>GitHub 2</string>
+      </property>
+      <property name="icon">
+       <iconset resource="../images.qrc">
+        <normaloff>:/按钮图标/Window/res/github.png</normaloff>:/按钮图标/Window/res/github.png</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>50</width>
+        <height>50</height>
+       </size>
+      </property>
+      <property name="autoRaise">
+       <bool>true</bool>
+      </property>
+      <property name="toolButtonStyle">
+       <enum>Qt::ToolButtonStyle::ToolButtonTextUnderIcon</enum>
+      </property>
+     </widget>
+    </item>
      <item>
       <spacer name="horizontalSpacer_4">
        <property name="orientation">
@@ -454,7 +500,7 @@ QPushButton:pressed {
       </font>
      </property>
      <property name="text">
-      <string>&lt;b&gt;贡献者：&lt;/b&gt;FasterThanLight　　YanYi&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;2309636438　　714248411&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;federalsadler@sohu.com　　714248411@qq.com&lt;br&gt;&lt;b&gt;代码仓库：&lt;/b&gt;&lt;br&gt;https://gitee.com/fasterthanlight/automatic_clicker_2&lt;br&gt;https://github.com/714248411/YanYiClicker&lt;br&gt;Copyright © 2022–2026</string>
+      <string>&lt;b&gt;贡献者：&lt;/b&gt;FasterThanLight　　YanYi&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;2309636438　　714248411&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;federalsadler@sohu.com　　714248411@qq.com&lt;br&gt;&lt;b&gt;代码仓库：&lt;/b&gt;&lt;br&gt;https://gitee.com/fasterthanlight/automatic_clicker_2&lt;br&gt;https://gitee.com&lt;br&gt;https://github.com/FsterThanLight/automatic_clicker_2&lt;br&gt;https://github.com/714248411/YanYiClicker&lt;br&gt;Copyright © 2022–2026</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

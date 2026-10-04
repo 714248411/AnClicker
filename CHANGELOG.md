@@ -4,6 +4,8 @@
 
 ### 关于页面联系信息
 
+- 应用标题统一更新为 `An Clicker    [v1.0.0 Beat]`，关于页产品名称同步为 `An Clicker`。
+- 仓库入口扩展为四个可点击图标：两个 Gitee、两个 GitHub；分别保留原项目入口与 YanYiClicker 入口。
 - 关于页面同时展示 Gitee 原仓库与 YanYiClicker GitHub 仓库，两个地址均可点击打开。
 - 个人 QQ 增加 714248411，与原 QQ 2309636438 同时保留。
 - 邮箱增加 714248411@qq.com，与原邮箱 federalsadler@sohu.com 同时保留。

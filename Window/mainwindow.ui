@@ -16,7 +16,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>Clicker</string>
+   <string>An Clicker    [v1.0.0 Beat]</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../images.qrc">

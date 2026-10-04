@@ -160,7 +160,7 @@ class ViewWorkspace:
         page = QWidget()
         layout = QVBoxLayout(page)
         hero, hero_layout = self._card(
-            "Clicker 自动化工作台",
+            "An Clicker 自动化工作台",
             "从表格快速维护指令，在流程图中编排连线，或使用多功能代码完成高级操作。",
         )
         self.main_stats = QLabel()

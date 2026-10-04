@@ -226,6 +226,15 @@ class Ui_About(object):
 
         self.horizontalLayout_3.addWidget(self.gitee)
 
+        self.gitee_3 = QToolButton(About)
+        self.gitee_3.setObjectName(u"gitee_3")
+        self.gitee_3.setIcon(icon1)
+        self.gitee_3.setIconSize(QSize(50, 50))
+        self.gitee_3.setAutoRaise(True)
+        self.gitee_3.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+
+        self.horizontalLayout_3.addWidget(self.gitee_3)
+
         self.gitee_2 = QToolButton(About)
         self.gitee_2.setObjectName(u"gitee_2")
         icon2 = QIcon()
@@ -236,6 +245,15 @@ class Ui_About(object):
         self.gitee_2.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
 
         self.horizontalLayout_3.addWidget(self.gitee_2)
+
+        self.gitee_4 = QToolButton(About)
+        self.gitee_4.setObjectName(u"gitee_4")
+        self.gitee_4.setIcon(icon2)
+        self.gitee_4.setIconSize(QSize(50, 50))
+        self.gitee_4.setAutoRaise(True)
+        self.gitee_4.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+
+        self.horizontalLayout_3.addWidget(self.gitee_4)
 
         self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -265,7 +283,7 @@ class Ui_About(object):
     def retranslateUi(self, About):
         About.setWindowTitle(QCoreApplication.translate("About", u"\u5173\u4e8e", None))
         self.label.setText("")
-        self.label_5.setText(QCoreApplication.translate("About", u"Clicker", None))
+        self.label_5.setText(QCoreApplication.translate("About", u"An Clicker", None))
         self.label_2.setText(QCoreApplication.translate("About", u"\u7248\u672c\uff1av1.0.0 Beat", None))
         self.pushButton_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae", None))
         self.label_3.setText(QCoreApplication.translate("About", u"PyAutoGUI\u53ef\u89c6\u5316\uff0c\u81ea\u52a8\u5904\u7406\u9700\u8981\u5927\u91cf\u91cd\u590d\u64cd\u4f5c\u9f20\u6807\u952e\u76d8\u7684\u4e8b\u4ef6\u3002", None))
@@ -273,8 +291,10 @@ class Ui_About(object):
         self.label_7.setText(QCoreApplication.translate("About", u"308994839", None))
         self.label_8.setText(QCoreApplication.translate("About", u"QQ\u4ea4\u6d41\u7fa4 2\uff1a", None))
         self.label_9.setText(QCoreApplication.translate("About", u"84284936", None))
-        self.gitee.setText(QCoreApplication.translate("About", u"Gitee \u4ed3\u5e93", None))
-        self.gitee_2.setText(QCoreApplication.translate("About", u"GitHub \u4ed3\u5e93", None))
-        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>FasterThanLight\u3000\u3000YanYi<br><b>QQ\uff1a</b>2309636438\u3000\u3000714248411<br><b>\u90ae\u7bb1\uff1a</b>federalsadler@sohu.com\u3000\u3000714248411@qq.com<br><b>\u4ee3\u7801\u4ed3\u5e93\uff1a</b><br>https://gitee.com/fasterthanlight/automatic_clicker_2<br>https://github.com/714248411/YanYiClicker<br>Copyright \u00a9 2022\u20132026", None))
+        self.gitee.setText(QCoreApplication.translate("About", u"Gitee 1", None))
+        self.gitee_3.setText(QCoreApplication.translate("About", u"Gitee 2", None))
+        self.gitee_2.setText(QCoreApplication.translate("About", u"GitHub 1", None))
+        self.gitee_4.setText(QCoreApplication.translate("About", u"GitHub 2", None))
+        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>FasterThanLight\u3000\u3000YanYi<br><b>QQ\uff1a</b>2309636438\u3000\u3000714248411<br><b>\u90ae\u7bb1\uff1a</b>federalsadler@sohu.com\u3000\u3000714248411@qq.com<br><b>\u4ee3\u7801\u4ed3\u5e93\uff1a</b><br>https://gitee.com/fasterthanlight/automatic_clicker_2<br>https://gitee.com<br>https://github.com/FsterThanLight/automatic_clicker_2<br>https://github.com/714248411/YanYiClicker<br>Copyright \u00a9 2022\u20132026", None))
     # retranslateUi
 

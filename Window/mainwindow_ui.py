@@ -472,7 +472,7 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Clicker", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"An Clicker    [v1.0.0 Beat]", None))
         self.actionabout.setText(QCoreApplication.translate("MainWindow", u"\u5173\u4e8e", None))
         self.actionhelp.setText(QCoreApplication.translate("MainWindow", u"\u4f7f\u7528\u8bf4\u660e", None))
         self.actionb.setText(QCoreApplication.translate("MainWindow", u"\u53e6\u5b58\u4e3aDB", None))

@@ -46,7 +46,7 @@ from WindowControl.设置窗口 import Setting
 from WindowControl.资源文件夹窗口 import Global_s
 from info import CURRENT_VERSION, MAIN_WEBSITE, ISSUE_WEBSITE, QQ_GROUP, QQ, \
     QQ_GROUP_OLD, QQ_OLD, QQ_CONTACTS, EMAIL_CONTACTS, CONTRIBUTORS, APP_NAME, \
-    Github_WEBSITE
+    GITEE_WEBSITE_SECOND, GITHUB_WEBSITE_OLD, Github_WEBSITE, WINDOW_TITLE
 from WindowControl.快捷键说明 import ShortcutTable
 from WindowControl.窗口状态 import install_window_state
 
@@ -92,7 +92,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         # 初始化窗体
         self.setupUi(self)
         self.merge_control_and_operation_panel()
-        self.setWindowTitle(f"{APP_NAME} {CURRENT_VERSION}")
+        self.setWindowTitle(WINDOW_TITLE)
         # 窗口和信息
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)  # 实例化状态栏
@@ -715,23 +715,35 @@ class About(QDialog, Ui_About):
             "<b>代码仓库：</b><br>"
             "<a href=\"{}\">{}</a><br>"
             "<a href=\"{}\">{}</a><br>"
+            "<a href=\"{}\">{}</a><br>"
+            "<a href=\"{}\">{}</a><br>"
             "Copyright © 2022–2026".format(
                 *CONTRIBUTORS,
                 *QQ_CONTACTS,
                 EMAIL_CONTACTS[0], EMAIL_CONTACTS[0],
                 EMAIL_CONTACTS[1], EMAIL_CONTACTS[1],
                 MAIN_WEBSITE, MAIN_WEBSITE,
+                GITEE_WEBSITE_SECOND, GITEE_WEBSITE_SECOND,
+                GITHUB_WEBSITE_OLD, GITHUB_WEBSITE_OLD,
                 Github_WEBSITE, Github_WEBSITE,
             )
         )
         self.label_4.setOpenExternalLinks(True)
         self.gitee.setToolTip(MAIN_WEBSITE)
-        self.gitee_2.setToolTip(Github_WEBSITE)
+        self.gitee_3.setToolTip(GITEE_WEBSITE_SECOND)
+        self.gitee_2.setToolTip(GITHUB_WEBSITE_OLD)
+        self.gitee_4.setToolTip(Github_WEBSITE)
         # 绑定事件
         self.gitee.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(MAIN_WEBSITE))
         )
         self.gitee_2.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(GITHUB_WEBSITE_OLD))
+        )
+        self.gitee_3.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl(GITEE_WEBSITE_SECOND))
+        )
+        self.gitee_4.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(Github_WEBSITE))
         )
         self.pushButton_2.clicked.connect(

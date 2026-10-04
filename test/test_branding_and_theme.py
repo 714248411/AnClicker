@@ -7,8 +7,11 @@ from PySide6.QtGui import QImage
 from functions import RESOURCE_FOLDER
 from info import (
     CONTRIBUTORS,
+    APP_NAME,
     CURRENT_VERSION,
     EMAIL_CONTACTS,
+    GITEE_WEBSITE_SECOND,
+    GITHUB_WEBSITE_OLD,
     Github_WEBSITE,
     MAIN_WEBSITE,
     QQ,
@@ -16,13 +19,16 @@ from info import (
     QQ_GROUP,
     QQ_GROUP_OLD,
     QQ_OLD,
+    WINDOW_TITLE,
 )
 from 数据库操作 import DatabaseOperation
 
 
 class BrandingAndThemeTests(unittest.TestCase):
     def test_branding_and_qq_group_are_current(self):
+        self.assertEqual(APP_NAME, "An Clicker")
         self.assertEqual(CURRENT_VERSION, "v1.0.0 Beat")
+        self.assertEqual(WINDOW_TITLE, "An Clicker    [v1.0.0 Beat]")
         self.assertEqual(QQ, "84284936")
         self.assertIn("group_code=84284936", QQ_GROUP)
         self.assertTrue(QQ_GROUP.startswith("http://qm.qq.com/cgi-bin/qm/qr?"))
@@ -37,6 +43,11 @@ class BrandingAndThemeTests(unittest.TestCase):
             MAIN_WEBSITE, "https://gitee.com/fasterthanlight/automatic_clicker_2"
         )
         self.assertEqual(Github_WEBSITE, "https://github.com/714248411/YanYiClicker")
+        self.assertEqual(GITEE_WEBSITE_SECOND, "https://gitee.com")
+        self.assertEqual(
+            GITHUB_WEBSITE_OLD,
+            "https://github.com/FsterThanLight/automatic_clicker_2",
+        )
 
     def test_light_theme_is_default_but_later_choice_is_preserved(self):
         with tempfile.TemporaryDirectory() as directory:

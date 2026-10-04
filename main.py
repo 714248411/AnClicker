@@ -19,9 +19,8 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from functions import RESOURCE_FOLDER, ensure_data_directories, show_window
-from info import APP_NAME, CURRENT_VERSION
+from info import APP_NAME, CURRENT_VERSION, WINDOW_TITLE
 
-WINDOW_TITLE = f"{APP_NAME} {CURRENT_VERSION}"
 SINGLETON_KEY = f"FasterThanLight_{APP_NAME}_SingletonKey"
 
 
