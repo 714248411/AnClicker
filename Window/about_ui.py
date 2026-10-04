@@ -303,6 +303,6 @@ class Ui_About(object):
         self.gitee_3.setText(QCoreApplication.translate("About", u"Gitee 2", None))
         self.gitee_2.setText(QCoreApplication.translate("About", u"GitHub 1", None))
         self.gitee_4.setText(QCoreApplication.translate("About", u"GitHub 2", None))
-        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>FasterThanLight\u3000\u3000YanYi<br><b>QQ\uff1a</b>714248411\u3000\u30002309636438<br><b>\u90ae\u7bb1\uff1a</b>714248411@qq.com\u3000\u3000federalsadler@sohu.com<br>Copyright \u00a9 2022\u20132026", None))
+        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>YanYi\u3000\u3000FasterThanLight<br><b>QQ\uff1a</b>714248411\u3000\u30002309636438<br><b>\u90ae\u7bb1\uff1a</b>714248411@qq.com\u3000\u3000federalsadler@sohu.com<br>Copyright \u00a9 2022\u20132026", None))
     # retranslateUi
 

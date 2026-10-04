@@ -39,7 +39,7 @@ class BrandingAndThemeTests(unittest.TestCase):
         self.assertEqual(
             EMAIL_CONTACTS, ("714248411@qq.com", "federalsadler@sohu.com")
         )
-        self.assertEqual(CONTRIBUTORS, ("FasterThanLight", "YanYi"))
+        self.assertEqual(CONTRIBUTORS, ("YanYi", "FasterThanLight"))
         self.assertEqual(
             MAIN_WEBSITE, "https://gitee.com/fasterthanlight/automatic_clicker_2"
         )

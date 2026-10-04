@@ -514,7 +514,7 @@ QPushButton:pressed {
       </font>
      </property>
      <property name="text">
-      <string>&lt;b&gt;贡献者：&lt;/b&gt;FasterThanLight　　YanYi&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;714248411　　2309636438&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;714248411@qq.com　　federalsadler@sohu.com&lt;br&gt;Copyright © 2022–2026</string>
+      <string>&lt;b&gt;贡献者：&lt;/b&gt;YanYi　　FasterThanLight&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;714248411　　2309636438&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;714248411@qq.com　　federalsadler@sohu.com&lt;br&gt;Copyright © 2022–2026</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

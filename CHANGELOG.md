@@ -6,6 +6,7 @@
 
 - 关于页移除 “PyAutoGUI” 字样及下方重复的代码仓库文字地址；四个仓库图标继续负责跳转。
 - QQ 群、个人 QQ、邮箱、Gitee 与 GitHub 的 1/2 顺序统一调整为 YanYi 信息在前、原项目信息在后。
+- 贡献者顺序同步调整为 YanYi 在前、FasterThanLight 在后。
 - 新增“反馈及建议 2”，跳转至 `https://gitee.com/714248411/AnClicker/issues`。
 - GitHub 仓库从 `714248411/YanYiClicker` 重命名为 `714248411/AnClicker`。
 - 应用标题统一更新为 `An Clicker    [v1.0.0 Beat]`，关于页产品名称同步为 `An Clicker`。
