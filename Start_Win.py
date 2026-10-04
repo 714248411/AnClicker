@@ -15,6 +15,7 @@ import gc
 import os.path
 import sqlite3
 import sys
+import tempfile
 from time import time as current_time
 from typing import Optional
 
@@ -423,6 +424,8 @@ class Main_window(QMainWindow, Ui_MainWindow):
             recent_path_ = self.db.get_setting_value("当前文件路径")
             if recent_path_ and recent_path_ != "None":
                 save_path_ = os.path.normpath(recent_path_)
+                if not os.path.isdir(os.path.dirname(save_path_)):
+                    save_path_ = None
             if not save_path_:
                 self.statusBar.showMessage(
                     "未找到最近导入的文件路径，已切换为另存为。", 3000
@@ -430,11 +433,34 @@ class Main_window(QMainWindow, Ui_MainWindow):
         save_path_ = save_path_ or choose_save_path_()
         if not save_path_:
             return False
+        save_path_ = os.path.abspath(save_path_)
+        if not save_path_.lower().endswith(".xlsx"):
+            save_path_ += ".xlsx"
+
+        target_directory_ = os.path.dirname(save_path_)
+        try:
+            os.makedirs(target_directory_, exist_ok=True)
+        except OSError as error_:
+            QMessageBox.warning(
+                self, "保存失败", f"无法创建保存目录：{error_}", QMessageBox.StandardButton.Ok
+            )
+            return False
+        if hasattr(self, "view_workspace"):
+            self.view_workspace._save_code()
 
         workbook_ = openpyxl.Workbook()
+        temporary_path_ = None
         try:
             self.workspace.repository.export_to_workbook(workbook_, self.db)
-            workbook_.save(save_path_)
+            with tempfile.NamedTemporaryFile(
+                prefix=".yanyi-", suffix=".xlsx", dir=target_directory_, delete=False
+            ) as temporary_file_:
+                temporary_path_ = temporary_file_.name
+            workbook_.save(temporary_path_)
+            # Replace only after the workbook has been written completely, so
+            # a failed save never damages the user's last valid task file.
+            os.replace(temporary_path_, save_path_)
+            temporary_path_ = None
         except PermissionError:
             QMessageBox.critical(
                 self, "错误", "保存失败，文件被占用！", QMessageBox.StandardButton.Ok
@@ -447,8 +473,14 @@ class Main_window(QMainWindow, Ui_MainWindow):
             return False
         finally:
             workbook_.close()
+            if temporary_path_ and os.path.exists(temporary_path_):
+                try:
+                    os.remove(temporary_path_)
+                except OSError:
+                    pass
 
         self.db.update_settings(当前文件路径=save_path_)
+        self.db.writes_to_recently_opened_files(save_path_)
         if judge != "自动保存" and QMessageBox.question(
             self,
             "提示",

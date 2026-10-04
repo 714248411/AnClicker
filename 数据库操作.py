@@ -37,7 +37,7 @@ DEFAULT_SETTINGS = {
     "图像匹配精度": "0.8",
     "退出提醒清空指令": "False",
     "系统提示音": "False",
-    "显示工具栏": "False",
+    "显示工具栏": "True",
     "任务完成后显示主窗口": "False",
     "当前文件路径": "None",
     "运行重复次数": "1",
@@ -92,6 +92,22 @@ class DatabaseOperation:
             conn.execute("PRAGMA foreign_keys=ON")
             cursor = conn.cursor()
             self._migrate_settings_table(cursor)
+            toolbar_layout_version = cursor.execute(
+                "SELECT 值 FROM 设置 WHERE 设置项='工具栏紧凑布局版本'"
+            ).fetchone()
+            if toolbar_layout_version is None:
+                # Older releases seeded this preference as hidden.  Migrate
+                # once to the new visible-by-default compact toolbar while
+                # preserving any choice the user makes afterwards.
+                cursor.execute(
+                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '显示工具栏', 'True') "
+                    "ON CONFLICT(设置项) DO UPDATE SET 值='True'",
+                    (get_setting_type("显示工具栏"),),
+                )
+                cursor.execute(
+                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '工具栏紧凑布局版本', '2')",
+                    (get_setting_type("工具栏紧凑布局版本"),),
+                )
             cursor.execute(
                 "DELETE FROM 设置 WHERE 设置项 IN ({})".format(
                     ",".join("?" for _ in REMOVED_SETTING_ITEMS)

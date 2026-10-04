@@ -4,6 +4,8 @@ import unittest
 from types import MethodType
 from unittest.mock import patch
 
+from openpyxl import Workbook
+
 from graph_repository import END_NODE_ID, START_NODE_ID, GraphRepository
 from instructions.models import ExecutionContext, InstructionDraft
 from main_work import CommandThread
@@ -70,6 +72,44 @@ class FlowReplicaTests(unittest.TestCase):
             self.repository.validate_graph(), ExecutionContext(variables={})
         )
         self.assertEqual(executed, [loop.id, body.id, loop.id, body.id, loop.id])
+
+    def test_workbook_round_trip_preserves_loop_link_roles(self):
+        self._loop_graph()
+        workbook = Workbook()
+        self.repository.export_to_workbook(workbook, self.database)
+        self.assertEqual(
+            [cell.value for cell in workbook["连线"][1]],
+            ["源节点ID", "目标节点ID", "连接类型"],
+        )
+        target_path = os.path.join(self.temporary_directory.name, "reopened.db")
+        target_database = DatabaseOperation(target_path)
+        target_repository = GraphRepository(
+            target_path, valid_type_ids={"循环", "时间等待"}
+        )
+        target_repository.import_from_workbook(workbook)
+        snapshot = target_repository.validate_graph()
+        loop_node = next(node for node in snapshot.nodes if node.type_id == "循环")
+        self.assertEqual(
+            {edge.kind for edge in snapshot.edges if edge.source == loop_node.node_id},
+            {3, 4},
+        )
+
+    def test_incomplete_draft_can_be_saved_and_reopened(self):
+        command = self.repository.add_command(
+            InstructionDraft("时间等待", {"时长": 1, "单位": "秒"}),
+            unconnected=True,
+        )
+        workbook = Workbook()
+        self.repository.export_to_workbook(workbook, self.database)
+        target_path = os.path.join(self.temporary_directory.name, "draft.db")
+        target_database = DatabaseOperation(target_path)
+        target_repository = GraphRepository(
+            target_path, valid_type_ids={"循环", "时间等待"}
+        )
+        target_repository.import_from_workbook(workbook)
+        self.assertEqual(
+            [item.id for item in target_repository.snapshot().commands], [command.id]
+        )
 
 
 if __name__ == "__main__":

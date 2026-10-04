@@ -47,7 +47,8 @@ EDGE_COLUMNS = ("源节点ID", "目标节点ID")
 
 COMMAND_SHEET_HEADERS = list(COMMAND_COLUMNS)
 NODE_SHEET_HEADERS = list(NODE_COLUMNS)
-EDGE_SHEET_HEADERS = list(EDGE_COLUMNS)
+LEGACY_EDGE_SHEET_HEADERS = list(EDGE_COLUMNS)
+EDGE_SHEET_HEADERS = [*EDGE_COLUMNS, "连接类型"]
 SETTINGS_SHEET_HEADERS = ["类型", "名称", "值", "附加值", "排序"]
 WORKBOOK_SHEETS = ("命令", "节点", "连线", "设置")
 
@@ -1439,9 +1440,10 @@ class GraphRepository:
                 "ORDER BY CASE 节点类型 WHEN 'start' THEN 0 "
                 "WHEN 'instruction' THEN 1 ELSE 2 END, rowid"
             ).fetchall()
-            edge_sheet_rows = connection.execute(
-                "SELECT 源节点ID, 目标节点ID FROM 节点连接 ORDER BY rowid"
-            ).fetchall()
+            edge_sheet_rows = [
+                (edge.source, edge.target, edge.kind)
+                for edge in self._edge_records(connection)
+            ]
         for row in command_sheet_rows:
             command_sheet.append(row)
         for row in node_sheet_rows:
@@ -1481,6 +1483,26 @@ class GraphRepository:
             rows.append(values)
         return rows
 
+    @classmethod
+    def _edge_sheet_rows(cls, workbook: Any) -> list[tuple[Any, ...]]:
+        """Read current three-column links and legacy two-column links."""
+        sheet = workbook["连线"]
+        if sheet.max_column not in {2, 3}:
+            raise WorkbookValidationError("“连线”工作表列数不正确")
+        headers = [sheet.cell(1, column).value for column in range(1, sheet.max_column + 1)]
+        expected = EDGE_SHEET_HEADERS if sheet.max_column == 3 else LEGACY_EDGE_SHEET_HEADERS
+        if headers != expected:
+            raise WorkbookValidationError("“连线”工作表标题不正确")
+        rows: list[tuple[Any, ...]] = []
+        for row_index in range(2, sheet.max_row + 1):
+            values = tuple(
+                sheet.cell(row_index, column).value
+                for column in range(1, sheet.max_column + 1)
+            )
+            if not all(value is None for value in values):
+                rows.append(values)
+        return rows
+
     def _parse_workbook(
         self, workbook: Any
     ) -> tuple[
@@ -1499,7 +1521,7 @@ class GraphRepository:
             workbook, "命令", COMMAND_SHEET_HEADERS
         )
         node_rows = self._sheet_rows(workbook, "节点", NODE_SHEET_HEADERS)
-        edge_rows = self._sheet_rows(workbook, "连线", EDGE_SHEET_HEADERS)
+        edge_rows = self._edge_sheet_rows(workbook)
 
         commands: list[_SerializedCommand] = []
         for row in command_rows:
@@ -1578,7 +1600,25 @@ class GraphRepository:
             )
 
         edges: list[EdgeRecord] = []
-        for source, target in edge_rows:
+        command_type_by_id = {command.id: command.type_id for command in commands}
+        source_type_by_node = {
+            node.node_id: command_type_by_id.get(node.command_id, "") for node in nodes
+        }
+        legacy_branch_index: dict[str, int] = {}
+        for edge_row in edge_rows:
+            source, target = edge_row[:2]
+            if len(edge_row) == 3:
+                kind = edge_row[2]
+            else:
+                branch_index = legacy_branch_index.get(str(source), 0)
+                legacy_branch_index[str(source)] = branch_index + 1
+                source_type = source_type_by_node.get(str(source), "")
+                if source_type == "条件判断":
+                    kind = (1, 2)[min(branch_index, 1)]
+                elif source_type in {"循环", "条件循环"}:
+                    kind = (3, 4)[min(branch_index, 1)]
+                else:
+                    kind = 0
             if (
                 not isinstance(source, str)
                 or not source.strip()
@@ -1586,9 +1626,13 @@ class GraphRepository:
                 or not target.strip()
             ):
                 raise WorkbookValidationError("连线的源节点和目标节点不能为空")
-            edges.append(EdgeRecord(source.strip(), target.strip()))
+            if isinstance(kind, bool) or not isinstance(kind, int) or kind not in range(5):
+                raise WorkbookValidationError("连线类型必须是 0 到 4 的整数")
+            edges.append(EdgeRecord(source.strip(), target.strip(), kind))
         try:
-            self._validate_records(commands, nodes, edges, require_order=True)
+            self._validate_records(
+                commands, nodes, edges, require_order=True, allow_incomplete=True
+            )
         except GraphValidationError as error_:
             raise WorkbookValidationError(str(error_)) from error_
 
@@ -1612,6 +1656,7 @@ class GraphRepository:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 connection.execute("DELETE FROM 节点连接")
+                connection.execute("DELETE FROM flow_edge_metadata")
                 connection.execute("DELETE FROM 节点")
                 connection.execute("DELETE FROM 命令")
                 connection.executemany(
@@ -1648,8 +1693,12 @@ class GraphRepository:
                     "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
                     [(edge.source, edge.target) for edge in edges],
                 )
+                connection.executemany(
+                    "INSERT INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, ?)",
+                    [(edge.source, edge.target, edge.kind) for edge in edges],
+                )
                 DatabaseOperation._apply_parsed_settings(connection, settings)
-                self._validate_connection(connection, require_order=True)
+                self._validate_draft_connection(connection)
                 connection.commit()
             except Exception:
                 connection.rollback()

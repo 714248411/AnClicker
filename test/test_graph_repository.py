@@ -335,7 +335,7 @@ class GraphRepositoryTests(unittest.TestCase):
         self.repository.export_to_workbook(workbook, self.database)
         edge_sheet = workbook["连线"]
         edge_sheet.delete_rows(2, edge_sheet.max_row)
-        edge_sheet.append((START_NODE_ID, END_NODE_ID))
+        edge_sheet.append((START_NODE_ID, "missing-node", 0))
 
         with self.assertRaises(WorkbookValidationError):
             self.repository.import_from_workbook(workbook)

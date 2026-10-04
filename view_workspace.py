@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from PySide6.QtCore import QSignalBlocker, Signal, Qt, QTimer
+from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -407,6 +407,11 @@ class ViewWorkspace:
         return page
 
     def _build_navigation(self) -> None:
+        self.window.toolBar.setIconSize(QSize(16, 16))
+        toolbar_font = self.window.toolBar.font()
+        base_size = toolbar_font.pointSize()
+        toolbar_font.setPointSize(max(8, base_size - 2 if base_size > 0 else 9))
+        self.window.toolBar.setFont(toolbar_font)
         self.primary_action = QAction("打开流程图", self.window)
         self.primary_action.triggered.connect(self.toggle_primary)
         self.code_action = QAction("多功能", self.window)
@@ -682,8 +687,8 @@ class ViewWorkspace:
             QWidget#beginnerView, QStackedWidget {{ background: {c['bg']}; color: {c['text']}; }}
             QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
             QMenuBar::item:selected, QMenu::item:selected {{ background: {c['surface3']}; color: {c['accent']}; }}
-            QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 5px; }}
-            QToolBar QToolButton {{ padding: 6px 10px; border-radius: 8px; }}
+            QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 2px 3px; spacing: 2px; font-size: 11px; }}
+            QToolBar QToolButton {{ padding: 3px 6px; border-radius: 6px; font-size: 11px; }}
             QToolBar QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
             QTabWidget::pane {{ border: 1px solid {c['line']}; border-radius: 12px; background: {c['bg']}; top: -1px; }}
             QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 9px 18px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
