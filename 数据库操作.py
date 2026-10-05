@@ -149,6 +149,9 @@ class DatabaseOperation:
                 "变量名称 TEXT NOT NULL UNIQUE, 备注 TEXT, 值 TEXT)"
             )
             GraphRepository.initialize_schema(conn)
+            columns = {row[1] for row in cursor.execute('PRAGMA table_info(变量池)')}
+            if '作用域' not in columns:
+                cursor.execute("ALTER TABLE 变量池 ADD COLUMN 作用域 TEXT NOT NULL DEFAULT '全局变量'")
             self._migrate_legacy_window_settings(cursor)
             self._migrate_legacy_global_parameters(cursor)
             cursor.execute(
@@ -802,7 +805,7 @@ class DatabaseOperation:
         """从变量池表中获取全部变量。"""
         with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM 变量池")
+            cursor.execute("SELECT 变量名称, 备注, 值 FROM 变量池")
             result = cursor.fetchall()
         return result
 
@@ -813,7 +816,7 @@ class DatabaseOperation:
         with contextlib.closing(sqlite3.connect(self.db_path)) as con:
             cursor = con.cursor()
             try:
-                cursor.execute("SELECT * FROM 变量池")
+                cursor.execute("SELECT 变量名称, 备注, 值 FROM 变量池")
                 existing_values = cursor.fetchall()
                 # 将现有值存储为字典，便于比较
                 existing_values_dict = {row[0]: (row[1], row[2]) for row in existing_values}
@@ -844,6 +847,34 @@ class DatabaseOperation:
                 con.commit()
             except sqlite3.IntegrityError:
                 print("An error occurred: 数据库中已存在该变量名称")
+
+    def get_variable_definitions(self):
+        with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
+            return conn.execute('SELECT 变量名称, 备注, 值, 作用域 FROM 变量池 ORDER BY rowid').fetchall()
+
+    def save_variable_definitions(self, rows):
+        normalized = []
+        names = set()
+        for name, remark, value, scope in rows:
+            name = str(name or '').strip()
+            if not name:
+                raise ValueError('变量名称不能为空')
+            if name in names:
+                raise ValueError(f'变量名称重复：{name}')
+            if scope not in ('全局变量', '普通变量'):
+                raise ValueError('请选择全局变量或普通变量')
+            names.add(name)
+            normalized.append((name, str(remark or ''), str(value if value is not None else ''), scope))
+        with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
+                conn.execute('DELETE FROM 变量池')
+                conn.executemany('INSERT INTO 变量池(变量名称,备注,值,作用域) VALUES (?,?,?,?)', normalized)
+
+    def persist_global_variables(self, values):
+        with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
+            with conn:
+                conn.executemany("UPDATE 变量池 SET 值=? WHERE 变量名称=? AND 作用域='全局变量'",
+                                 [(str(value), str(name)) for name, value in values.items()])
 
     def get_variable_info(self, return_type: str):
         """从变量名中获取变量信息，可以选择返回类型为字典或列表

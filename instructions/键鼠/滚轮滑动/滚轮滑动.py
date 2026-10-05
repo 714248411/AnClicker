@@ -41,6 +41,15 @@ class InstructionExecutor(InstructionExecutorBase):
         gui_ = actions.pyautogui_module()
         if p_.get("录制坐标"):
             gui_.moveTo(*actions.point(p_["录制坐标"]), **actions.recording_options(command))
+        if "录制滚轮" in p_:
+            from recorded_input import scroll_event
+            gui_.failSafeCheck()
+            dx_, dy_ = p_["录制滚轮"]
+            if not dx_ and float(dy_).is_integer():
+                gui_.scroll(int(dy_), **actions.recording_options(command))
+            else:
+                scroll_event(context, dx_, dy_)
+            return dx_, dy_
         gui_.scroll(distance_, **actions.recording_options(command))
         context.emit(f"滚轮滑动：{distance_}")
         return distance_

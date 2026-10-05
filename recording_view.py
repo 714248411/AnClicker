@@ -4,6 +4,7 @@ import time
 import sys
 
 from PySide6.QtCore import Signal, QTimer
+from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                                QCheckBox, QSpinBox, QTableWidget, QTableWidgetItem,
                                QHeaderView, QAbstractItemView, QMessageBox)
@@ -41,9 +42,10 @@ class RecordingView(QWidget):
         title = QLabel("键盘鼠标录制")
         title.setObjectName("pageTitle")
         layout.addWidget(title)
-        tip = QLabel("记录鼠标移动、点击、拖拽、滚轮及键盘按下/松开；按 F8 停止。\n"
+        tip = QLabel("记录鼠标移动、双击、拖拽、侧键、双向滚轮及键盘按下/松开（含组合键、功能键、数字小键盘和媒体键）。\n"
                      "仅点击开始后监听。不要录入密码等敏感信息；录制结果保存在当前任务中。\n"
-                     "macOS 需授予辅助功能/输入监控权限；Linux 需支持 X11 全局输入监听。")
+                     "Esc 或停止按钮均可结束录制；默认也可按 F8。要录制 F8 请取消下方选项。硬件 Fn 等操作受系统限制。\n"
+                     "macOS 需辅助功能/输入监控权限；Linux 需 X11。原始系统键码应在同一系统回放。")
         tip.setWordWrap(True)
         tip.setObjectName("mutedText")
         layout.addWidget(tip)
@@ -53,6 +55,9 @@ class RecordingView(QWidget):
         self.delay.setRange(1, 10)
         self.delay.setValue(3)
         options.addWidget(self.delay)
+        self.f8_option = QCheckBox("F8 停止录制")
+        self.f8_option.setChecked(True)
+        options.addWidget(self.f8_option)
         self.hide_option = QCheckBox("录制时隐藏主窗口")
         self.hide_option.setChecked(True)
         self.timing_option = QCheckBox("保留操作时间间隔")
@@ -61,6 +66,8 @@ class RecordingView(QWidget):
         self.connect_option.setChecked(True)
         self.auto_option = QCheckBox("停止后自动写入")
         self.auto_option.setChecked(True)
+        layout.addLayout(options)
+        options = QHBoxLayout()
         for option in (self.hide_option, self.timing_option, self.connect_option, self.auto_option):
             options.addWidget(option)
         options.addStretch()
@@ -68,19 +75,23 @@ class RecordingView(QWidget):
         controls = QHBoxLayout()
         self.start_button = QPushButton("开始录制")
         self.start_button.setObjectName("accentButton")
-        self.stop_button = QPushButton("停止录制（F8）")
+        self.stop_button = QPushButton("停止录制（Esc / F8）")
         self.stop_button.setObjectName("dangerButton")
         self.write_button = QPushButton("写入表格与流程图")
         self.clear_button = QPushButton("清空录制预览")
         self.start_button.clicked.connect(self.begin)
         self.stop_button.clicked.connect(self.finish)
+        self.escape_shortcut = QShortcut(QKeySequence("Esc"), self)
+        self.escape_shortcut.activated.connect(self.finish)
         self.write_button.clicked.connect(self.write)
         self.clear_button.clicked.connect(self.clear)
         for button in (self.start_button, self.stop_button, self.write_button, self.clear_button):
             controls.addWidget(button)
         controls.addStretch()
         layout.addLayout(controls)
-        self.status = QLabel("未录制 · 每 50 毫秒最多采样一次鼠标移动，最多 2000 个事件")
+        self.f8_option.toggled.connect(self.update_stop_mode)
+        self.status = QLabel("未录制 · 鼠标移动每 10 毫秒采样，最多 20000 个事件；按键、点击及滚轮不降采样")
+        self.status.setWordWrap(True)
         self.status.setObjectName("taskStats")
         layout.addWidget(self.status)
         self.preview = QTableWidget(0, 3)
@@ -104,8 +115,15 @@ class RecordingView(QWidget):
         self.stop_button.setEnabled(self.busy)
         self.write_button.setEnabled(not self.busy and bool(self.drafts) and not self.written)
         self.clear_button.setEnabled(not self.busy and bool(self.drafts))
-        for control in (self.delay, self.hide_option, self.timing_option, self.connect_option, self.auto_option):
+        for control in (self.delay, self.f8_option, self.hide_option, self.timing_option, self.connect_option, self.auto_option):
             control.setEnabled(not self.busy)
+        self.hide_option.setEnabled(not self.busy and self.f8_option.isChecked())
+
+    def update_stop_mode(self, enabled):
+        if not enabled:
+            self.hide_option.setChecked(False)
+        self.stop_button.setText("停止录制（Esc / F8）" if enabled else "停止录制（Esc）")
+        self.update_buttons()
 
     def begin(self):
         if self.busy:
@@ -129,7 +147,7 @@ class RecordingView(QWidget):
         if self.countdown:
             remaining = self.deadline - time.monotonic()
             if remaining > 0:
-                self.status.setText(f"{max(1, int(remaining + 0.999))} 秒后开始 · 可点击停止取消")
+                self.status.setText(f"{max(1, int(remaining + 0.999))} 秒后开始 · Esc 或停止按钮取消")
                 return
             self.countdown = 0
             try:
@@ -141,7 +159,8 @@ class RecordingView(QWidget):
                 self.buffer.start()
                 self.recorder = GlobalInputRecorder(
                     self.buffer, self.stopRequested.emit, self.captureFailed.emit,
-                    self.exclude_mouse, self.exclude_keyboard)
+                    self.exclude_mouse, self.exclude_keyboard,
+                    stop_with_f8=self.f8_option.isChecked())
                 self.recorder.start()
                 self.capture_started = time.monotonic()
                 self.update_buttons()
@@ -152,12 +171,13 @@ class RecordingView(QWidget):
             self.refresh_exclusion()
             if self.buffer.full:
                 self.finish()
-                self.status.setText(self.status.text() + " · 达到 2000 事件上限，已自动停止")
+                self.status.setText(self.status.text() + f" · 达到 {self.buffer.limit} 事件上限，已自动停止")
             elif time.monotonic() - self.capture_started > 1 and any(
                     not listener.is_alive() for listener in self.recorder.listeners):
                 self.failed("输入监听器已退出，请检查输入监听权限或桌面环境。")
             else:
-                self.status.setText(f"录制中 · {len(self.buffer.snapshot())} 个事件 · 按 F8 停止")
+                stop_tip = "Esc / F8 或停止按钮结束" if self.f8_option.isChecked() else "Esc 或停止按钮结束"
+                self.status.setText(f"录制中 · {len(self.buffer.snapshot())} 个事件 · {stop_tip}")
 
     def refresh_exclusion(self):
         rect = self.window.frameGeometry()

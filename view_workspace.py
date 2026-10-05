@@ -143,6 +143,7 @@ class ViewWorkspace:
         self.window.pushButton_5.setObjectName("accentButton")
         self.window.pushButton_6.setObjectName("dangerButton")
         self.window.textEdit.setReadOnly(True)
+        self.window.groupBox_3.setStyleSheet('')
 
     def _assemble_views(self) -> None:
         self.table_page = self.window.tab
@@ -169,6 +170,7 @@ class ViewWorkspace:
         )
         self.main_stats = QLabel()
         self.main_stats.setObjectName("taskStats")
+        self.main_stats.setWordWrap(True)
         hero_layout.addWidget(self.main_stats)
         buttons = QHBoxLayout()
         for label, callback, primary in (
@@ -202,7 +204,7 @@ class ViewWorkspace:
         nav_layout.addWidget(nav_title)
         self.beginner_nav = QListWidget()
         self.beginner_nav.setObjectName("beginnerNavigation")
-        for text in ("任务", "窗口绑定", "图色", "录制", "AI 识图", "DLL"):
+        for text in ("任务", "窗口绑定", "图色", "录制", "AI 识图", "DLL", "变量"):
             self.beginner_nav.addItem(text)
         nav_layout.addWidget(self.beginner_nav, 1)
         layout.addWidget(nav_frame)
@@ -231,6 +233,11 @@ class ViewWorkspace:
             (("运行 Python", lambda: self.window.workspace.add_command("运行Python")),
              ("运行外部文件", lambda: self.window.workspace.add_command("运行外部文件"))),
         ))
+        self.beginner_stack.addWidget(self._build_action_panel(
+            '变量管理', '自定义全局变量与普通变量，供获取时间、剪切板、Excel、条件判断等指令使用。',
+            (('设置变量', self.show_variables),
+             ('添加获取时间', lambda: self.window.workspace.add_command('获取时间'))),
+        ))
         self.beginner_nav.currentRowChanged.connect(self.beginner_stack.setCurrentIndex)
         self.beginner_nav.setCurrentRow(0)
         layout.addWidget(self.beginner_stack, 1)
@@ -242,6 +249,7 @@ class ViewWorkspace:
         layout = QVBoxLayout(card)
         heading = QLabel(title)
         heading.setObjectName("cardTitle")
+        heading.setWordWrap(True)
         layout.addWidget(heading)
         if description:
             detail = QLabel(description)
@@ -249,6 +257,14 @@ class ViewWorkspace:
             detail.setWordWrap(True)
             layout.addWidget(detail)
         return card, layout
+
+    def show_variables(self):
+        if self.window.command_thread.isRunning():
+            QMessageBox.information(self.window, '任务正在运行', '请停止任务后再修改变量定义。')
+            return
+        from WindowControl.变量池窗口 import VariablePool_Win
+        manager = VariablePool_Win(self.window, database=self.window.db)
+        manager.exec()
 
     def _build_task_panel(self) -> QWidget:
         page = QWidget()
@@ -261,6 +277,7 @@ class ViewWorkspace:
         card_layout.addLayout(form)
         self.stats = QLabel()
         self.stats.setObjectName("taskStats")
+        self.stats.setWordWrap(True)
         card_layout.addWidget(self.stats)
         buttons = QHBoxLayout()
         edit_button = QPushButton("打开流程图")
@@ -456,6 +473,7 @@ class ViewWorkspace:
             ("多功能", "Ctrl+4", self.show_code),
             ("导航", "Ctrl+5", self.show_navigation),
             ("录制", "Ctrl+6", self.show_recording),
+            ("设置变量", "Ctrl+Shift+V", self.show_variables),
         ):
             action = QAction(label, self.window)
             action.setShortcut(QKeySequence(shortcut))
@@ -797,6 +815,8 @@ class ViewWorkspace:
 
     def _apply_theme(self) -> None:
         c = self.THEMES[self.theme_mode]
+        down_arrow = os.path.join(RESOURCE_FOLDER, 'flat', 'chevron-down.svg').replace('\\', '/')
+        up_arrow = os.path.join(RESOURCE_FOLDER, 'flat', 'chevron-up.svg').replace('\\', '/')
         try:
             scheme = (
                 Qt.ColorScheme.Dark
@@ -826,6 +846,8 @@ class ViewWorkspace:
         self.window.setStyleSheet(f"""
             QMainWindow, QWidget#centralwidget {{ background: {c['bg']}; color: {c['text']}; }}
             QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
+            QLabel {{ color: {c['text']}; }}
+            QWidget#instructionEditorBody {{ background: {c['bg']}; color: {c['text']}; }}
             QWidget#tab, QWidget#editorView, QWidget#multifunctionView,
             QWidget#beginnerView, QStackedWidget {{ background: {c['bg']}; color: {c['text']}; }}
             QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
@@ -862,6 +884,9 @@ class ViewWorkspace:
             QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
             QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{ border-color: {c['accent']}; }}
             QComboBox::drop-down {{ border: none; width: 24px; }}
+            QComboBox {{ padding-right: 28px; }}
+            QComboBox::down-arrow, QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{ image: url("{down_arrow}"); width: 12px; height: 12px; }}
+            QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{ image: url("{up_arrow}"); width: 12px; height: 12px; }}
             QCheckBox, QRadioButton {{ color: {c['text']}; spacing: 7px; padding: 3px; }}
             QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px; }}
             QCheckBox::indicator:unchecked, QRadioButton::indicator:unchecked {{ background: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 5px; }}

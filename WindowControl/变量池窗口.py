@@ -1,124 +1,92 @@
-import sys
-
+"""Shared variable manager, also used to select instruction output variables."""
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QAction
-from PySide6.QtWidgets import QDialog, QMenu, QStyle, QApplication
-
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QTableWidget, QTableWidgetItem, QComboBox, QHeaderView, QAbstractItemView,
+    QDialogButtonBox, QMessageBox)
 from 数据库操作 import DatabaseOperation
-from Window.variablepool_ui import Ui_VariablePool
 
 
-class VariablePool_Win(QDialog, Ui_VariablePool):
-    """变量池窗体"""
-
-    def __init__(self, parent=None):
+class VariablePool_Win(QDialog):
+    def __init__(self, parent=None, database=None, selected_name=''):
         super().__init__(parent)
-        # 初始化变量池窗口
-        self.setupUi(self)
-        self.set_style()  # 设置窗体样式
-        self.db = DatabaseOperation()  # 创建数据库对象
-        # 添加右键菜单
-        self.tableView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tableView.customContextMenuRequested.connect(self.open_menu)
-        self.load_data()  # 加载数据
-        self.parent = parent
-
-    def set_style(self):
-        """设置窗体样式"""
-        # 设置表格风格
-        self.tableView.horizontalHeader().setStretchLastSection(
-            True
-        )  # 设置最后一列拉伸至最大
-        self.tableView.setStyleSheet(
-            "QHeaderView::section{background:red;}"
-        )  # 设置表头背景色
-        # 设置标题字体粗体
-        self.tableView.horizontalHeader().setStyleSheet(
-            "QHeaderView::section{font:11pt '微软雅黑'; color: white; font-weight: bold;}"
-        )
-        # 设置表格序数列字体粗体
-        self.tableView.verticalHeader().setStyleSheet(
-            "QHeaderView::section{font:11pt '微软雅黑'; color: white; font-weight: bold;}"
-        )
+        self.db = database if database is not None else DatabaseOperation()
+        self.selected_name = selected_name
+        self.setWindowTitle('设置变量 · 全局变量 / 普通变量')
+        self.resize(820, 520)
+        self.setMinimumSize(560, 380)
+        layout = QVBoxLayout(self)
+        tip = QLabel('全局变量：运行后的值自动保存，后续任务可继续使用。\n普通变量：本次任务内共享，下次启动任务时恢复这里设置的初始值。\n双击单元格可修改名称、值和备注；名称必须唯一。')
+        tip.setWordWrap(True)
+        layout.addWidget(tip)
+        actions = QHBoxLayout()
+        for text, scope in [('新增普通变量', '普通变量'), ('新增全局变量', '全局变量')]:
+            button = QPushButton(text)
+            button.clicked.connect(lambda checked=False, value=scope: self.add_row(value))
+            actions.addWidget(button)
+        remove = QPushButton('删除选中变量')
+        remove.clicked.connect(self.delete_row)
+        actions.addWidget(remove)
+        actions.addStretch()
+        layout.addLayout(actions)
+        self.tableView = QTableWidget(0, 4)
+        self.tableView.setHorizontalHeaderLabels(['变量名称', '作用域', '值 / 初始值', '备注'])
+        self.tableView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tableView.setAlternatingRowColors(True)
+        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.tableView.horizontalHeader().setMinimumSectionSize(110)
+        self.tableView.verticalHeader().setDefaultSectionSize(42)
+        layout.addWidget(self.tableView, 1)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setText('保存并选择' if selected_name else '保存变量')
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText('取消')
+        self.buttons.accepted.connect(self.save)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        self.load_data()
 
     def load_data(self):
-        model = QStandardItemModel(self)  # 创建一个 QStandardItemModel 作为数据模型
-        # 设置模型的表头
-        model.setHorizontalHeaderLabels(["变量名称", "备注", "值"])
-        variable_list = self.db.get_value_from_variable_table()  # 从数据库中获取数据
-        # 添加数据到模型中
-        for variable_tuple in variable_list:
-            items = [
-                QStandardItem(str(variable_tuple[0])),
-                QStandardItem(str(variable_tuple[1])),
-                QStandardItem(str(variable_tuple[2])),
-            ]
-            model.appendRow(items)
-        # 将模型设置到 TableView 中
-        self.tableView.setModel(model)
-        self.tableView.resizeColumnToContents(1)
-        self.tableView.setFocusPolicy(False)
-        # 重新设置窗口大小以适应表格的大小
-        width = self.tableView.horizontalHeader().length() + 100  # 加上一些额外空间
-        height = self.tableView.verticalHeader().length() + 100
-        self.resize(width, height)  # 设置窗口大小为表格大小加上一些额外空间
+        self.tableView.setRowCount(0)
+        for name, remark, value, scope in self.db.get_variable_definitions():
+            self._append(name, scope, value, remark)
+            if name == self.selected_name:
+                self.tableView.selectRow(self.tableView.rowCount()-1)
 
-    def open_menu(self, position):
-        menu = QMenu()
-        add_row_action = QAction("添加变量", self)
-        delete_row_action = QAction("删除变量", self)
-        menu.addAction(add_row_action)
-        menu.addAction(delete_row_action)
-        # 设置图标
-        add_row_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
-        delete_row_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogDiscardButton)
-        )
-        # 绑定事件
-        add_row_action.triggered.connect(self.add_row)
-        delete_row_action.triggered.connect(self.delete_row)
-        menu.exec_(self.tableView.viewport().mapToGlobal(position))
+    def _append(self, name, scope, value='', remark=''):
+        row = self.tableView.rowCount()
+        self.tableView.insertRow(row)
+        for column, text in [(0, name), (2, value), (3, remark)]:
+            self.tableView.setItem(row, column, QTableWidgetItem(str(text or '')))
+        selector = QComboBox()
+        selector.addItems(['普通变量', '全局变量'])
+        selector.setCurrentText(scope)
+        self.tableView.setCellWidget(row, 1, selector)
 
-    def add_row(self):
-        """添加一行到 TableView"""
-        model = self.tableView.model()
-        row_count = model.rowCount()
-        model.insertRow(row_count)
-        for column in range(model.columnCount()):
-            model.setData(model.index(row_count, column), "New Data")
+    def add_row(self, scope='普通变量'):
+        names = {self.tableView.item(row, 0).text() for row in range(self.tableView.rowCount())}
+        number = 1
+        while f'变量{number}' in names:
+            number += 1
+        self._append(f'变量{number}', scope)
+        row = self.tableView.rowCount()-1
+        self.tableView.selectRow(row)
+        self.tableView.editItem(self.tableView.item(row, 0))
 
     def delete_row(self):
-        """删除选定的行"""
-        selection_model = self.tableView.selectionModel()
-        rows = sorted(index.row() for index in selection_model.selectedIndexes())
-        for row in reversed(rows):
-            self.tableView.model().removeRow(row)
+        rows = {index.row() for index in self.tableView.selectionModel().selectedRows()}
+        for row in sorted(rows, reverse=True):
+            self.tableView.removeRow(row)
 
-    def closeEvent(self, event):
-        """关闭窗口时触发"""
-        # 保存数据到数据库
-        model = self.tableView.model()
-        row_count = model.rowCount()
-        variable_list = []
-        for row in range(row_count):
-            variable_name = model.index(row, 0).data()
-            variable_remark = model.index(row, 1).data()
-            variable_value = model.index(row, 2).data()
-            variable_list.append((variable_name, variable_remark, variable_value))
-        # 保存数据到数据库
-        # print(variable_list)
-        self.db.set_value_to_variable_table(variable_list)
-
-        # 父窗口加载数据
-        if self.parent:
-            try:  # 重新加载父窗口的数据，用于选择窗口的变量更新
-                self.parent.load_lists("变量选择")
-            except AttributeError:
-                pass
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    win = VariablePool_Win()
-    win.show()
-    sys.exit(app.exec())
+    def save(self):
+        self.tableView.setFocus()
+        rows = [(self.tableView.item(row, 0).text(), self.tableView.item(row, 3).text(),
+                 self.tableView.item(row, 2).text(), self.tableView.cellWidget(row, 1).currentText())
+                for row in range(self.tableView.rowCount())]
+        try:
+            self.db.save_variable_definitions(rows)
+        except Exception as error:
+            QMessageBox.warning(self, '变量未保存', str(error))
+            return
+        row = self.tableView.currentRow()
+        if row >= 0:
+            self.selected_name = rows[row][0].strip()
+        self.accept()

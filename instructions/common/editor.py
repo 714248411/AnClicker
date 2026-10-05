@@ -26,6 +26,11 @@ from PySide6.QtWidgets import (
     QRubberBand,
     QSpinBox,
     QWidget,
+    QLabel,
+    QFormLayout,
+    QScrollArea,
+    QVBoxLayout,
+    QSizePolicy,
 )
 
 from instructions.base import InstructionEditorInterface
@@ -103,7 +108,7 @@ class _RegionSelectionDialog(QDialog):
 
 
 class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
-    """只绑定各指令 .ui 中已存在的控件，不创建窗口或参数控件。"""
+    """绑定独立 .ui 参数窗口，并提供统一变量管理和自适应布局。"""
 
     test_requested = Signal(object)
     auxiliary_requested = Signal(str, object)
@@ -126,8 +131,72 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         self._bind_common_controls()
         self._connect_auxiliary_buttons()
         self._connect_buttons()
+        self._prepare_variable_control()
+        self._adapt_layout()
         if draft is not None:
             self.load_draft(draft)
+
+    def _variable_database(self):
+        database = getattr(self.context, 'metadata', {}).get('database')
+        if database is None:
+            from 数据库操作 import DatabaseOperation
+            database = DatabaseOperation()
+        return database
+
+    def _prepare_variable_control(self):
+        control = self._controls.get('变量')
+        if not isinstance(control, QComboBox):
+            return
+        control.setMinimumContentsLength(12)
+        control.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        control.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        current = control.currentText()
+        for index, field in enumerate(self.FIELDS):
+            if field.key == '变量':
+                button = getattr(self.ui, f'auxiliary_{index}', None)
+                if button is not None:
+                    button.setText('设置变量')
+        self._refresh_variables(current)
+
+    def _refresh_variables(self, current=''):
+        variables = dict(self._variable_database().get_variable_info('dict') or {})
+        if self.context is not None:
+            self.context.variables.update(variables)
+        control = self._controls.get('变量')
+        if isinstance(control, QComboBox):
+            control.clear()
+            control.addItems(list(variables))
+            control.setCurrentText(current)
+
+    def _adapt_layout(self):
+        # Generated dialogs share one layout; scrolling keeps every field reachable
+        # on small displays and when the desktop scales text.
+        for label in self.findChildren(QLabel):
+            label.setWordWrap(True)
+        for form in self.findChildren(QFormLayout):
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        for button in self.findChildren(QPushButton):
+            button.setMinimumHeight(max(32, button.sizeHint().height()))
+            button.setMinimumWidth(button.sizeHint().width())
+        for control in self._controls.values():
+            if not isinstance(control, QPlainTextEdit):
+                control.setMinimumHeight(max(32, control.sizeHint().height()))
+        body = QWidget()
+        body.setObjectName('instructionEditorBody')
+        body.setLayout(self.layout())
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(body)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(4, 4, 4, 4)
+        root.addWidget(scroll)
+        self.setMinimumSize(480, 360)
+        screen = self.screen()
+        if screen:
+            available = screen.availableGeometry()
+            self.resize(min(760, available.width()-40), min(self.height(), available.height()-60))
 
     def _collect_parameter_controls(self) -> dict[str, QWidget]:
         controls_: dict[str, QWidget] = {}
@@ -168,6 +237,11 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         self.note = self.ui.noteEdit
         self.test_button = self.ui.testButton
         self.button_box = self.ui.buttonBox
+        for role, text in ((QDialogButtonBox.StandardButton.Ok, '确定'),
+                           (QDialogButtonBox.StandardButton.Cancel, '取消')):
+            button = self.button_box.button(role)
+            if button is not None:
+                button.setText(text)
 
     def _connect_buttons(self) -> None:
         self.button_box.accepted.connect(self._accept_if_valid)
@@ -227,15 +301,10 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
                     QMessageBox.warning(self, "单元格无效", "请输入类似 A1、BC12 的单元格地址。")
             return
         if key_ == "变量":
-            variables_ = sorted(str(name_) for name_ in getattr(self.context, "variables", {}))
-            if not variables_:
-                QMessageBox.information(self, "变量", "当前变量池为空。")
-                return
-            variable_, accepted_ = QInputDialog.getItem(
-                self, "选择变量", "变量名称：", variables_, editable=False
-            )
-            if accepted_:
-                self._set_control_value(control_, variable_)
+            from WindowControl.变量池窗口 import VariablePool_Win
+            manager = VariablePool_Win(self, database=self._variable_database(), selected_name=str(current_))
+            if manager.exec() == QDialog.DialogCode.Accepted:
+                self._refresh_variables(manager.selected_name or str(current_))
             return
         if key_ in {"坐标", "开始位置", "结束位置", "点击位置"}:
             position_ = QCursor.pos()

@@ -47,4 +47,10 @@ Clicker-test-file/
 build-fixed/
 dist-fixed/
 dist-recording/
+dist-variables/
+dist-input-full/
+dist-input-stop/
+dist-1.1.1/
+build-input-full/
+build-variables/
 build-recording/

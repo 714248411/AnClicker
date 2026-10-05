@@ -482,11 +482,10 @@ class CommandThread(QThread):
             return {}
 
     def _persist_variables(self, variables_: dict) -> None:
-        for name_, value_ in variables_.items():
-            try:
-                self.db.set_variable_value(str(name_), value_)
-            except Exception as error_:
-                self.send_message.emit(f"写入变量“{name_}”失败：{error_}")
+        try:
+            self.db.persist_global_variables(variables_)
+        except Exception as error_:
+            self.send_message.emit(f"保存全局变量失败：{error_}")
 
 
 __all__ = ["CommandThread", "GraphValidationError"]

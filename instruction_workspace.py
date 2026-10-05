@@ -486,7 +486,11 @@ class InstructionWorkspace(QObject):
                     note=draft_.note,
                     order=0,
                 )
-                spec_.create_executor().execute(self._editor_context(), command_)
+                context_ = self._editor_context()
+                spec_.create_executor().execute(context_, command_)
+                database_ = context_.metadata.get('database')
+                if database_ is not None:
+                    database_.persist_global_variables(context_.variables)
                 self.statusMessage.emit(f"测试完成：{spec_.display_name}")
             except Exception as error_:
                 self._show_error("测试指令失败", error_)

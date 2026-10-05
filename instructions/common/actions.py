@@ -179,22 +179,25 @@ def release_recorded_inputs(context):
     if not keys and not buttons:
         return
     gui = pyautogui_module()
+    from recorded_input import key_event, button_event
     # A fail-safe screen corner must not prevent emergency key/button release.
     failsafe = gui.FAILSAFE
     try:
         gui.FAILSAFE = False
         for key in keys:
             try:
-                gui.keyUp(key, _pause=False)
+                key_event(context, key, False, gui)
             except Exception as error:
                 context.emit(f"释放录制按键失败：{key}：{error}")
         for button in buttons:
             try:
-                gui.mouseUp(button=button, _pause=False)
+                button_event(context, button, False, gui)
             except Exception as error:
                 context.emit(f"释放录制鼠标失败：{button}：{error}")
     finally:
         gui.FAILSAFE = failsafe
+        context.metadata.pop("recording_keyboard_controller", None)
+        context.metadata.pop("recording_mouse_controller", None)
 
 
 def workbook_cell(path_: str, sheet_: str, cell_: str, data_only: bool = True):

@@ -70,8 +70,10 @@ class Ui_InstructionEditor(object):
         self.parameterLayout_1 = QHBoxLayout(self.parameterContainer_1)
         self.parameterLayout_1.setObjectName(u"parameterLayout_1")
         self.parameterLayout_1.setContentsMargins(0, 0, 0, 0)
-        self.parameter_1 = QLineEdit(self.parameterContainer_1)
+        self.parameter_1 = QComboBox(self.parameterContainer_1)
+        self.parameter_1.addItem("")
         self.parameter_1.setObjectName(u"parameter_1")
+        self.parameter_1.setEditable(True)
 
         self.parameterLayout_1.addWidget(self.parameter_1)
 
@@ -171,8 +173,9 @@ class Ui_InstructionEditor(object):
         self.parameter_0.setText("")
         self.auxiliary_0.setText(QCoreApplication.translate("InstructionEditor", u"\u6846\u9009\u533a\u57df", None))
         self.parameterLabel_1.setText(QCoreApplication.translate("InstructionEditor", u"\u53d8\u91cf\u540d\u79f0 *", None))
-        self.parameter_1.setText(QCoreApplication.translate("InstructionEditor", u"OCR\u7ed3\u679c", None))
-        self.auxiliary_1.setText(QCoreApplication.translate("InstructionEditor", u"\u9009\u62e9\u53d8\u91cf", None))
+        self.parameter_1.setItemText(0, QCoreApplication.translate("InstructionEditor", u"OCR\u7ed3\u679c", None))
+
+        self.auxiliary_1.setText(QCoreApplication.translate("InstructionEditor", u"\u8bbe\u7f6e\u53d8\u91cf", None))
         self.commonGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u901a\u7528\u53c2\u6570", None))
         self.repeatLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u91cd\u590d\u6b21\u6570", None))
         self.errorPolicyLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u5f02\u5e38\u5904\u7406", None))
