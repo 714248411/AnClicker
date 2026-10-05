@@ -1702,6 +1702,9 @@ class GraphRepository:
 
     def import_from_workbook(self, workbook: Any) -> None:
         """Validate everything first, then atomically replace graph and settings."""
+        from legacy_workbook import convert_legacy_workbook
+
+        workbook = convert_legacy_workbook(workbook)
         commands, nodes, edges, settings = self._parse_workbook(workbook)
         from 数据库操作 import DatabaseOperation
 

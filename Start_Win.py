@@ -549,7 +549,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         event.accept()
 
     def data_import(self, file_path: str) -> None:
-        """完整验证新工作簿后，事务性替换当前指令图。"""
+        """识别旧版备份，完整验证并另存新版后，事务性替换指令图。"""
         if file_path == "资源文件夹路径":
             target_path_, _ = QFileDialog.getOpenFileName(
                 self,
@@ -564,21 +564,50 @@ class Main_window(QMainWindow, Ui_MainWindow):
         target_path_ = os.path.normpath(target_path_)
         if os.path.splitext(target_path_)[1].lower() != ".xlsx":
             QMessageBox.warning(
-                self, "导入失败", "只支持节点编辑器新版 .xlsx 文件。",
+                self, "导入失败", "请选择 Clicker / An Clicker 导出的 .xlsx 文件。",
                 QMessageBox.StandardButton.Ok,
             )
             return
 
         workbook_ = None
+        converted_ = None
+        migration_message_ = ""
         try:
+            from legacy_workbook import convert_legacy_workbook, save_converted_copy
+
             workbook_ = openpyxl.load_workbook(target_path_)
-            self.workspace.repository.import_from_workbook(workbook_)
+            converted_ = convert_legacy_workbook(workbook_, os.path.dirname(os.path.abspath(target_path_)))
+            self.workspace.repository.validate_workbook(converted_)
+            if converted_ is not workbook_:
+                count_ = converted_["命令"].max_row - 1
+                if QMessageBox.question(
+                    self, "转换旧版数据",
+                    f"识别到 {count_} 条旧版指令，将按表格行顺序生成新版表格和流程图。\n"
+                    "原文件不会修改，将在旁边另存“原文件名-新版.xlsx”。\n"
+                    "当前指令也会先备份。是否转换并导入？",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                ) != QMessageBox.StandardButton.Yes:
+                    return
+                backup_ = openpyxl.Workbook()
+                try:
+                    self.workspace.repository.export_to_workbook(backup_, self.db)
+                    backup_path_ = save_converted_copy(
+                        backup_, os.path.join(os.path.dirname(target_path_), "导入前指令备份.xlsx")
+                    )
+                finally:
+                    backup_.close()
+                target_path_ = save_converted_copy(converted_, target_path_)
+                migration_message_ = f"旧版数据已转换。\n新版文件：{target_path_}\n导入前备份：{backup_path_}"
+            self.workspace.repository.import_from_workbook(converted_)
         except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError) as error_:
             QMessageBox.warning(
                 self, "导入失败", str(error_), QMessageBox.StandardButton.Ok
             )
             return
         finally:
+            if converted_ is not None and converted_ is not workbook_:
+                converted_.close()
             if workbook_ is not None:
                 workbook_.close()
 
@@ -588,10 +617,10 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.db.writes_to_recently_opened_files(target_path_)
         self.menuzv.clear()
         self.add_recent_to_fileMenu()
-        self.statusBar.showMessage("指令数据导入成功，已自动设置保存路径。", 3000)
-        if file_path == "资源文件夹路径":
+        self.statusBar.showMessage(migration_message_ or "指令数据导入成功，已自动设置保存路径。", 6000)
+        if file_path == "资源文件夹路径" or migration_message_:
             QMessageBox.information(
-                self, "提示", "指令数据导入成功！", QMessageBox.StandardButton.Ok
+                self, "提示", migration_message_ or "指令数据导入成功！", QMessageBox.StandardButton.Ok
             )
 
     def start(self, run_mode='全部指令', info=0) -> bool:

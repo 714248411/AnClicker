@@ -41,3 +41,56 @@ def validate_instruction_editors(window):
         view.theme_mode = original_theme
         view._apply_theme()
     return {'spinboxes_checked': checked, 'image_click_layout': image_layout}
+
+
+def validate_legacy_migration():
+    """Exercise the bundled converter using only temporary files and databases."""
+    import tempfile
+    from pathlib import Path
+    from openpyxl import Workbook, load_workbook
+    from graph_repository import GraphRepository, WorkbookValidationError
+    from legacy_workbook import LEGACY_HEADERS, convert_legacy_workbook, save_converted_copy
+    from 数据库操作 import DatabaseOperation
+
+    with tempfile.TemporaryDirectory(prefix='anclicker-migration-') as folder:
+        path = str(Path(folder) / 'migration.db')
+        DatabaseOperation(path)
+        repository = GraphRepository(path)
+        source = Workbook()
+        source.active.title = '主流程'
+        source.active.append(LEGACY_HEADERS)
+        source.active.append([8, 'target.png', '图像点击',
+                              "{'灰度': 'False', '精度': '0.8', '区域': '(0,0,0,0)'}",
+                              None, None, None, 2, '提示异常并暂停', '图片'])
+        source.active.append([2, '保留文字', '文本输入', "{'手动输入': 'False'}",
+                              None, None, None, 1, '自动跳过', '文本'])
+        source_path = Path(folder) / 'old.xlsx'
+        source.save(source_path)
+        original = source_path.read_bytes()
+        converted = convert_legacy_workbook(source, folder)
+        repository.validate_workbook(converted)
+        output = save_converted_copy(converted, source_path)
+        loaded = load_workbook(output)
+        try:
+            repository.import_from_workbook(loaded)
+        finally:
+            loaded.close()
+        commands = repository.list_commands()
+        if ([item.id for item in commands] != [8, 2]
+                or commands[0].parameters['灰度'] is not False
+                or commands[1].parameters['内容'] != '保留文字'
+                or source_path.read_bytes() != original):
+            raise RuntimeError('Packaged legacy conversion lost original values')
+        before = repository.validate_graph()
+        source.active.cell(2, 4).value = "__import__('os').system('invalid')"
+        try:
+            repository.import_from_workbook(source)
+        except WorkbookValidationError:
+            pass
+        else:
+            raise RuntimeError('Packaged importer accepted an executable expression')
+        if repository.snapshot() != before:
+            raise RuntimeError('Invalid legacy import changed existing data')
+        source.close()
+        converted.close()
+    return {'commands_checked': 2, 'round_trip': True, 'rollback': True}

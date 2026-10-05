@@ -48,7 +48,12 @@ def main():
             checks = ready.get('editor_validation', {})
             if not checks.get('image_click_layout') or checks.get('spinboxes_checked', 0) < 70:
                 raise RuntimeError(f"Packaged editor checks missing: {ready}")
+            migration = ready.get('migration_validation', {})
+            if (migration.get('commands_checked') != 2 or not migration.get('round_trip')
+                    or not migration.get('rollback')):
+                raise RuntimeError(f"Packaged legacy migration checks missing: {ready}")
             print(f"Startup {attempt + 1}: ready; scale={env['QT_SCALE_FACTOR']}; editor checks={checks}")
+            print(f"Legacy migration: {migration}")
     return 0
 
 
