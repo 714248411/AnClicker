@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
+from instructions.common.image_click_editor import ImageClickEditorMixin
 from instructions.models import CommandRecord, ExecutionContext
 from .图像点击_ui import Ui_InstructionEditor
 
 
-class InstructionEditor(SchemaInstructionEditor):
+class InstructionEditor(ImageClickEditorMixin, SchemaInstructionEditor):
     TYPE_ID = "图像点击"
     DISPLAY_NAME = "图像点击"
     UI_CLASS = Ui_InstructionEditor

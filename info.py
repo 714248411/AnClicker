@@ -1,5 +1,5 @@
 APP_NAME = "An Clicker"
-CURRENT_VERSION = "v1.1.2"
+CURRENT_VERSION = "v1.1.3"
 WINDOW_TITLE = f"{APP_NAME}    [{CURRENT_VERSION}]"
 QQ = "84284936"
 QQ_GROUP = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XCOQZMwDVB3y-vIz4LXdMITq-7sqGP3A&authKey=6FPrdTF0o6JIfJoc58deZ1cEWvUURazs%2FDh%2BJOz1aJI2DS%2BMFr3jRIai2%2F7bbvwN&noverify=0&group_code=84284936"

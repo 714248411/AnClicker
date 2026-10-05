@@ -144,8 +144,8 @@ def image_random_offset(parameters: dict, context: ExecutionContext | None = Non
     with Image.open(image_path_) as image_:
         width_, height_ = image_.size
     return (
-        random.randint(-(width_ // 2), width_ // 2),
-        random.randint(-(height_ // 2), height_ // 2),
+        random.randint(-(width_ // 2), width_ - width_ // 2 - 1),
+        random.randint(-(height_ // 2), height_ - height_ // 2 - 1),
     )
 
 

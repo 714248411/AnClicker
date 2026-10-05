@@ -467,6 +467,8 @@ class ViewWorkspace:
         from window_chrome import install_title_bar
         self.title_bar = install_title_bar(self.window, self.theme_action)
         self.title_bar.apply_theme(self.theme_mode, self.THEMES[self.theme_mode])
+        from compact_workspace import CompactWorkspace
+        self.compact = CompactWorkspace(self)
         menu = QMenu("视图", self.window)
         for label, shortcut, callback in (
             ("主界面", "Ctrl+1", self.show_main),
@@ -545,6 +547,8 @@ class ViewWorkspace:
         dialog.exec()
 
     def _place_palette(self) -> None:
+        if getattr(getattr(self, 'compact', None), 'active', False):
+            return
         grid = self.window.gridLayout_4
         palette = self.window.instructionPaletteHost
         center = self.tabs
@@ -888,6 +892,9 @@ class ViewWorkspace:
             QPushButton:pressed {{ background: {c['accent2']}; color: white; }}
             QPushButton:disabled, QToolButton:disabled {{ background: {c['surface']}; color: {c['dim']}; border-color: {c['line']}; }}
             QPushButton#accentButton {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; border-color: {c['accent']}; }}
+            QSlider#imageConfidenceSlider::groove:horizontal {{ height: 5px; background: {c['surface3']}; border-radius: 2px; }}
+            QSlider#imageConfidenceSlider::sub-page:horizontal {{ background: {c['accent']}; border-radius: 2px; }}
+            QSlider#imageConfidenceSlider::handle:horizontal {{ width: 14px; margin: -5px 0; border-radius: 7px; background: {c['accent']}; }}
             QPushButton#dangerButton {{ background: {c['danger']}; color: white; font-weight: 700; border-color: {c['danger']}; }}
             QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
             QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{ border-color: {c['accent']}; }}

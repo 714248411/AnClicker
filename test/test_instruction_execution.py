@@ -221,7 +221,7 @@ class InstructionFallbackTests(unittest.TestCase):
             actions.locate_image({"图像路径": "a.png"}, min_search_time=2.5)
             offset_ = actions.image_random_offset({"图像路径": "a.png"})
         self.assertEqual(locator_.call_args.kwargs["minSearchTime"], 2.5)
-        self.assertEqual(offset_, (40, 20))
+        self.assertEqual(offset_, (39, 19))
 
     def test_countdown_fallback_creates_topmost_stoppable_window(self):
         root_ = Mock()

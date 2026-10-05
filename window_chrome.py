@@ -27,6 +27,11 @@ def chrome_icon(kind, color):
         painter.drawLine(5, 10, 15, 10)
     elif kind == "maximize":
         painter.drawRoundedRect(QRectF(5, 5, 10, 10), 1, 1)
+    elif kind == "compact":
+        painter.drawRoundedRect(QRectF(3, 4, 14, 12), 2, 2)
+        painter.drawLine(10, 4, 10, 16)
+        painter.drawLine(12, 8, 15, 8)
+        painter.drawLine(12, 11, 15, 11)
     elif kind == "restore":
         painter.drawLine(7, 4, 16, 4)
         painter.drawLine(16, 4, 16, 13)
@@ -63,6 +68,8 @@ class WindowTitleBar(QFrame):
         self.title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         window.windowTitleChanged.connect(self.title.setText)
         layout.addWidget(self.title, 1)
+        self.compact_button = self._button("windowCompact", "小化：仅显示控制与操作")
+        self.compact_button.setCheckable(True)
         self.theme_button = self._button("themeToggle", "切换主题")
         self.theme_button.setDefaultAction(theme_action)
         self.theme_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -72,7 +79,7 @@ class WindowTitleBar(QFrame):
         self.maximize_button.clicked.connect(self.toggle_maximized)
         self.close_button = self._button("windowClose", "关闭")
         self.close_button.clicked.connect(window.close)
-        for button in (self.theme_button, self.minimize_button, self.maximize_button, self.close_button):
+        for button in (self.compact_button, self.theme_button, self.minimize_button, self.maximize_button, self.close_button):
             layout.addWidget(button)
         QApplication.instance().installEventFilter(self)
 
@@ -86,6 +93,7 @@ class WindowTitleBar(QFrame):
 
     def apply_theme(self, mode, colors):
         self._color = colors['text']
+        self.compact_button.setIcon(chrome_icon("compact", self._color))
         label = "切换浅色主题" if mode == "dark" else "切换深色主题"
         self.theme_button.defaultAction().setIcon(chrome_icon("sun" if mode == "dark" else "moon", self._color))
         self.theme_button.setAccessibleName(label)
