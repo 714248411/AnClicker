@@ -9,6 +9,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from instructions.registry import hidden_imports as instruction_hidden_imports
+from info import CURRENT_VERSION
 
 
 def collect_instruction_datas():
@@ -75,6 +76,7 @@ exe = EXE(
     contents_directory='.',
     uac_admin=False,
     icon=icon_path,
+    version=os.path.join(project_root, 'packaging', 'windows-version.txt') if sys.platform == 'win32' else None,
 )
 coll = COLLECT(
     exe,
@@ -96,6 +98,8 @@ if sys.platform == 'darwin':
         icon=os.path.join(project_root, 'clicker.ico'),
         bundle_identifier='com.yanyi.anclicker',
         info_plist={
+            'CFBundleShortVersionString': CURRENT_VERSION.lstrip('v'),
+            'CFBundleVersion': CURRENT_VERSION.lstrip('v'),
             'NSHighResolutionCapable': True,
             'NSHumanReadableCopyright': 'Copyright © 2022–2026 YanYi and contributors',
         },

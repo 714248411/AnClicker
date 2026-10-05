@@ -146,6 +146,8 @@ def main():
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
                 "ready": main_window.isVisible(),
+                "version": app.applicationVersion(),
+                "title": main_window.windowTitle(),
                 "views": main_window.tabWidget.count(),
                 "database": main_window.db.db_path,
             }), encoding="utf-8")

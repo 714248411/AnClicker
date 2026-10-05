@@ -85,5 +85,6 @@ jobs:
           gh release create "${{ github.ref_name }}"
           release-assets/*.zip
           --repo "${{ github.repository }}"
-          --title "An Clicker [v1.0.0 Beat]"
+          --title "An Clicker ${{ github.ref_name }}"
+          --latest
           --notes-file packaging/RELEASE_NOTES.md

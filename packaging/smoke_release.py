@@ -12,6 +12,8 @@ import uuid
 
 def main():
     root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root))
+    from info import CURRENT_VERSION, WINDOW_TITLE
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", type=Path, default=root / "dist")
     dist = parser.parse_args().dist.resolve()
@@ -40,6 +42,8 @@ def main():
             ready = json.loads(report.read_text(encoding="utf-8"))
             if not ready["ready"] or ready["views"] != 5:
                 raise RuntimeError(f"Main window incomplete: {ready}")
+            if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
+                raise RuntimeError(f"Packaged version does not match release: {ready}")
             print(f"Startup {attempt + 1}: main window ready, five views, database initialized")
     return 0
 

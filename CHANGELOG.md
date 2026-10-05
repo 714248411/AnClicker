@@ -1,5 +1,13 @@
 # An Clicker 更新说明
 
+## v1.0.1 — 2026-10-05
+
+- 发布整合全部既有功能和启动修复的完整新版，Windows、Linux、macOS Intel/Apple Silicon 均提供完整程序包。
+- 修复打包遗漏 Start_Win，首次启动自动建立可写目录、初始化数据库与默认配置。
+- Windows 安装目录无写权限时使用用户数据目录；启动异常写入日志。
+- 软件标题、关于页、Windows EXE 属性、macOS 应用版本与 Release 统一为 v1.0.1。
+- 发布前验证实际程序首次及再次启动、五个视图与显示版本。
+
 ## 2026-10-04
 
 ### Windows、macOS、Linux 适配与发行

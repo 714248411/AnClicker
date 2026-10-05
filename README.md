@@ -94,7 +94,9 @@ PyInstaller 打包说明见 `packaging/打包文件说明.md`。
 - Linux：用户数据遵循 `$XDG_DATA_HOME/AnClicker`（默认 `~/.local/share/AnClicker`）；X11 下启用全局快捷键，Wayland 或无全局后端时自动使用界面按钮。
 - 设置 `ANCLICKER_DATA_DIR` 可在三个平台显式指定数据目录。
 
-推送 `v*` 标签会触发 `.github/workflows/release.yml`，分别在 Windows、macOS、Linux 原生运行器执行测试与 PyInstaller 构建，生成三个 ZIP 并上传至 GitHub Release。
+当前完整版本为 **v1.0.1**，启动修复已融入主程序。完整解压下载包后即可运行，无需先安装旧版或应用补丁。首次运行会自动创建数据目录、数据库和默认配置；Windows 程序目录无写权限时自动使用用户数据目录。
+
+推送 `v*` 标签会触发 `.github/workflows/release.yml`，在 Windows、Linux、macOS Intel 和 Apple Silicon 原生运行器执行测试、PyInstaller 构建及实际程序首次/再次启动检查，生成四个完整软件 ZIP 并上传至 GitHub Release。发布测试同时验证窗口中的版本号与源码一致。
 
 ## 贡献者
 
