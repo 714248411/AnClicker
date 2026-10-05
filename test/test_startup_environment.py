@@ -8,7 +8,8 @@ from startup_environment import prepare_environment
 
 def test_first_launch_creates_storage_and_preserves_existing_files():
     with tempfile.TemporaryDirectory() as folder:
-        target = Path(folder) / "new-install"
+        # Hosted runners may use Windows 8.3 names or macOS /var symlinks.
+        target = (Path(folder) / "new-install").resolve()
         with mock.patch.dict(os.environ, {"ANCLICKER_DATA_DIR": str(target)}):
             assert prepare_environment() == target
             for name in ("images", "exports", "logs", "temp"):
@@ -22,7 +23,7 @@ def test_first_launch_creates_storage_and_preserves_existing_files():
 def test_windows_read_only_install_uses_local_app_data():
     with tempfile.TemporaryDirectory() as folder:
         executable = Path(folder) / "protected" / "AnClicker.exe"
-        fallback = Path(folder) / "local" / "AnClicker"
+        fallback = (Path(folder) / "local" / "AnClicker").resolve()
         original_mkdir = Path.mkdir
 
         def mkdir(path, *args, **kwargs):
