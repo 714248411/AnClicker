@@ -148,7 +148,7 @@ class NodeEditorWidget(QWidget):
             )
         else:
             background, text, button, border, hover, muted = (
-                "#212121", "#ececec", "#383838", "#4a4a4a", "#424242", "#b4b4b4"
+                "#09090b", "#f1f1f3", "#222225", "#2b2b30", "#2c2c30", "#a1a1aa"
             )
         self.setStyleSheet(
             f"""
@@ -156,7 +156,7 @@ class NodeEditorWidget(QWidget):
             QToolButton {{ color: {text}; background: {button};
                           border: 1px solid {border}; border-radius: 8px;
                           padding: 5px 10px; }}
-            QToolButton:hover {{ background: {hover}; border-color: #7c8cff; }}
+            QToolButton:hover {{ background: {hover}; border-color: {'#0088ff' if mode == 'dark' else '#6574d8'}; }}
             QLabel {{ color: {muted}; padding: 0 6px; }}
             """
         )

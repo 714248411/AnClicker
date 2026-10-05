@@ -39,9 +39,9 @@ def apply_theme(mode: str) -> None:
         }
         if mode == "light"
         else {
-            "background": "#212121", "grid_small": "#2b2b2b",
-            "grid_large": "#3a3a3a", "node": "#2f2f2f",
-            "border": "#4a4a4a", "text": "#ececec", "edge": "#8b91a3",
+            "background": "#09090b", "grid_small": "#141417",
+            "grid_large": "#202024", "node": "#18181b",
+            "border": "#3c3c43", "text": "#f1f1f3", "edge": "#8b98a8",
         }
     )
     for color, key in (
@@ -54,3 +54,8 @@ def apply_theme(mode: str) -> None:
         (EDGE_COLOR, "edge"),
     ):
         color.setRgba(QColor(palette[key]).rgba())
+    accent = "#0088ff" if mode == "dark" else "#6574d8"
+    for color in (NODE_SELECTED_COLOR, OUTPUT_PORT_COLOR, EDGE_SELECTED_COLOR,
+                  START_COLOR, DEFAULT_NODE_COLOR):
+        color.setRgba(QColor(accent).rgba())
+    INPUT_PORT_COLOR.setRgba(QColor("#6cbaff" if mode == "dark" else "#a5b0ff").rgba())

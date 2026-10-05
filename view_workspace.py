@@ -94,10 +94,10 @@ class ViewWorkspace:
 
     THEMES = {
         "dark": {
-            "bg": "#212121", "nav": "#171717", "surface": "#2f2f2f",
-            "surface2": "#383838", "surface3": "#424242", "line": "#4a4a4a",
-            "text": "#ececec", "dim": "#b4b4b4", "accent": "#7c8cff",
-            "accent2": "#6574d8", "accent_text": "#ffffff", "danger": "#ff6b6b",
+            "bg": "#09090b", "nav": "#080809", "surface": "#18181b",
+            "surface2": "#222225", "surface3": "#2c2c30", "line": "#2b2b30",
+            "text": "#f1f1f3", "dim": "#a1a1aa", "accent": "#0088ff",
+            "accent2": "#0965b5", "accent_text": "#ffffff", "danger": "#dc3545",
         },
         "light": {
             "bg": "#f7f7f8", "nav": "#ececf1", "surface": "#ffffff",
@@ -463,8 +463,10 @@ class ViewWorkspace:
         self.window.toolBar.addSeparator()
         self.window.toolBar.addAction(self.palette_side_action)
         self.window.toolBar.addAction(self.palette_collapse_action)
-        self.window.toolBar.addAction(self.theme_action)
         self.window.toolBar.addAction(self.donation_action)
+        from window_chrome import install_title_bar
+        self.title_bar = install_title_bar(self.window, self.theme_action)
+        self.title_bar.apply_theme(self.theme_mode, self.THEMES[self.theme_mode])
         menu = QMenu("视图", self.window)
         for label, shortcut, callback in (
             ("主界面", "Ctrl+1", self.show_main),
@@ -843,6 +845,11 @@ class ViewWorkspace:
             self.command_table.viewport().setPalette(table_palette)
             self.command_table.viewport().setAutoFillBackground(True)
         self.window.workspace.editor.set_theme(self.theme_mode)
+        controls_palette = self.window.groupBox_3.palette()
+        controls_palette.setColor(QPalette.ColorRole.WindowText, QColor(c['text']))
+        self.window.groupBox_3.setPalette(controls_palette)
+        if hasattr(self, "title_bar"):
+            self.title_bar.apply_theme(self.theme_mode, c)
         self.window.setStyleSheet(f"""
             QMainWindow, QWidget#centralwidget {{ background: {c['bg']}; color: {c['text']}; }}
             QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
@@ -859,18 +866,19 @@ class ViewWorkspace:
             QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 9px 18px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
             QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
             QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
-            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; }}
+            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 12px; }}
+            QGroupBox#groupBox_3::title {{ color: {c['text']}; }}
             QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,
             QGroupBox#groupBox_3 QTextEdit {{ background: {c['surface2']}; color: {c['text']}; }}
             QFrame#viewNavigation {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; min-width: 175px; max-width: 220px; }}
-            QLabel#navTitle, QLabel#pageTitle {{ color: {c['accent']}; font-size: 17px; font-weight: 700; padding: 8px; }}
+            QLabel#navTitle, QLabel#pageTitle {{ color: {c['text']}; font-size: 17px; font-weight: 700; padding: 8px; }}
             QListWidget#beginnerNavigation {{ background: transparent; border: none; outline: none; }}
             QListWidget#beginnerNavigation::item {{ color: {c['text']}; padding: 11px 14px; margin: 1px 0; }}
             QListWidget#beginnerNavigation::item:selected {{ background: {c['accent']}; color: {c['accent_text']}; border-radius: 8px; }}
             QListWidget#beginnerNavigation::item:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QFrame#contentCard {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; padding: 12px; }}
             QFrame#workspacePanel {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; }}
-            QLabel#cardTitle {{ color: {c['accent']}; font-size: 18px; font-weight: 700; padding: 4px; }}
+            QLabel#cardTitle {{ color: {c['text']}; font-size: 18px; font-weight: 700; padding: 4px; }}
             QLabel#sectionTitle {{ color: {c['text']}; font-size: 15px; font-weight: 700; padding: 2px 4px 7px 4px; }}
             QLabel#mutedText {{ color: {c['dim']}; padding: 3px; }}
             QLabel#taskStats {{ color: {c['text']}; background: {c['surface2']}; border-radius: 10px; padding: 14px; font-size: 15px; }}
