@@ -47,10 +47,10 @@ class InstructionExecutor(InstructionExecutorBase):
             if value_ in (None, ""):
                 raise ValueError(f"变量坐标为空：{variable_name_}")
             x_, y_ = actions.point(value_)
-            gui_.moveTo(x_, y_, duration=duration_)
+            gui_.moveTo(x_, y_, duration=duration_, **actions.recording_options(command))
         elif type_ == "指定坐标":
             x_, y_ = actions.point(actions.parameter(p_, "坐标", default="0,0"))
-            gui_.moveTo(x_, y_, duration=duration_)
+            gui_.moveTo(x_, y_, duration=duration_, **actions.recording_options(command))
         elif type_ == "随机移动":
             if actions.parameter(p_, "随机", default="类型1") == "类型2":
                 distance_ = random.randint(1, 500)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import time
 
 from PySide6.QtCore import QMutex, QThread, QWaitCondition, Signal
 
@@ -107,6 +108,8 @@ class CommandThread(QThread):
                 self._execute_commands(commands_, context_)
                 self._persist_variables(context_.variables)
             finally:
+                from instructions.common.actions import release_recorded_inputs
+                release_recorded_inputs(context_)
                 self.mutex.lock()
                 try:
                     if self._active_context is context_:
@@ -204,8 +207,13 @@ class CommandThread(QThread):
     def check_mutex(self) -> bool:
         self.mutex.lock()
         try:
+            paused_at_ = time.monotonic() if self.is_paused else None
             while self.is_paused and self.start_state:
                 self.condition.wait(self.mutex)
+            if paused_at_ is not None and self._active_context is not None:
+                duration_ = time.monotonic() - paused_at_
+                for clock_ in self._active_context.metadata.get("recorded_clocks", {}).values():
+                    clock_[0] += duration_
             return self.start_state
         finally:
             self.mutex.unlock()
@@ -382,6 +390,23 @@ class CommandThread(QThread):
     def _execute_one(
         self, command_: CommandRecord, context_: ExecutionContext
     ):
+        group_ = command_.parameters.get("录制批次")
+        if group_:
+            offset_ = max(0.0, float(command_.parameters.get("录制时间", 0)))
+            clocks_ = context_.metadata.setdefault("recorded_clocks", {})
+            clock_ = clocks_.setdefault(group_, [time.monotonic(), -1.0])
+            if offset_ < clock_[1]:
+                clock_[0] = time.monotonic()
+            clock_[1] = offset_
+            while self.start_state:
+                if not self.check_mutex():
+                    return None
+                remaining_ = clock_[0] + offset_ - time.monotonic()
+                if remaining_ <= 0:
+                    break
+                time.sleep(min(0.05, remaining_))
+            if not self.start_state:
+                return None
         spec_ = get_instruction_spec(command_.type_id)
         executor_ = spec_.create_executor()
         self.send_message.emit("换行")
@@ -394,6 +419,9 @@ class CommandThread(QThread):
     def _handle_command_error(
         self, command_: CommandRecord, error_: Exception
     ) -> str:
+        from instructions.common.actions import release_recorded_inputs
+        if self._active_context is not None:
+            release_recorded_inputs(self._active_context)
         policy_ = command_.error_policy
         error_text_ = str(error_) or type(error_).__name__
         command_id_ = command_.id

@@ -53,6 +53,7 @@ class InstructionWorkspace(QObject):
         self.editor.positionCommitted.connect(self._commit_position)
         self.editor.sizeCommitted.connect(self._commit_size)
         self.editor.connectionRequested.connect(self._connect_nodes)
+        self.editor.branchConnectionRequested.connect(self._connect_nodes)
         self.editor.deleteConnectionsRequested.connect(self._delete_connections)
         self.editor.noteChanged.connect(self._update_note)
         self.editor.saveTemplateRequested.connect(self._save_template)
@@ -259,9 +260,9 @@ class InstructionWorkspace(QObject):
             self.reload_graph()
             self._show_error("保存节点大小失败", error_)
 
-    def _connect_nodes(self, source_id, target_id) -> None:
+    def _connect_nodes(self, source_id, target_id, kind=None) -> None:
         try:
-            complete_ = self.repository.connect_nodes(str(source_id), str(target_id))
+            complete_ = self.repository.connect_nodes(str(source_id), str(target_id), kind)
             self.reload_graph()
             self.graphFinalized.emit(complete_)
             self.statusMessage.emit(

@@ -46,3 +46,5 @@ Clicker-test-file/
 !/data/temp/.gitkeep
 build-fixed/
 dist-fixed/
+dist-recording/
+build-recording/

@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 from instructions.registry import iter_instruction_specs
 from node_editor.palette import INSTRUCTION_MIME_TYPE
 from functions import RESOURCE_FOLDER
+from recording_view import RecordingView
 
 
 MAIN_VIEW = 0
@@ -41,6 +42,7 @@ TABLE_VIEW = 1
 FLOW_VIEW = 2
 CODE_VIEW = 3
 NAVIGATION_VIEW = 4
+RECORDING_VIEW = 5
 CODE_SETTING = "多功能代码"
 CODE_GRAPH_SIGNATURE_SETTING = "多功能流程签名"
 TASK_NAME_SETTING = "任务名称"
@@ -88,7 +90,7 @@ class InstructionTableWidget(QTableWidget):
 
 
 class ViewWorkspace:
-    """Coordinate the five workspaces, palette layout and application theme."""
+    """Coordinate six workspaces, palette layout and application theme."""
 
     THEMES = {
         "dark": {
@@ -149,12 +151,14 @@ class ViewWorkspace:
         self.main_page = self._build_main_view()
         self.editor_page = self._build_editor_view()
         self.code_page = self._build_code_view()
+        self.recording_page = RecordingView(self.window)
         self.tabs.clear()
         self.tabs.addTab(self.main_page, "主界面")
         self.tabs.addTab(self.table_page, "表格")
         self.tabs.addTab(self.editor_page, "流程图")
         self.tabs.addTab(self.code_page, "多功能")
         self.tabs.addTab(self.navigation_page, "导航")
+        self.tabs.addTab(self.recording_page, "录制")
 
     def _build_main_view(self) -> QWidget:
         page = QWidget()
@@ -172,6 +176,7 @@ class ViewWorkspace:
             ("打开流程图", self.show_flow, True),
             ("打开多功能", self.show_code, False),
             ("功能导航", self.show_navigation, False),
+            ("键鼠录制", self.show_recording, False),
         ):
             button = QPushButton(label)
             if primary:
@@ -210,8 +215,9 @@ class ViewWorkspace:
              ("添加图像点击指令", lambda: self.window.workspace.add_command("图像点击"))),
         ))
         self.beginner_stack.addWidget(self._build_action_panel(
-            "操作录制", "通过键鼠指令快速搭建录制结果，也可在编辑视图继续拖拽编排。",
-            (("添加鼠标点击", lambda: self.window.workspace.add_command("鼠标点击")),
+            "操作录制", "录制实际键盘鼠标操作，停止后同步写入表格与流程图。",
+            (("打开键鼠录制", self.show_recording),
+             ("添加鼠标点击", lambda: self.window.workspace.add_command("鼠标点击")),
              ("添加按键指令", lambda: self.window.workspace.add_command("按下键盘")),
              ("打开流程图", self.show_flow)),
         ))
@@ -449,6 +455,7 @@ class ViewWorkspace:
             ("流程图", "Ctrl+3", self.show_flow),
             ("多功能", "Ctrl+4", self.show_code),
             ("导航", "Ctrl+5", self.show_navigation),
+            ("录制", "Ctrl+6", self.show_recording),
         ):
             action = QAction(label, self.window)
             action.setShortcut(QKeySequence(shortcut))
@@ -466,6 +473,7 @@ class ViewWorkspace:
         self._load_code()
         self.tabs.setCurrentIndex(CODE_VIEW)
     def show_navigation(self): self.tabs.setCurrentIndex(NAVIGATION_VIEW)
+    def show_recording(self): self.tabs.setCurrentIndex(RECORDING_VIEW)
 
     # Backward-compatible aliases for integrations that used the earlier names.
     def show_beginner(self): self.show_navigation()

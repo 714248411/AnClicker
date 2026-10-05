@@ -40,11 +40,11 @@ def main():
                 detail = error_log.read_text(encoding="utf-8") if error_log.exists() else "No readiness report"
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
-            if not ready["ready"] or ready["views"] != 5:
+            if not ready["ready"] or ready["views"] != 6:
                 raise RuntimeError(f"Main window incomplete: {ready}")
             if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
                 raise RuntimeError(f"Packaged version does not match release: {ready}")
-            print(f"Startup {attempt + 1}: main window ready, five views, database initialized")
+            print(f"Startup {attempt + 1}: main window ready, six views, database initialized")
     return 0
 
 

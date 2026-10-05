@@ -117,6 +117,7 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         if self.UI_CLASS is None:
             raise TypeError(f"{type(self).__name__} 未绑定独立 Ui 类")
         self.context = context
+        self._recording_parameters = {}
         self.ui = self.UI_CLASS()
         self.ui.setupUi(self)
         self.setWindowTitle(self.DISPLAY_NAME or self.TYPE_ID)
@@ -328,6 +329,9 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
 
     def get_draft(self) -> InstructionDraft:
         parameters_ = {}
+        # Recorder timing/state metadata must survive opening an ordinary editor.
+        for key_, value_ in self._recording_parameters.items():
+            parameters_[key_] = value_
         for field_ in self.FIELDS:
             value_ = self._control_value(self._controls[field_.key])
             if field_.required and (value_ is None or str(value_).strip() == ""):
@@ -405,6 +409,8 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         draft_ = draft if isinstance(draft, InstructionDraft) else InstructionDraft.from_mapping(draft)
         if draft_.type_id != self.TYPE_ID:
             raise ValueError(f"不能用 {draft_.type_id} 初始化 {self.TYPE_ID} 编辑器")
+        self._recording_parameters = {key_: value_ for key_, value_ in draft_.parameters.items()
+                                      if key_.startswith("录制")}
         for key_, value_ in draft_.parameters.items():
             control_ = self._controls.get(key_)
             if control_ is not None:

@@ -38,6 +38,10 @@ class InstructionExecutor(InstructionExecutorBase):
         start_ = (start_[0] + sdx_, start_[1] + sdy_)
         end_ = (end_[0] + edx_, end_[1] + edy_)
         gui_ = actions.pyautogui_module()
+        if p_.get("录制保持按下"):
+            gui_.moveTo(*end_, duration=0, **actions.recording_options(command))
+            context.emit(f"录制拖拽：{end_}")
+            return (start_, end_)
         gui_.moveTo(*start_)
         gui_.dragTo(*end_, duration=float(actions.parameter(p_, "移动速度", default=0.5)), button="left")
         context.emit(f"鼠标拖拽：{start_} → {end_}")

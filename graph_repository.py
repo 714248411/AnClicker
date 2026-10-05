@@ -1101,6 +1101,41 @@ class GraphRepository:
                 return str(edge[0]), str(edge[1])
         raise ValueError("split_edge 必须包含 source 和 target")
 
+    def append_recording(self, drafts: Sequence[InstructionDraft], *, connect=True) -> list[int]:
+        """Append one recording atomically without changing existing links."""
+        normalized = [self._normalize_draft(draft) for draft in drafts]
+        for type_id, *_ in normalized:
+            if not self._is_known_type(type_id):
+                raise ValueError(f"未知指令类型：{type_id}")
+        if not normalized:
+            return []
+        ids, nodes = [], []
+        with self._transaction(validate_graph=False) as connection:
+            count = connection.execute("SELECT COUNT(*) FROM 命令").fetchone()[0]
+            order = connection.execute("SELECT COALESCE(MAX(排序), -1)+1 FROM 命令").fetchone()[0]
+            base_y = float(connection.execute("SELECT COALESCE(MAX(Y), 0) FROM 节点").fetchone()[0]) + 180
+            for index, record in enumerate(normalized):
+                type_id, parameters, repeat, policy, note = record
+                cursor = connection.execute(
+                    "INSERT INTO 命令(类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?)",
+                    (type_id, parameters, repeat, policy, note, order + index))
+                command_id, node_id = int(cursor.lastrowid), uuid.uuid4().hex
+                row, column = divmod(index, 6)
+                connection.execute(
+                    "INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) VALUES (?, ?, 'instruction', ?, ?)",
+                    (node_id, command_id, 160 + column * 280, base_y + row * 160))
+                ids.append(command_id)
+                nodes.append(node_id)
+            if count == 0:
+                connection.execute("DELETE FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?", (START_NODE_ID, END_NODE_ID))
+            if connect:
+                connection.executemany("INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)", zip(nodes, nodes[1:]))
+                # A new empty task is a complete start-to-end recording.
+                if count == 0:
+                    connection.executemany("INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
+                                           [(START_NODE_ID, nodes[0]), (nodes[-1], END_NODE_ID)])
+        return ids
+
     def add_command(
         self,
         draft: Any,

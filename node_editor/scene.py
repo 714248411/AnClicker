@@ -45,6 +45,7 @@ class NodeScene(QGraphicsScene):
     positionCommitted = Signal(object, float, float)
     sizeCommitted = Signal(object, float, float)
     connectionRequested = Signal(object, object)
+    branchConnectionRequested = Signal(object, object, int)
 
     START_NODE_ID = "__start__"
     END_NODE_ID = "__end__"
@@ -75,12 +76,33 @@ class NodeScene(QGraphicsScene):
             return
         self._routing_edges = True
         try:
+            from .routing_index import RoutingIndex
+            from PySide6.QtGui import QPainterPathStroker
+            self._route_index = RoutingIndex()
+            for node_ in self.nodes_by_id.values():
+                self._route_index.add(node_, node_.sceneBoundingRect().adjusted(-10, -10, 10, 10))
+            stroker_ = QPainterPathStroker()
+            stroker_.setWidth(4.0)
+            for edge_ in self.edges:
+                stroke_ = stroker_.createStroke(edge_.path())
+                self._route_index.add(edge_, stroke_.boundingRect(), stroke_)
+            rects_ = [node_.sceneBoundingRect() for node_ in self.nodes_by_id.values()]
+            self._routing_bounds = (
+                min((rect_.top() for rect_ in rects_), default=0),
+                max((rect_.bottom() for rect_ in rects_), default=0),
+            )
+            self._routing_right = max((rect_.right() for rect_ in rects_), default=0)
+            routing_order_ = sorted(self.edges, key=lambda edge_: QLineF(
+                edge_.source_port.scenePos(), edge_.target_port.scenePos()).length(), reverse=True)
             # A second pass lets earlier edges account for routes selected by
             # later edges without introducing an unstable recursive update.
             for _ in range(2):
-                for edge_ in tuple(self.edges):
+                for edge_ in routing_order_:
                     edge_.update_path()
         finally:
+            self._route_index = None
+            self._routing_bounds = None
+            self._routing_right = None
             self._routing_edges = False
 
     def begin_port_connection(self, port_) -> None:
@@ -101,7 +123,9 @@ class NodeScene(QGraphicsScene):
         path_ = QPainterPath(start_)
         distance_ = max(abs(end_.x() - start_.x()) * 0.5, 60.0)
         path_.cubicTo(
-            QPointF(start_.x() + distance_, start_.y()),
+            QPointF(start_.x(), start_.y() - distance_)
+            if self._connection_port is self._connection_port.node.no_port
+            else QPointF(start_.x() + (distance_ if self._connection_port.direction == "output" else -distance_), start_.y()),
             QPointF(end_.x() - distance_, end_.y()), end_,
         )
         self._connection_preview.setPath(path_)
@@ -120,9 +144,17 @@ class NodeScene(QGraphicsScene):
         if source_port_ is None or target_node_ is None or target_node_ is source_port_.node:
             return
         if source_port_.direction == "output" and target_node_.input_port is not None:
-            self.connectionRequested.emit(source_port_.node.node_id, target_node_.node_id)
+            if source_port_.link_kind is not None:
+                self.branchConnectionRequested.emit(source_port_.node.node_id, target_node_.node_id, source_port_.link_kind)
+            else:
+                self.connectionRequested.emit(source_port_.node.node_id, target_node_.node_id)
         elif source_port_.direction == "input" and target_node_.output_port is not None:
-            self.connectionRequested.emit(target_node_.node_id, source_port_.node.node_id)
+            target_port_ = target_node_.connection_port_at(target_node_.mapFromScene(scene_position_))
+            if target_node_.type_id == "条件判断":
+                kind_ = 2 if target_port_ is target_node_.no_port else 1
+                self.branchConnectionRequested.emit(target_node_.node_id, source_port_.node.node_id, kind_)
+            else:
+                self.connectionRequested.emit(target_node_.node_id, source_port_.node.node_id)
 
     def cancel_port_connection(self) -> None:
         if self._connection_preview is not None and self._connection_preview.scene() is self:
@@ -360,7 +392,7 @@ class NodeScene(QGraphicsScene):
     def _node_subtitle(type_id_: str, parameters_: Mapping, repeat_count_: int) -> str:
         visible_ = {
             str(key_): value_ for key_, value_ in dict(parameters_ or {}).items()
-            if not str(key_).startswith("__flow_")
+            if not str(key_).startswith("__flow_") and key_ not in {"录制批次", "录制时间"}
         }
         if type_id_ == "条件判断":
             return str(visible_.get("条件", "True"))
@@ -506,6 +538,8 @@ class NodeScene(QGraphicsScene):
         self._preview_order = list(self.chain_order)
 
     def node_position_changed(self, node_: NodeItem) -> None:
+        if self._updating_graph:
+            return
         self.reroute_edges()
         if (self._updating_graph or not self._complete_chain
                 or node_ is not self._drag_node or node_.is_terminal):

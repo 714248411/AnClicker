@@ -506,6 +506,14 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """关闭窗口事件"""
+        recording = self.view_workspace.recording_page
+        if recording.busy or (recording.drafts and not recording.written):
+            if QMessageBox.question(
+                    self, "未保存的录制", "录制内容尚未全部写入，退出会丢弃未写入部分。确定退出吗？",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
         # 是否隐藏工具栏
         self.db.update_settings(
             显示工具栏=str(self.actiong.isChecked()),
@@ -537,6 +545,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
         if self.db.get_bool_setting("退出提醒清空指令"):
             self.db.clear_all_ins()
+        recording.shutdown()
         event.accept()
 
     def data_import(self, file_path: str) -> None:
@@ -589,6 +598,10 @@ class Main_window(QMainWindow, Ui_MainWindow):
         """主窗体开始按钮
         :param run_mode: 运行模式（全部指令、单行指令、从当前行运行）
         :param info: 指令ID"""
+
+        if self.view_workspace.recording_page.busy:
+            self.statusBar.showMessage("请先停止键鼠录制，再运行任务。", 5000)
+            return False
 
         def operation_before_execution():
             """执行前的操作"""

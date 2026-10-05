@@ -38,6 +38,9 @@ class InstructionExecutor(InstructionExecutorBase):
             distance_ = int(actions.parameter(p_, "距离", default=5))
         if actions.parameter(p_, "方向", default="向下") == "向下":
             distance_ = -distance_
-        actions.pyautogui_module().scroll(distance_)
+        gui_ = actions.pyautogui_module()
+        if p_.get("录制坐标"):
+            gui_.moveTo(*actions.point(p_["录制坐标"]), **actions.recording_options(command))
+        gui_.scroll(distance_, **actions.recording_options(command))
         context.emit(f"滚轮滑动：{distance_}")
         return distance_

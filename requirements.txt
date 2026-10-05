@@ -31,7 +31,7 @@ pyinstaller==6.11.0
 pyinstaller-hooks-contrib==2024.9
 PyMsgBox==1.0.9
 pyperclip==1.9.0
-pynput==1.7.7; sys_platform == "darwin"
+pynput==1.7.7
 pypiwin32==223; sys_platform == "win32"
 PyRect==0.2.0
 PyScreeze==1.0.1

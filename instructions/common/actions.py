@@ -168,6 +168,35 @@ def wait_seconds(seconds_: float) -> None:
     time.sleep(max(0.0, float(seconds_)))
 
 
+def recording_options(command):
+    return {"_pause": False} if command.parameters.get("录制批次") else {}
+
+
+def release_recorded_inputs(context):
+    """Release only inputs pressed by replay, even if stopped mid-recording."""
+    keys = context.metadata.pop("recorded_keys", set())
+    buttons = context.metadata.pop("recorded_buttons", set())
+    if not keys and not buttons:
+        return
+    gui = pyautogui_module()
+    # A fail-safe screen corner must not prevent emergency key/button release.
+    failsafe = gui.FAILSAFE
+    try:
+        gui.FAILSAFE = False
+        for key in keys:
+            try:
+                gui.keyUp(key, _pause=False)
+            except Exception as error:
+                context.emit(f"释放录制按键失败：{key}：{error}")
+        for button in buttons:
+            try:
+                gui.mouseUp(button=button, _pause=False)
+            except Exception as error:
+                context.emit(f"释放录制鼠标失败：{button}：{error}")
+    finally:
+        gui.FAILSAFE = failsafe
+
+
 def workbook_cell(path_: str, sheet_: str, cell_: str, data_only: bool = True):
     from openpyxl import load_workbook
     workbook_ = load_workbook(path_, data_only=data_only)

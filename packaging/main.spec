@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tempfile
 
 
 project_root = os.path.dirname(os.path.abspath(SPECPATH))
@@ -10,6 +11,14 @@ if project_root not in sys.path:
 
 from instructions.registry import hidden_imports as instruction_hidden_imports
 from info import CURRENT_VERSION
+from PyInstaller.utils.hooks import collect_submodules
+from 数据库操作 import DatabaseOperation
+
+# Never bundle a developer's live commands or recording data in a release.
+# Keep the temporary directory alive until Analysis/COLLECT finish.
+seed_directory = tempfile.TemporaryDirectory(prefix='anclicker-release-seed-')
+seed_database = os.path.join(seed_directory.name, '命令集.db')
+DatabaseOperation(seed_database)
 
 
 def collect_instruction_datas():
@@ -42,12 +51,13 @@ a = Analysis(
     pathex=[project_root],
     binaries=[],
     datas=[
-        (os.path.join(project_root, 'data', '命令集.db'), 'data'),
+        (seed_database, 'data'),
         (os.path.join(project_root, 'flat', 'Combinear.qss'), 'flat'),
         (os.path.join(project_root, 'flat', '开屏.png'), 'flat'),
         (os.path.join(project_root, 'Window', 'res', 'donation_qr.png'), 'Window/res'),
     ] + instruction_datas,
-    hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports],
+    hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
+                   *collect_submodules('pynput')],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

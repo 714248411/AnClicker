@@ -33,6 +33,19 @@ class InstructionExecutor(InstructionExecutorBase):
         p_ = command.parameters
         gui_ = actions.pyautogui_module()
         button_ = {"左键": "left", "右键": "right", "中键": "middle"}.get(str(actions.parameter(p_, "鼠标", default="左键")), "left")
+        recorded_action_ = p_.get("录制动作")
+        if recorded_action_ in {"按下", "松开"}:
+            options_ = actions.recording_options(command)
+            if p_.get("录制坐标"):
+                gui_.moveTo(*actions.point(p_["录制坐标"]), **options_)
+            held_ = context.metadata.setdefault("recorded_buttons", set())
+            if recorded_action_ == "按下":
+                held_.add(button_)
+                gui_.mouseDown(button=button_, **options_)
+            else:
+                gui_.mouseUp(button=button_, **options_)
+                held_.discard(button_)
+            return True
         modifier_ = str(actions.parameter(p_, "辅助键", default="")).strip()
         if modifier_:
             gui_.keyDown(modifier_)

@@ -31,6 +31,7 @@ class NodeEditorWidget(QWidget):
     positionCommitted = Signal(object, float, float)
     sizeCommitted = Signal(object, float, float)
     connectionRequested = Signal(object, object)
+    branchConnectionRequested = Signal(object, object, int)
     deleteConnectionsRequested = Signal(object, str)
     noteChanged = Signal(object, str)
     saveTemplateRequested = Signal(object, str)
@@ -100,6 +101,7 @@ class NodeEditorWidget(QWidget):
         self.scene.positionCommitted.connect(self.positionCommitted)
         self.scene.sizeCommitted.connect(self.sizeCommitted)
         self.scene.connectionRequested.connect(self.connectionRequested)
+        self.scene.branchConnectionRequested.connect(self.branchConnectionRequested)
         self.set_theme("dark")
 
     def load_graph(self, nodes_, edges_, specs_, allow_incomplete=False) -> None:
