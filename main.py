@@ -142,6 +142,8 @@ def main():
     splash.deleteLater()
     app.processEvents()
     if "--startup-smoke-test" in sys.argv:
+        from ui_validation import validate_instruction_editors
+        editor_validation = validate_instruction_editors(main_window)
         def report_ready():
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
@@ -150,6 +152,7 @@ def main():
                 "title": main_window.windowTitle(),
                 "views": main_window.tabWidget.count(),
                 "database": main_window.db.db_path,
+                "editor_validation": editor_validation,
             }), encoding="utf-8")
             app.exit(0)
         QTimer.singleShot(500, report_ready)

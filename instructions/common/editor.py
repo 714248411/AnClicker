@@ -12,6 +12,7 @@ from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
     QApplication,
+    QAbstractSpinBox,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -182,6 +183,12 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         for control in self._controls.values():
             if not isinstance(control, QPlainTextEdit):
                 control.setMinimumHeight(max(32, control.sizeHint().height()))
+        # Include common repeat controls, not only instruction parameters.  The
+        # spin box's internal line edit must have enough room after QSS padding.
+        for control in self.findChildren(QAbstractSpinBox):
+            control.ensurePolished()
+            control.setMinimumHeight(max(34, control.fontMetrics().height() + 16,
+                                         control.sizeHint().height()))
         body = QWidget()
         body.setObjectName('instructionEditorBody')
         body.setLayout(self.layout())

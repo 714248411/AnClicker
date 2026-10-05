@@ -897,6 +897,10 @@ class ViewWorkspace:
             QSlider#imageConfidenceSlider::handle:horizontal {{ width: 14px; margin: -5px 0; border-radius: 7px; background: {c['accent']}; }}
             QPushButton#dangerButton {{ background: {c['danger']}; color: white; font-weight: 700; border-color: {c['danger']}; }}
             QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
+            QSpinBox, QDoubleSpinBox {{ min-height: 20px; padding: 6px 20px 6px 6px; }}
+            QSpinBox QLineEdit, QDoubleSpinBox QLineEdit {{ border: none; border-radius: 0; padding: 0; min-height: 0; background: transparent; }}
+            QSpinBox::up-button, QDoubleSpinBox::up-button {{ subcontrol-origin: border; subcontrol-position: top right; width: 18px; height: 16px; border: none; }}
+            QSpinBox::down-button, QDoubleSpinBox::down-button {{ subcontrol-origin: border; subcontrol-position: bottom right; width: 18px; height: 16px; border: none; }}
             QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{ border-color: {c['accent']}; }}
             QComboBox::drop-down {{ border: none; width: 24px; }}
             QComboBox {{ padding-right: 28px; }}

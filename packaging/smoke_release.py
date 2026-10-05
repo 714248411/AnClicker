@@ -26,6 +26,7 @@ def main():
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",
                    QT_QPA_PLATFORM="offscreen")
         for attempt in range(2):
+            env['QT_SCALE_FACTOR'] = '1' if attempt == 0 else '2'
             report = Path(folder) / "startup-ready.json"
             report.unlink(missing_ok=True)
             process = subprocess.Popen([str(executable), "--startup-smoke-test"], env=env, cwd=folder)
@@ -44,7 +45,10 @@ def main():
                 raise RuntimeError(f"Main window incomplete: {ready}")
             if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
                 raise RuntimeError(f"Packaged version does not match release: {ready}")
-            print(f"Startup {attempt + 1}: main window ready, six views, database initialized")
+            checks = ready.get('editor_validation', {})
+            if not checks.get('image_click_layout') or checks.get('spinboxes_checked', 0) < 70:
+                raise RuntimeError(f"Packaged editor checks missing: {ready}")
+            print(f"Startup {attempt + 1}: ready; scale={env['QT_SCALE_FACTOR']}; editor checks={checks}")
     return 0
 
 
