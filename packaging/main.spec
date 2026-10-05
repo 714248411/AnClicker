@@ -46,7 +46,7 @@ a = Analysis(
         (os.path.join(project_root, 'flat', '开屏.png'), 'flat'),
         (os.path.join(project_root, 'Window', 'res', 'donation_qr.png'), 'Window/res'),
     ] + instruction_datas,
-    hiddenimports=['pyttsx4.drivers', *dynamic_instruction_imports],
+    hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

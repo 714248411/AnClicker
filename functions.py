@@ -196,7 +196,7 @@ class NullSystemHotkey:
 
 def create_system_hotkey():
     """Create the native global-hotkey backend without breaking app startup."""
-    if SystemHotkey is None:
+    if SystemHotkey is None or "--startup-smoke-test" in sys.argv:
         return NullSystemHotkey()
     try:
         backend_ = SystemHotkey()

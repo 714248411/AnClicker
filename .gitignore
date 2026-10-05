@@ -44,3 +44,5 @@ Clicker-test-file/
 !/data/logs/.gitkeep
 /data/temp/*
 !/data/temp/.gitkeep
+build-fixed/
+dist-fixed/

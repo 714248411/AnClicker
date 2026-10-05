@@ -56,7 +56,11 @@ jobs:
         run: python -m pytest -q
       - name: Build native application
         run: python -m PyInstaller --clean -y packaging/main.spec
-      - name: Create ZIP archive
+      - name: Verify packaged first and second startup
+        # Test a real first launch and a second launch before publishing.
+        # Import errors and error dialogs must fail the release, not count as readiness.
+        run: python packaging/smoke_release.py
+      - name: Package verified application
         run: python packaging/build_release.py --version "${{ github.ref_name }}"
       - uses: actions/upload-artifact@v4
         with:

@@ -53,10 +53,12 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
 
 
 def main() -> int:
+    global DIST_ROOT
     parser_ = argparse.ArgumentParser()
     parser_.add_argument("--version", default="v1.0.0-beta.1")
+    parser_.add_argument("--dist", type=Path, default=DIST_ROOT)
     arguments_ = parser_.parse_args()
-
+    DIST_ROOT = arguments_.dist.resolve()
     source_ = build_root()
     label_ = platform_label()
     RELEASE_ROOT.mkdir(exist_ok=True)

@@ -1,13 +1,17 @@
 # coding: utf-8
-import importlib
+import json
 import os
 import sys
 from pathlib import Path
 
-if sys.platform == "win32":
-    os.environ["QT_QPA_PLATFORM"] = "windows:darkmode=0"
+from startup_environment import prepare_environment, record_startup_error
 
-from PySide6.QtCore import QLibraryInfo, QLocale, QSharedMemory, Qt, QTranslator
+STARTUP_DATA_FOLDER = prepare_environment()
+
+if sys.platform == "win32":
+    os.environ.setdefault("QT_QPA_PLATFORM", "windows:darkmode=0")
+
+from PySide6.QtCore import QLibraryInfo, QLocale, QSharedMemory, Qt, QTranslator, QTimer
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -124,8 +128,11 @@ def main():
     flat_dir = os.path.join(RESOURCE_FOLDER, "flat")
     splash = show_splash_screen(app, os.path.join(flat_dir, "开屏.png"))
 
-    start_window = importlib.import_module("Start_Win")
-    main_window = start_window.Main_window()
+    # Keep the import delayed for the splash, but statically visible to
+    # PyInstaller so the main window and its dependency tree are bundled.
+    from Start_Win import Main_window
+
+    main_window = Main_window()
     # Main_window installs the active dark/light theme itself.  Reapplying the
     # legacy Combinear.qss here used to overwrite it after construction and
     # left native-white table viewports and corners in the dark theme.
@@ -134,8 +141,26 @@ def main():
     splash.finish(main_window)
     splash.deleteLater()
     app.processEvents()
+    if "--startup-smoke-test" in sys.argv:
+        def report_ready():
+            report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
+            report.write_text(json.dumps({
+                "ready": main_window.isVisible(),
+                "views": main_window.tabWidget.count(),
+                "database": main_window.db.db_path,
+            }), encoding="utf-8")
+            app.exit(0)
+        QTimer.singleShot(500, report_ready)
     return app.exec()
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        log_path = record_startup_error(STARTUP_DATA_FOLDER, error)
+        if "--startup-smoke-test" not in sys.argv:
+            from PySide6.QtWidgets import QMessageBox
+            app = QApplication.instance() or QApplication(sys.argv)
+            QMessageBox.critical(None, "启动失败", f"无法完成启动：{error}\n\n详细日志：{log_path}\n请完整解压安装包后运行 AnClicker.exe。")
+        raise
