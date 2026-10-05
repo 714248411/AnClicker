@@ -204,6 +204,11 @@ class GraphRepository:
             raise GraphSchemaError("命令与节点图必须同时存在，不能初始化不完整的图结构")
 
         cls._validate_draft_connection(connection)
+        command_orders = connection.execute(
+            "SELECT ID, 排序 FROM 命令 ORDER BY 排序, ID"
+        ).fetchall()
+        if [row[1] for row in command_orders] != list(range(len(command_orders))):
+            cls._set_command_orders(connection, [row[0] for row in command_orders])
 
     @staticmethod
     def _table_columns(
@@ -590,7 +595,7 @@ class GraphRepository:
         )
 
     @classmethod
-    def _validate_draft_connection(cls, connection: sqlite3.Connection) -> list[str]:
+    def _validate_draft_connection(cls, connection: sqlite3.Connection, *, validate_cycles=False) -> list[str]:
         """Validate stored records and DAG safety while allowing missing edges."""
         command_rows = connection.execute(
             "SELECT ID, 类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序 "
@@ -611,7 +616,8 @@ class GraphRepository:
         ]
         edges = cls._edge_records(connection)
         return cls._validate_records(
-            commands, nodes, edges, require_order=False, allow_incomplete=True
+            commands, nodes, edges, require_order=False, allow_incomplete=True,
+            validate_cycles=validate_cycles,
         )
 
     @classmethod
@@ -623,6 +629,7 @@ class GraphRepository:
         *,
         require_order: bool,
         allow_incomplete: bool = False,
+        validate_cycles: bool = False,
     ) -> list[str]:
         command_ids = [command.id for command in commands]
         if len(command_ids) != len(set(command_ids)) or any(
@@ -736,7 +743,7 @@ class GraphRepository:
                     ready.append(target)
                     ready.sort(key=sort_key)
         if len(ordered_nodes) != len(node_by_id):
-            if allow_incomplete:
+            if allow_incomplete and not validate_cycles:
                 remaining = sorted(set(node_by_id) - set(ordered_nodes), key=sort_key)
                 return [*ordered_nodes, *remaining]
             loop_nodes = {
@@ -824,6 +831,12 @@ class GraphRepository:
     def validate_graph(self) -> GraphSnapshot:
         with self._connection() as connection:
             self._validate_connection(connection, require_order=True)
+        return self.snapshot()
+
+    def execution_snapshot(self) -> GraphSnapshot:
+        """Validate structure without requiring a fully connected, sorted graph."""
+        with self._connection() as connection:
+            self._validate_draft_connection(connection, validate_cycles=True)
         return self.snapshot()
 
     def _resolve_spec(self, type_id: str) -> Any:
@@ -1285,6 +1298,11 @@ class GraphRepository:
                     zip(remaining_nodes, remaining_nodes[1:]),
                 )
                 self._sync_orders_from_chain(connection)
+            else:
+                remaining_ids = [row[0] for row in connection.execute(
+                    "SELECT ID FROM 命令 ORDER BY 排序, ID"
+                )]
+                self._set_command_orders(connection, remaining_ids)
             deleted_count = len(existing)
         return deleted_count
 

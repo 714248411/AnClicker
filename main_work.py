@@ -132,7 +132,7 @@ class CommandThread(QThread):
 
     def _commands_for_mode(self) -> list[CommandRecord]:
         # Defensive graph validation is required immediately before every run.
-        self.repository.validate_graph()
+        self.repository.execution_snapshot()
         commands_ = self.repository.list_commands()
         mode_, command_id_ = self.run_mode
         if mode_ == "全部指令":
@@ -214,7 +214,7 @@ class CommandThread(QThread):
         self, commands_: list[CommandRecord], context_: ExecutionContext
     ) -> None:
         if self.run_mode[0] == "全部指令":
-            self._execute_flow(self.repository.validate_graph(), context_)
+            self._execute_flow(self.repository.execution_snapshot(), context_)
             return
         active_nodes_: set[str] | None = None
         node_by_command_: dict[int, object] = {}
@@ -276,13 +276,40 @@ class CommandThread(QThread):
         for edge_ in snapshot_.edges:
             outgoing_[edge_.source].append(edge_)
         start_edges_ = outgoing_.get("start", ())
-        if len(start_edges_) != 1:
-            raise GraphValidationError("开始节点必须连接一条流程线")
-        current_id_ = start_edges_[0].target
+        # IDs are persistent insertion order; graph projection can change 排序.
+        insertion_nodes_ = sorted(
+            (node_ for node_ in snapshot_.nodes if node_.command_id is not None),
+            key=lambda node_: int(node_.command_id),
+        )
+        connected_ = {edge_.source for edge_ in snapshot_.edges} | {
+            edge_.target for edge_ in snapshot_.edges
+        }
+        incoming_ = {edge_.target for edge_ in snapshot_.edges}
+        roots_ = [edge_.target for edge_ in start_edges_]
+        roots_.extend(node_.node_id for node_ in insertion_nodes_
+                      if node_.node_id in connected_ and node_.node_id not in incoming_)
+        roots_.extend(node_.node_id for node_ in insertion_nodes_
+                      if node_.node_id in connected_
+                      and node_.type_id in {"循环", "条件循环"})
+        executed_ = set()
+        pending_ = list(dict.fromkeys(roots_))
+        current_id_ = "end"
+        path_ = set()
+        fallback_ = False
         loop_iterations_: dict[str, int] = {}
         steps_ = 0
 
-        while current_id_ != "end" and self.start_state:
+        while self.start_state:
+            if current_id_ == "end":
+                pending_ = [item_ for item_ in pending_ if item_ not in executed_]
+                if not pending_:
+                    fallback_ = True
+                    pending_ = [node_.node_id for node_ in insertion_nodes_
+                                if node_.node_id not in executed_]
+                if not pending_:
+                    return
+                current_id_ = pending_.pop(0)
+                path_ = set()
             steps_ += 1
             if steps_ > 500_000:
                 raise GraphValidationError("流程执行超过 500000 步，已停止以避免卡死")
@@ -292,7 +319,16 @@ class CommandThread(QThread):
             if node_ is None or node_.command_id is None:
                 raise GraphValidationError(f"流程指向了无效节点：{current_id_}")
             command_ = command_by_id_[int(node_.command_id)]
-            edges_ = list(outgoing_.get(current_id_, ()))
+            if current_id_ in path_:
+                if command_.type_id not in {"循环", "条件循环"}:
+                    raise GraphValidationError("检测到没有循环控制节点的循环连线，已停止")
+                path_.clear()
+            elif current_id_ in executed_ and not loop_iterations_:
+                current_id_ = "end"
+                continue
+            path_.add(current_id_)
+            executed_.add(current_id_)
+            edges_ = [] if fallback_ else list(outgoing_.get(current_id_, ()))
 
             result_ = None
             while self.start_state:
@@ -329,17 +365,18 @@ class CommandThread(QThread):
                         wanted_kind_ = 4
             else:
                 if not edges_:
-                    raise GraphValidationError(
-                        f"指令 {command_.id} 缺少后续流程线"
-                    )
+                    current_id_ = "end"
+                    continue
+                pending_[0:0] = [edge_.target for edge_ in edges_[1:]
+                                 if edge_.target != "end"]
                 current_id_ = edges_[0].target
                 continue
 
             selected_ = next((edge_ for edge_ in edges_ if edge_.kind == wanted_kind_), None)
             if selected_ is None:
-                raise GraphValidationError(
-                    f"控制节点 {command_.id} 缺少类型为 {wanted_kind_} 的流程线"
-                )
+                loop_iterations_.pop(current_id_, None)
+                current_id_ = "end"
+                continue
             current_id_ = selected_.target
 
     def _execute_one(

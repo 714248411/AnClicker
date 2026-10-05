@@ -586,7 +586,7 @@ class ViewWorkspace:
             self.table_state.setText(f"流程、表格与多功能已同步，共 {len(commands)} 条指令")
         else:
             self.table_state.setText(
-                f"流程草稿，共 {len(commands)} 条指令；完成连线后即可运行：{validation_error}"
+                f"流程草稿，共 {len(commands)} 条指令；{validation_error}"
             )
         nodes_by_command = {
             node.command_id: node
@@ -624,7 +624,7 @@ class ViewWorkspace:
         self._sync_code_if_needed(force=True)
         self.refresh_summary()
         self.refresh_table()
-        self.code_status.setText("流程、表格与多功能已同步" if complete else "已同步流程草稿，等待完成连线")
+        self.code_status.setText("流程、表格与多功能已同步" if complete else "已同步流程草稿，可按连线优先、其余按添加顺序运行")
 
     def _edit_table_command(self, row: int, _column: int) -> None:
         item = self.command_table.item(row, 0)
@@ -660,7 +660,7 @@ class ViewWorkspace:
         self.code_status.setText(
             "修改会自动保存在当前任务中"
             if validation_error is None
-            else "已同步流程草稿，完成连线后即可运行"
+            else "已同步流程草稿，可按连线优先、其余按添加顺序运行"
         )
 
     def regenerate_code(self) -> None:
@@ -673,7 +673,11 @@ class ViewWorkspace:
             snapshot = self.window.workspace.repository.validate_graph()
             return snapshot, None
         except Exception as error:
-            return self.window.workspace.repository.snapshot(), str(error)
+            try:
+                snapshot = self.window.workspace.repository.execution_snapshot()
+                return snapshot, "可执行：连线优先，其余按添加顺序运行"
+            except Exception as execution_error:
+                return self.window.workspace.repository.snapshot(), f"无法执行：{execution_error}"
 
     @staticmethod
     def _graph_signature(snapshot) -> str:
@@ -720,7 +724,7 @@ class ViewWorkspace:
         self.code_status.setText(
             "流程、表格与多功能已同步"
             if validation_error is None
-            else "已同步流程草稿，等待完成连线"
+            else "已同步流程草稿，可按连线优先、其余按添加顺序运行"
         )
         return True
 
@@ -733,7 +737,7 @@ class ViewWorkspace:
             (
                 "# 状态：流程完整，可执行"
                 if validation_error is None
-                else f"# 状态：流程草稿，尚不可执行：{validation_error}"
+                else f"# 状态：流程草稿，{validation_error}"
             ),
             f"# 流程签名：{self._graph_signature(snapshot)[:16]}",
             "# 在流程不变时可继续编辑；流程改变后会按最新内容重新同步。",
