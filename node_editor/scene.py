@@ -150,7 +150,7 @@ class NodeScene(QGraphicsScene):
                 self.connectionRequested.emit(source_port_.node.node_id, target_node_.node_id)
         elif source_port_.direction == "input" and target_node_.output_port is not None:
             target_port_ = target_node_.connection_port_at(target_node_.mapFromScene(scene_position_))
-            if target_node_.type_id == "条件判断":
+            if target_node_.type_id in {"条件判断", "颜色判断"}:
                 kind_ = 2 if target_port_ is target_node_.no_port else 1
                 self.branchConnectionRequested.emit(target_node_.node_id, source_port_.node.node_id, kind_)
             else:
@@ -318,7 +318,7 @@ class NodeScene(QGraphicsScene):
                     color_,
                     role_,
                     control_kind_=(
-                        "condition" if record_["type_id"] in {"条件判断", "条件循环"}
+                        "condition" if record_["type_id"] in {"条件判断", "条件循环", "颜色判断"}
                         else "loop" if record_["type_id"] == "循环" else None
                     ),
                     subtitle_=self._node_subtitle(

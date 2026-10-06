@@ -358,25 +358,33 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         owner_visible_ = owner_ is not None and owner_.isVisible()
         was_visible_ = self.isVisible()
         selector_ = None
+        capture_error_ = None
+        opacity_ = self.windowOpacity()
+        owner_opacity_ = owner_.windowOpacity() if owner_visible_ else None
         try:
-            self.hide()
+            # Hiding a QDialog running exec() exits its modal event loop. The
+            # caller may then delete the editor during the selector's loop.
+            # Keep both windows alive/visible, but transparent behind the picker.
+            self.setWindowOpacity(0.0)
             if owner_visible_:
-                owner_.hide()
-            QApplication.processEvents()
+                owner_.setWindowOpacity(0.0)
             selector_ = _PointSelectionDialog(self)
             if selector_.exec() == QDialog.DialogCode.Accepted and selector_.point is not None:
                 # Commas also support negative coordinates on a secondary monitor.
                 self._set_control_value(control_, ",".join(map(str, selector_.point)))
+            capture_error_ = selector_.capture_error
+        except Exception as error_:
+            capture_error_ = str(error_) or type(error_).__name__
         finally:
             if selector_ is not None:
                 selector_.deleteLater()
             if owner_visible_:
-                owner_.show()
+                owner_.setWindowOpacity(owner_opacity_)
+            self.setWindowOpacity(opacity_)
             if was_visible_:
-                self.show()
                 self.activateWindow()
-        if selector_ is not None and selector_.capture_error:
-            QMessageBox.warning(self, "坐标获取失败", selector_.capture_error)
+        if capture_error_:
+            QMessageBox.warning(self, "坐标获取失败", capture_error_)
 
     def _browse_path(self, key_: str, control_: QWidget) -> None:
         if key_ == "保存路径":

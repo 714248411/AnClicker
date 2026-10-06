@@ -274,7 +274,7 @@ class CommandThread(QThread):
                     return
             if active_nodes_ is not None and node_ is not None:
                 targets_ = list(outgoing_.get(node_.node_id, ()))
-                if command_.type_id in {"条件判断", "条件循环"} and targets_:
+                if command_.type_id in {"条件判断", "颜色判断", "条件循环"} and targets_:
                     targets_.sort(key=lambda target_: (node_by_id_[target_].y, node_by_id_[target_].x))
                     selected_index_ = 0 if bool(result_) else min(1, len(targets_) - 1)
                     targets_ = [targets_[selected_index_]]
@@ -360,7 +360,7 @@ class CommandThread(QThread):
                     self.start_state = False
                     return
 
-            if command_.type_id == "条件判断":
+            if command_.type_id in {"条件判断", "颜色判断"}:
                 wanted_kind_ = 1 if bool(result_) else 2
             elif command_.type_id in {"循环", "条件循环"}:
                 mode_ = str(command_.parameters.get("方式", "次数"))

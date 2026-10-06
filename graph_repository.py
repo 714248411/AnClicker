@@ -549,7 +549,7 @@ class GraphRepository:
             kind = metadata.get((source, target))
             if kind is None:
                 source_type = source_types.get(source, "")
-                if source_type == "条件判断":
+                if source_type in {"条件判断", "颜色判断"}:
                     kind = (1, 2)[min(index, 1)]
                 elif source_type in {"循环", "条件循环"}:
                     kind = (3, 4)[min(index, 1)]
@@ -704,13 +704,13 @@ class GraphRepository:
         command_by_id = {command.id: command for command in commands}
         for node in instruction_nodes:
             command = command_by_id[int(node.command_id)]
-            if command.type_id in {"条件判断", "循环", "条件循环"}:
+            if command.type_id in {"条件判断", "颜色判断", "循环", "条件循环"}:
                 branch_count = len(outgoing[node.node_id])
                 if branch_count > 2:
                     raise GraphValidationError("条件或循环节点最多只能连接两条输出")
                 if not allow_incomplete and branch_count != 2:
                     raise GraphValidationError("条件或循环节点必须连接两条输出")
-                expected_kinds = {1, 2} if command.type_id == "条件判断" else {3, 4}
+                expected_kinds = {1, 2} if command.type_id in {"条件判断", "颜色判断"} else {3, 4}
                 actual_kinds = {
                     int(edge.kind) for edge in edges if edge.source == node.node_id
                 }
@@ -997,7 +997,7 @@ class GraphRepository:
                 "WHERE 节点.节点ID=?", (source_id,)
             ).fetchone()
             source_type_id = str(source_type[0]) if source_type else ""
-            if source_type_id in {"条件判断", "循环", "条件循环"}:
+            if source_type_id in {"条件判断", "颜色判断", "循环", "条件循环"}:
                 branch_count = int(connection.execute(
                     "SELECT COUNT(*) FROM 节点连接 WHERE 源节点ID=?", (source_id,)
                 ).fetchone()[0])
@@ -1024,7 +1024,7 @@ class GraphRepository:
                         )
                     }
                     candidates = (
-                        (1, 2) if source_type_id == "条件判断"
+                        (1, 2) if source_type_id in {"条件判断", "颜色判断"}
                         else (3, 4) if source_type_id in {"循环", "条件循环"}
                         else (0,)
                     )
@@ -1666,7 +1666,7 @@ class GraphRepository:
                 branch_index = legacy_branch_index.get(str(source), 0)
                 legacy_branch_index[str(source)] = branch_index + 1
                 source_type = source_type_by_node.get(str(source), "")
-                if source_type == "条件判断":
+                if source_type in {"条件判断", "颜色判断"}:
                     kind = (1, 2)[min(branch_index, 1)]
                 elif source_type in {"循环", "条件循环"}:
                     kind = (3, 4)[min(branch_index, 1)]

@@ -47,6 +47,7 @@ class InstructionFallbackTests(unittest.TestCase):
             keyDown=Mock(), keyUp=Mock(), hotkey=Mock(), write=Mock(),
             mouseDown=Mock(), mouseUp=Mock(), dragTo=Mock(),
             position=Mock(return_value=_Point()),
+            pixel=Mock(return_value=(255, 255, 255)),
             size=Mock(return_value=SimpleNamespace(width=1920, height=1080)),
             screenshot=Mock(return_value=SimpleNamespace(save=Mock(), convert=Mock())),
             getActiveWindowTitle=Mock(return_value="目标窗口"),
@@ -73,6 +74,7 @@ class InstructionFallbackTests(unittest.TestCase):
             "图像点击": {"图像路径": "a.png", "动作": "左键双击", "异常": "2", "点击位置": "0,0"},
             "多图点击": {"图像路径": "a.png\nb.png", "动作": "右键双击", "异常": "自动略过"},
             "坐标点击": {"动作": "左键双击", "坐标": "10,20", "自定义次数": 1},
+            "颜色判断": {"坐标": "10,20", "颜色": "#FFFFFF", "容差": 0, "比较": "相等", "变量": "颜色匹配"},
             "移动鼠标": {"类型": "指定坐标", "坐标": "10,20", "持续": 0.1},
             "鼠标点击": {"鼠标": "左键", "次数": 2, "间隔": 1, "按压": 1, "辅助键": "ctrl"},
             "滚轮滑动": {"类型": "滚轮滑动", "方向": "向下", "距离": 5},
@@ -108,7 +110,7 @@ class InstructionFallbackTests(unittest.TestCase):
             "条件循环": {"方式": "条件", "条件": "True", "次数": 3},
         }
 
-    def test_all_35_real_fallbacks_execute_without_delegated_service(self):
+    def test_all_registered_fallbacks_execute_without_delegated_service(self):
         parameters_ = self._parameters()
         self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS})
         self.context_.variables["值"] = 2

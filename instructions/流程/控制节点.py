@@ -68,7 +68,7 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
         self.note_edit = QLineEdit()
         form_.addRow("备注", self.note_edit)
         layout_.addLayout(form_)
-        hint_ = QLabel("条件节点上方分支为“是”，下方分支为“否”。")
+        hint_ = QLabel("条件判断节点右侧分支为“是”，上方分支为“否”。")
         hint_.setObjectName("mutedText")
         hint_.setVisible(self.CONDITION)
         layout_.addWidget(hint_)

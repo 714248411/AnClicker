@@ -326,6 +326,7 @@ class ViewWorkspace:
     def _build_table_view(self) -> None:
         self.command_table = InstructionTableWidget(0, 7)
         self.command_table.setObjectName("commandTable")
+        self.command_table.setMouseTracking(True)
         self.command_table.setHorizontalHeaderLabels(
             ["序号", "编号", "指令", "参数", "重复", "异常处理", "备注"]
         )
@@ -879,6 +880,9 @@ class ViewWorkspace:
             QGroupBox#groupBox_3::title {{ color: {c['text']}; }}
             QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,
             QGroupBox#groupBox_3 QTextEdit {{ background: {c['surface2']}; color: {c['text']}; }}
+            QTreeWidget#instructionTree::item {{ color: {c['text']}; padding: 5px; border: 1px solid transparent; border-radius: 5px; }}
+            QTreeWidget#instructionTree::item:hover:!selected {{ background: {c['surface3']}; border-color: {c['accent']}; }}
+            QTreeWidget#instructionTree::item:selected {{ background: {c['accent2']}; color: white; border-color: {c['accent']}; }}
             QFrame#viewNavigation {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; min-width: 175px; max-width: 220px; }}
             QLabel#navTitle, QLabel#pageTitle {{ color: {c['text']}; font-size: 17px; font-weight: 700; padding: 8px; }}
             QListWidget#beginnerNavigation {{ background: transparent; border: none; outline: none; }}
@@ -920,6 +924,7 @@ class ViewWorkspace:
             QTableWidget#commandTable {{ background-color: {c['surface']}; alternate-background-color: {c['surface2']}; }}
             QTableWidget#commandTable::item {{ background-color: transparent; color: {c['text']}; border: none; padding: 5px; }}
             QTableWidget#commandTable::item:alternate {{ background-color: {c['surface2']}; }}
+            QTableWidget#commandTable::item:hover:!selected {{ background-color: {c['surface3']}; border-bottom: 1px solid {c['accent']}; }}
             QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 10px; padding: 8px; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
             QHeaderView {{ background: {c['surface2']}; color: {c['accent']}; }}

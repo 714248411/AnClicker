@@ -141,13 +141,14 @@ class NodeItem(QGraphicsObject):
             self.input_port = PortItem(self, "input")
             self.input_port.setPos(0.0, self.height / 2.0)
         if terminal_role_ != "end":
-            self.output_port = PortItem(self, "output", 1 if type_id_ == "条件判断" else None)
+            self.output_port = PortItem(self, "output", 1 if type_id_ in {"条件判断", "颜色判断"} else None)
             self.output_port.setPos(self.width, self.height / 2.0)
-        if type_id_ == "条件判断":
+        if type_id_ in {"条件判断", "颜色判断"}:
             self.no_port = PortItem(self, "output", 2)
             self.no_port.setPos(self.width / 2.0, 0.0)
         self._active_connection_port = None
         self._resizing = False
+        self._hovered = False
         self._resize_origin = QPointF()
         self._resize_start_size = QPointF()
 
@@ -165,7 +166,7 @@ class NodeItem(QGraphicsObject):
         return self.terminal_role in {"start", "end"}
 
     def boundingRect(self):
-        margin_ = 4.0
+        margin_ = 12.0
         return QRectF(
             -margin_,
             -margin_,
@@ -192,10 +193,22 @@ class NodeItem(QGraphicsObject):
         del option_, widget_
         painter_.setRenderHint(QPainter.RenderHint.Antialiasing)
         body_ = self.shape()
-        border_ = NODE_SELECTED_COLOR if self.isSelected() else NODE_BORDER_COLOR
+        if self._hovered:
+            # Paint the halo first: the opaque body and text stay crisp above it.
+            painter_.setBrush(Qt.BrushStyle.NoBrush)
+            for width_, alpha_ in ((20, 12), (14, 22), (8, 42)):
+                halo_ = QColor(NODE_SELECTED_COLOR)
+                halo_.setAlpha(alpha_)
+                painter_.setPen(QPen(halo_, width_))
+                painter_.drawPath(body_)
+        border_ = NODE_SELECTED_COLOR if self.isSelected() or self._hovered else NODE_BORDER_COLOR
         painter_.setPen(QPen(border_, 2.5 if self.isSelected() else 1.2))
         painter_.setBrush(QBrush(NODE_COLOR))
         painter_.drawPath(body_)
+        if self._hovered:
+            tint_ = QColor(NODE_SELECTED_COLOR)
+            tint_.setAlpha(32)
+            painter_.fillPath(body_, tint_)
 
         if self.control_kind == "condition":
             painter_.setPen(QPen(self.header_color, 3.0))
@@ -372,6 +385,17 @@ class NodeItem(QGraphicsObject):
             event_.accept()
             return
         super().mouseDoubleClickEvent(event_)
+
+    def hoverEnterEvent(self, event_):
+        self._hovered = True
+        self.update()
+        super().hoverEnterEvent(event_)
+
+    def hoverLeaveEvent(self, event_):
+        self._hovered = False
+        self.unsetCursor()
+        self.update()
+        super().hoverLeaveEvent(event_)
 
     def hoverMoveEvent(self, event_):
         if (
@@ -589,7 +613,7 @@ class EdgeItem(QGraphicsPathItem):
             branch_index_ = self.source_port.edges.index(self)
         except ValueError:
             branch_index_ = -1
-        if self.source_node.type_id == "条件判断":
+        if self.source_node.type_id in {"条件判断", "颜色判断"}:
             return (
                 (QColor("#7c8cff"), "是")
                 if branch_index_ == 0

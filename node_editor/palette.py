@@ -29,6 +29,7 @@ class _InstructionTree(QTreeWidget):
         self.setHeaderHidden(True)
         self.setIndentation(16)
         self.setDragEnabled(True)
+        self.setMouseTracking(True)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.itemDoubleClicked.connect(self._activate_item)
 
@@ -115,7 +116,6 @@ class InstructionPalette(QWidget):
 
             instruction_item_ = QTreeWidgetItem([spec_.title])
             instruction_item_.setData(0, TYPE_ID_ROLE, spec_.type_id)
-            instruction_item_.setForeground(0, spec_.color.lighter(150))
             category_item_.addChild(instruction_item_)
         self.tree.expandAll()
         self._apply_filter(self.search_edit.text())
