@@ -123,6 +123,7 @@ class InstructionFallbackTests(unittest.TestCase):
             stack_.enter_context(patch.object(sys, "platform", "win32"))
             stack_.enter_context(patch.object(actions, "pyautogui_module", return_value=self.gui_))
             stack_.enter_context(patch.object(actions, "wait_seconds"))
+            stack_.enter_context(patch('instructions.common.middle_wait.wait_for_middle', return_value=True))
             stack_.enter_context(patch.object(os.path, "isfile", return_value=True))
             stack_.enter_context(patch.object(actions, "locate_image", return_value=_Point()))
             stack_.enter_context(patch.object(actions, "locate_image_with_policy", return_value=(_Point(), False)))

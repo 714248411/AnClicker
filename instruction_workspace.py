@@ -487,7 +487,14 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                spec_.create_executor().execute(context_, command_)
+                if spec_.type_id == '中键激活':
+                    from instructions.common.test_runner import run_cancellable_test
+                    run_cancellable_test(spec_, command_, context_, editor_)
+                    if context_.stop_requested:
+                        self.statusMessage.emit('中键激活测试已取消')
+                        return
+                else:
+                    spec_.create_executor().execute(context_, command_)
                 database_ = context_.metadata.get('database')
                 if database_ is not None:
                     database_.persist_global_variables(context_.variables)
