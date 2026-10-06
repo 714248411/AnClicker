@@ -1,17 +1,17 @@
 VSVersionInfo(
     ffi=FixedFileInfo(
-        filevers=(1, 1, 6, 0), prodvers=(1, 1, 6, 0),
+        filevers=(1, 1, 7, 0), prodvers=(1, 1, 7, 0),
         mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1,
         subtype=0x0, date=(0, 0)),
     kids=[
         StringFileInfo([StringTable('080404B0', [
             StringStruct('CompanyName', 'YanYi and contributors'),
             StringStruct('FileDescription', 'An Clicker'),
-            StringStruct('FileVersion', '1.1.6.0'),
+            StringStruct('FileVersion', '1.1.7.0'),
             StringStruct('InternalName', 'AnClicker'),
             StringStruct('OriginalFilename', 'AnClicker.exe'),
             StringStruct('ProductName', 'An Clicker'),
-            StringStruct('ProductVersion', '1.1.6'),
+            StringStruct('ProductVersion', '1.1.7'),
             StringStruct('LegalCopyright', 'Copyright © 2022–2026 YanYi and contributors'),
         ])]),
         VarFileInfo([VarStruct('Translation', [2052, 1200])]),

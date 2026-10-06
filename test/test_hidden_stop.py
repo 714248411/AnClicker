@@ -55,13 +55,16 @@ def wait_for_finish(window):
 
 
 @pytest.mark.parametrize('stop', ['escape', '结束运行'])
-def test_hidden_global_stop_restores_main_window(host, stop):
+@pytest.mark.parametrize('compact', [False, True])
+def test_hidden_global_stop_restores_main_window(host, stop, compact):
     observed = []
     def run(context, command):
         observed.append(context)
         while not context.stop_requested:
             time.sleep(.005)
     host.execution_services = {'悬停后点击':run}
+    host.view_workspace.compact.set_active(compact)
+    assert host.checkBox_2.isChecked() and host.checkBox_2.isEnabled()
     assert host.start()
     assert not host.isVisible()
     deadline = time.monotonic()+2
@@ -72,6 +75,18 @@ def test_hidden_global_stop_restores_main_window(host, stop):
     host.hk_stop.callbacks[keys](None)
     wait_for_finish(host)
     assert observed and observed[0].stop_requested
+    assert host.view_workspace.compact.active == compact
+    assert host.pushButton_5.isVisible()
+
+
+def test_compact_completion_restores_small_window_and_setting(host):
+    host.view_workspace.compact.set_active(True)
+    host.execution_services = {'悬停后点击':lambda **kwargs:None}
+    host.start()
+    wait_for_finish(host)
+    assert host.view_workspace.compact.active
+    assert host.checkBox_2.isChecked() and host.checkBox_2.isEnabled()
+    assert host.pushButton_5.isVisible()
 
 
 def test_normal_completion_restores_hidden_window(host):
@@ -86,3 +101,14 @@ def test_unavailable_global_escape_keeps_window_visible(host):
     host.start()
     assert host.isVisible()
     wait_for_finish(host)
+
+
+def test_single_view_menu_keeps_toolbar_toggle(host):
+    menus = [action.menu() for action in host.menubar.actions() if action.menu() is not None]
+    views = [menu for menu in menus if menu.title().replace('&','') == '视图']
+    assert len(views) == 1
+    assert host.actiong in views[0].actions()
+    host.actiong.setChecked(False)
+    assert host.toolBar.isHidden()
+    host.actiong.setChecked(True)
+    assert not host.toolBar.isHidden()

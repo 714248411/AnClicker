@@ -484,6 +484,11 @@ class ViewWorkspace:
             action.triggered.connect(callback)
             menu.addAction(action)
         self.window.menubar.insertMenu(self.window.menu_4.menuAction(), menu)
+        menu.addSeparator()
+        self.window.menu_3.removeAction(self.window.actiong)
+        self.window.actiong.setText('显示工具栏')
+        menu.addAction(self.window.actiong)
+        self.window.menubar.removeAction(self.window.menu_3.menuAction())
 
     def toggle_primary(self) -> None:
         self.show_main() if self.tabs.currentIndex() == FLOW_VIEW else self.show_flow()

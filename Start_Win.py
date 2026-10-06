@@ -595,6 +595,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         if self.db.get_bool_setting("退出提醒清空指令"):
             self.db.clear_all_ins()
         recording.shutdown()
+        self._closing = True
         event.accept()
 
     def data_import(self, file_path: str) -> None:
@@ -743,6 +744,8 @@ class Main_window(QMainWindow, Ui_MainWindow):
             return False
 
     def _runtime_finished(self):
+        if getattr(self, '_closing', False):
+            return
         if self.command_thread.isRunning():
             return
         self.escape_stop.setEnabled(False)

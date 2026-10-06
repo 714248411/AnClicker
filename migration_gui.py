@@ -9,7 +9,8 @@ from migration_tool import inspect_migration, write_migration_bundle
 class MigrationWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('An Clicker — 旧版数据迁移工具 v1.1.6')
+        from info import CURRENT_VERSION
+        self.setWindowTitle(f'An Clicker — 旧版数据迁移工具 {CURRENT_VERSION}')
         self.resize(660, 440)
         layout = QVBoxLayout(self)
         label = QLabel('选择旧版 .xlsx 文件，逐分支转换并生成备份与报告。\n原文件不修改，不运行指令，不替换主程序项目。')

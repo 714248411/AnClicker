@@ -27,10 +27,8 @@ class CompactWorkspace(QObject):
             self.was_maximized = w.isMaximized()
             self.minimum = w.minimumSize()
             self.control_style = w.groupBox_3.styleSheet()
-            self.hide_while_running = w.checkBox_2.isChecked()
-            self.hide_enabled = w.checkBox_2.isEnabled()
-            w.checkBox_2.setChecked(False)
-            w.checkBox_2.setEnabled(False)
+            # Compact mode shares the same execution settings. Do not disable
+            # hide-on-run or later overwrite changes made in the small console.
             self.hidden = [(item, item.isHidden()) for item in
                            (view.tabs, w.instructionPaletteHost, w.toolBar, w.menubar, w.statusBar)]
             for item, _ in self.hidden:
@@ -85,8 +83,6 @@ class CompactWorkspace(QObject):
             for item, minimum in self.saved_minimums:
                 item.setMinimumSize(minimum)
             w.groupBox_3.setStyleSheet(self.control_style)
-            w.checkBox_2.setChecked(self.hide_while_running)
-            w.checkBox_2.setEnabled(self.hide_enabled)
             for item, hidden in self.hidden:
                 item.setVisible(not hidden)
             w.layout().setSizeConstraint(self.constraint)
@@ -123,6 +119,6 @@ class CompactWorkspace(QObject):
         if watched is self.window and event.type() == QEvent.Type.Resize and self.active:
             self.scale_controls()
         elif watched is self.window and event.type() == QEvent.Type.Close and self.active:
-            # Persist the normal geometry and user's original hide preference.
+            # Persist normal geometry and the user's current hide preference.
             self.set_active(False)
         return False
