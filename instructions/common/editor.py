@@ -108,6 +108,41 @@ class _RegionSelectionDialog(QDialog):
         )
 
 
+class _PointSelectionDialog(QDialog):
+    """Consume a target click and read coordinates in the input backend's units."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.point = None
+        self.capture_error = None
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool |
+                            Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowOpacity(0.25)
+        self.setStyleSheet("background:#263449;color:white;")
+        self.setCursor(Qt.CursorShape.CrossCursor)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(screen.virtualGeometry())
+        layout = QVBoxLayout(self)
+        label = QLabel("左键点选目标位置（不会点击底层窗口） · Esc 取消", self)
+        label.setStyleSheet("font-size:20px;padding:20px;")
+        label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        layout.addWidget(label)
+        layout.addStretch()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        try:
+            from instructions.common.actions import pyautogui_module
+            position = pyautogui_module().position()
+            self.point = (int(position.x), int(position.y))
+            self.accept()
+        except Exception as error:
+            self.capture_error = str(error)
+            self.reject()
+
+
 class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
     """绑定独立 .ui 参数窗口，并提供统一变量管理和自适应布局。"""
 
@@ -313,12 +348,35 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
             if manager.exec() == QDialog.DialogCode.Accepted:
                 self._refresh_variables(manager.selected_name or str(current_))
             return
-        if key_ in {"坐标", "开始位置", "结束位置", "点击位置"}:
-            position_ = QCursor.pos()
-            separator_ = "-" if self.TYPE_ID == "坐标点击" and key_ == "坐标" else ","
-            self._set_control_value(control_, f"{position_.x()}{separator_}{position_.y()}")
+        if key_ in {"坐标", "开始位置", "结束位置", "点击位置", "悬停位置"}:
+            self._select_screen_point(key_, control_)
             return
         self.auxiliary_requested.emit(key_, control_)
+
+    def _select_screen_point(self, key_, control_):
+        owner_ = self.parentWidget().window() if self.parentWidget() else None
+        owner_visible_ = owner_ is not None and owner_.isVisible()
+        was_visible_ = self.isVisible()
+        selector_ = None
+        try:
+            self.hide()
+            if owner_visible_:
+                owner_.hide()
+            QApplication.processEvents()
+            selector_ = _PointSelectionDialog(self)
+            if selector_.exec() == QDialog.DialogCode.Accepted and selector_.point is not None:
+                # Commas also support negative coordinates on a secondary monitor.
+                self._set_control_value(control_, ",".join(map(str, selector_.point)))
+        finally:
+            if selector_ is not None:
+                selector_.deleteLater()
+            if owner_visible_:
+                owner_.show()
+            if was_visible_:
+                self.show()
+                self.activateWindow()
+        if selector_ is not None and selector_.capture_error:
+            QMessageBox.warning(self, "坐标获取失败", selector_.capture_error)
 
     def _browse_path(self, key_: str, control_: QWidget) -> None:
         if key_ == "保存路径":
@@ -429,7 +487,7 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
             if field_.kind == "choice" and field_.choices and value_ not in field_.choices:
                 raise ValueError(f"{field_.label}不是有效选项")
 
-        for key_ in ("坐标", "开始位置", "结束位置", "点击位置"):
+        for key_ in ("坐标", "开始位置", "结束位置", "点击位置", "悬停位置"):
             value_ = parameters_.get(key_)
             if value_ in (None, ""):
                 continue

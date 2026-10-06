@@ -187,6 +187,7 @@ class CommandThread(QThread):
         强制终止只作为长时间 sleep 或外部阻塞调用的最后兜底。
         在进入该路径前，request_stop 已经清除暂停并唤醒条件变量。
         """
+        context_to_release_ = self._active_context
         self.request_stop()
         if not self.isRunning():
             return True
@@ -195,6 +196,9 @@ class CommandThread(QThread):
         self.terminate()
         stopped_ = bool(self.wait(max(0, int(terminate_wait_ms))))
         if stopped_:
+            if context_to_release_ is not None:
+                from instructions.common.actions import release_recorded_inputs
+                release_recorded_inputs(context_to_release_)
             # terminate() may interrupt code near a mutex operation.  The old
             # worker has exited, so replace synchronization primitives before
             # this QThread instance is reused.

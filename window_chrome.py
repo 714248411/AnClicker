@@ -1,8 +1,35 @@
 """Compact title bar with a theme control beside the window controls."""
 import math
+import sys
 from PySide6.QtCore import QEvent, QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton, QVBoxLayout, QWidget
+
+
+def apply_native_shadow(window):
+    """Ask Windows DWM for the compositor's external shadow, not a painted fake.
+
+    Non-Windows desktops retain their compositor's window shadow. Failure is
+    harmless: the explicit grey outline remains available on every platform.
+    """
+    if sys.platform != 'win32' or QApplication.platformName() != 'windows':
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        class Margins(ctypes.Structure):
+            _fields_ = [(name, ctypes.c_int) for name in ('left','right','top','bottom')]
+        dwm = ctypes.WinDLL('dwmapi')
+        dwm.DwmSetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
+        dwm.DwmExtendFrameIntoClientArea.argtypes = [wintypes.HWND, ctypes.POINTER(Margins)]
+        hwnd = int(window.winId())
+        policy = ctypes.c_int(2)  # DWMNCRP_ENABLED: render irrespective of style.
+        result = dwm.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(policy), ctypes.sizeof(policy))
+        edge = 0 if window.isMaximized() or window.isFullScreen() else 1
+        margins = Margins(edge, edge, edge, edge)
+        return result == 0 and dwm.DwmExtendFrameIntoClientArea(hwnd, ctypes.byref(margins)) == 0
+    except (OSError, AttributeError):
+        return False
 
 
 def chrome_icon(kind, color):
@@ -43,6 +70,41 @@ def chrome_icon(kind, color):
         painter.drawLine(14, 6, 6, 14)
     painter.end()
     return QIcon(pixmap)
+
+
+class WindowOutline(QWidget):
+    """Thin outline plus inset edge shadow, independent of the OS compositor."""
+    def __init__(self, host):
+        super().__init__(host)
+        self.host = host
+        self.dark = False
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_NoSystemBackground)
+        host.installEventFilter(self)
+        self.sync()
+
+    def sync(self):
+        margin = 1 if self.host.isMaximized() or self.host.isFullScreen() else 4
+        self.host.setContentsMargins(margin, margin, margin, margin)
+        self.setGeometry(self.host.rect())
+        self.raise_()
+        self.update()
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Resize, QEvent.Show, QEvent.WindowStateChange):
+            self.sync()
+        if event.type() in (QEvent.Show, QEvent.WindowStateChange):
+            self.host.native_shadow_enabled = apply_native_shadow(self.host)
+        return False
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setPen(QPen(QColor('#747983' if self.dark else '#bfc3cc'), 1))
+        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        if not self.host.isMaximized() and not self.host.isFullScreen():
+            for inset, alpha in ((1, 35), (2, 20), (3, 9)):
+                painter.setPen(QPen(QColor(0, 0, 0, alpha), 1))
+                painter.drawRect(self.rect().adjusted(inset, inset, -inset-1, -inset-1))
 
 
 class WindowTitleBar(QFrame):
@@ -92,6 +154,9 @@ class WindowTitleBar(QFrame):
         return button
 
     def apply_theme(self, mode, colors):
+        if hasattr(self.host, 'window_outline'):
+            self.host.window_outline.dark = mode == 'dark'
+            self.host.window_outline.update()
         self._color = colors['text']
         self.compact_button.setIcon(chrome_icon("compact", self._color))
         label = "切换浅色主题" if mode == "dark" else "切换深色主题"
@@ -212,4 +277,5 @@ def install_title_bar(window, theme_action):
     layout.addWidget(bar)
     layout.addWidget(menu)
     window.setMenuWidget(host)
+    window.window_outline = WindowOutline(window)
     return bar

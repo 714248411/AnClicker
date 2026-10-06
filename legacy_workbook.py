@@ -153,7 +153,7 @@ def _convert_parameters(type_id, payload, raw, base_directory):
     return parameters
 
 
-def convert_legacy_workbook(source, base_directory=None):
+def convert_legacy_workbook(source, base_directory=None, *, branch=None):
     """Return a new four-sheet workbook, or the unchanged current workbook.
 
     Fail closed for unknown sheets, auxiliary parameters and branch semantics.
@@ -171,6 +171,8 @@ def convert_legacy_workbook(source, base_directory=None):
     records = []
     for sheet in source.worksheets:
         if sheet.title == "设置":
+            continue
+        if branch is not None and sheet.title != branch:
             continue
         headers = list(next(sheet.iter_rows(max_row=1, values_only=True)))
         if headers not in [LEGACY_HEADERS, DATABASE_HEADERS,
@@ -204,7 +206,7 @@ def convert_legacy_workbook(source, base_directory=None):
     if not records:
         raise WorkbookValidationError("旧工作簿没有可转换的指令，当前数据未修改")
     if len(active_sheets) != 1:
-        raise WorkbookValidationError("旧文件含多个非空分支，不能直接合并为顺序流程。请提供原文件以适配分支跳转；当前数据未修改")
+        raise WorkbookValidationError("旧文件含多个非空分支，请使用迁移器逐分支转换并选择要运行的分支；当前数据未修改")
     if len({record[0] for record in records}) != len(records):
         raise WorkbookValidationError("旧指令 ID 重复，当前数据未修改")
     if "设置" in source.sheetnames:

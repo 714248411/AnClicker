@@ -1,4 +1,4 @@
-"""32 条正式指令的唯一注册清单。"""
+"""正式指令的唯一注册清单。"""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def _spec(name_: str, category_: str, color_: str) -> InstructionSpec:
 INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
     *(_spec(name_, "键鼠", "#2f80ed") for name_ in (
         "图像点击", "多图点击", "坐标点击", "移动鼠标", "鼠标点击",
-        "滚轮滑动", "按下键盘", "文本输入", "中键激活", "鼠标拖拽",
+        "滚轮滑动", "按下键盘", "文本输入", "中键激活", "鼠标拖拽", "悬停后点击",
     )),
     *(_spec(name_, "等待", "#f2a900") for name_ in (
         "时间等待", "图像等待", "倒计时窗口", "按键等待", "窗口焦点等待",
@@ -73,8 +73,8 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
 )
 
 _SPEC_BY_ID = {spec_.type_id: spec_ for spec_ in INSTRUCTION_SPECS}
-if len(INSTRUCTION_SPECS) != 35 or len(_SPEC_BY_ID) != 35:
-    raise RuntimeError("指令注册表必须包含 35 个唯一 type_id")
+if len(INSTRUCTION_SPECS) != 36 or len(_SPEC_BY_ID) != 36:
+    raise RuntimeError("指令注册表必须包含 36 个唯一 type_id")
 
 
 def get_instruction_spec(type_id: str) -> InstructionSpec:

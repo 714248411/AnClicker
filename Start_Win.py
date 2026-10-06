@@ -16,12 +16,13 @@ import os.path
 import sqlite3
 import sys
 import tempfile
+import zipfile
 from time import time as current_time
 from typing import Optional
 
 import openpyxl
-from PySide6.QtCore import QTimer, Signal, QUrl
-from PySide6.QtGui import QAction, QDesktopServices, QPixmapCache
+from PySide6.QtCore import QTimer, Signal, QUrl, Qt
+from PySide6.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -88,6 +89,7 @@ SystemHotkey = create_system_hotkey
 class Main_window(QMainWindow, Ui_MainWindow):
     """主窗口"""
     clear_signal = Signal()  # 自定义信号，textEdit清空信息，防止在全局快捷键调用时程序崩溃
+    shortcut_requested = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -102,6 +104,13 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.workspace = InstructionWorkspace(self.db.db_path, self)
         self._install_instruction_workspace()
         self.view_workspace = ViewWorkspace(self)
+        from recent_projects import RecentProjectPicker, ProjectDropFilter
+        self.recent_project_picker = RecentProjectPicker(self.groupBox_3)
+        self.gridLayout_2.addWidget(self.recent_project_picker, 3, 0, 1, 2)
+        self.gridLayout_2.setRowStretch(3, 0)
+        self.gridLayout_2.setRowStretch(4, 1)
+        self.recent_project_picker.openRequested.connect(self.open_project_path)
+        self.project_drop_filter = ProjectDropFilter(self, self.open_project_path)
         self._initial_graph_fit_pending = True
         self.tabWidget.currentChanged.connect(self._schedule_initial_graph_fit)
         self.check_file_integrity()  # 检查文件完整性
@@ -144,6 +153,14 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.command_thread = CommandThread(self)
         self.command_thread.send_message.connect(self.send_message)
         self.command_thread.finished_signal.connect(self.thread_finished)
+        self.command_thread.finished.connect(self._runtime_finished)
+        self.shortcut_requested.connect(self.global_shortcut_key, Qt.QueuedConnection)
+        self._escape_registered = False
+        self._escape_previous_action = None
+        self.escape_stop = QShortcut(QKeySequence('Esc'), self)
+        self.escape_stop.setContext(Qt.ApplicationShortcut)
+        self.escape_stop.setEnabled(False)
+        self.escape_stop.activated.connect(lambda: self.shortcut_requested.emit('终止线程'))
         self.command_thread.cache_cleanup_requested.connect(self.clear_runtime_cache)
         # Prevent long/infinite runs from retaining an unbounded log document.
         self.textEdit.document().setMaximumBlockCount(1500)
@@ -276,7 +293,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 if is_hotkey_valid(self.hk_stop, global_shortcut[shortcut_name]):
                     self.hk_stop.register(
                         global_shortcut[shortcut_name],
-                        callback=lambda x_, action_name_=action_: self.global_shortcut_key(
+                        callback=lambda x_, action_name_=action_: self.shortcut_requested.emit(
                             action_name_
                         ),
                         overwrite=True
@@ -318,6 +335,9 @@ class Main_window(QMainWindow, Ui_MainWindow):
         """将最近文件添加到菜单中"""
         recently_opened_list = self.db.get_recently_opened_file("文件列表")
         current_file_path = self.db.get_setting_value("当前文件路径")
+        self.menuzv.clear()
+        if hasattr(self, 'recent_project_picker'):
+            self.recent_project_picker.refresh(recently_opened_list, current_file_path)
         # 将最近打开文件添加到菜单中
         if len(recently_opened_list) != 0:
             for file in recently_opened_list:
@@ -340,7 +360,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         recent_file = self.db.get_setting_value("当前文件路径")
         if file_path != recent_file:
             if os.path.exists(file_path):
-                self.data_import(file_path)
+                self.open_project_path(file_path)
             elif not os.path.exists(file_path):
                 # 如果文件不存在，则删除最近打开文件列表中的文件
                 self.db.remove_recently_opened_file(file_path)
@@ -359,6 +379,34 @@ class Main_window(QMainWindow, Ui_MainWindow):
     def delete_data(self):
         """删除节点画布中选中的指令。"""
         return self.workspace.remove_commands()
+
+    def open_project_path(self, file_path):
+        """One guarded entry point for recent selection, edited paths and drops."""
+        thread = getattr(self, 'command_thread', None)
+        if (thread is not None and thread.isRunning()) or self.view_workspace.recording_page.busy:
+            self.statusBar.showMessage('请先停止任务和录制，再切换项目。', 5000)
+            self.add_recent_to_fileMenu()
+            return
+        current = self.db.get_setting_value('当前文件路径')
+        if current and os.path.normcase(os.path.abspath(file_path)) == os.path.normcase(os.path.abspath(current)):
+            self.add_recent_to_fileMenu()
+            return
+        recording = self.view_workspace.recording_page
+        if recording.drafts and not recording.written:
+            QMessageBox.warning(self, '录制尚未写入', '请先写入或清空录制，再切换项目。')
+            self.add_recent_to_fileMenu()
+            return
+        if self.workspace.repository.list_commands():
+            answer = QMessageBox.question(self, '切换项目',
+                '是否先保存当前项目？尚未写入的录制请先写入后再切换。',
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Cancel)
+            if answer == QMessageBox.Cancel or (answer == QMessageBox.Save and not self.save_data('自动保存')):
+                self.add_recent_to_fileMenu()
+                return
+        try:
+            self.data_import(file_path)
+        finally:
+            self.add_recent_to_fileMenu()
 
     def copy_data(self):
         """复制节点画布中选中的指令。"""
@@ -490,6 +538,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
         self.db.update_settings(当前文件路径=save_path_)
         self.db.writes_to_recently_opened_files(save_path_)
+        self.add_recent_to_fileMenu()
         if judge != "自动保存" and QMessageBox.question(
             self,
             "提示",
@@ -550,6 +599,11 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
     def data_import(self, file_path: str) -> None:
         """识别旧版备份，完整验证并另存新版后，事务性替换指令图。"""
+        thread_ = getattr(self, 'command_thread', None)
+        recording_ = getattr(self.view_workspace, 'recording_page', None)
+        if (thread_ is not None and thread_.isRunning()) or (recording_ is not None and recording_.busy):
+            self.statusBar.showMessage('请先停止任务和录制，再导入项目。', 5000)
+            return
         if file_path == "资源文件夹路径":
             target_path_, _ = QFileDialog.getOpenFileName(
                 self,
@@ -572,12 +626,21 @@ class Main_window(QMainWindow, Ui_MainWindow):
         workbook_ = None
         converted_ = None
         migration_message_ = ""
+        migrated_branch_ = False
         try:
             from legacy_workbook import convert_legacy_workbook, save_converted_copy
 
             workbook_ = openpyxl.load_workbook(target_path_)
+            from migration_tool import needs_batch_migration, choose_migration
+            if needs_batch_migration(workbook_):
+                selected_path_ = choose_migration(self, workbook_, target_path_)
+                if selected_path_:
+                    self.data_import(selected_path_)
+                return
             converted_ = convert_legacy_workbook(workbook_, os.path.dirname(os.path.abspath(target_path_)))
             self.workspace.repository.validate_workbook(converted_)
+            migrated_branch_ = any(row[1] == "旧版迁移来源分支" for row in
+                                   converted_["设置"].iter_rows(min_row=2, values_only=True))
             if converted_ is not workbook_:
                 count_ = converted_["命令"].max_row - 1
                 if QMessageBox.question(
@@ -600,7 +663,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 target_path_ = save_converted_copy(converted_, target_path_)
                 migration_message_ = f"旧版数据已转换。\n新版文件：{target_path_}\n导入前备份：{backup_path_}"
             self.workspace.repository.import_from_workbook(converted_)
-        except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError) as error_:
+        except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError, zipfile.BadZipFile) as error_:
             QMessageBox.warning(
                 self, "导入失败", str(error_), QMessageBox.StandardButton.Ok
             )
@@ -613,6 +676,11 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
         self.workspace.reload_graph()
         self.view_workspace.refresh_all()
+        if migrated_branch_:
+            repeat_number_ = int(self.db.get_setting_value("运行重复次数") or 1)
+            self.radioButton.setChecked(repeat_number_ == -1)
+            self.radioButton_2.setChecked(repeat_number_ != -1)
+            self.spinBox.setValue(max(repeat_number_, 1))
         self.db.update_settings(当前文件路径=target_path_)
         self.db.writes_to_recently_opened_files(target_path_)
         self.menuzv.clear()
@@ -636,7 +704,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
             """执行前的操作"""
             self.clear_signal.emit()  # 清空日志
             self.view_workspace.show_table()  # 切换到保留日志的表格视图
-            if self.checkBox_2.isChecked():  # 如果勾选了执行中隐藏主窗口
+            if self.checkBox_2.isChecked() and escape_available_:  # Keep stop controls visible if global Esc is unavailable.
                 self.hide()
 
         if self.command_thread.isRunning():
@@ -644,6 +712,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 self.statusBar.showMessage("原任务尚未停止，未启动新任务。", 5000)
                 return False
         self.command_thread.prepare_for_start()
+        escape_available_ = self._arm_escape_stop()
         operation_before_execution()  # 执行前的操作
         self.command_thread.set_run_mode(run_mode, info)
         # 设置重复次数
@@ -655,6 +724,45 @@ class Main_window(QMainWindow, Ui_MainWindow):
         # 开始运行
         self.command_thread.start()
         return True
+
+    def _arm_escape_stop(self):
+        self.escape_stop.setEnabled(True)
+        actions_ = {'开始运行':'开始线程', '结束运行':'终止线程', '暂停和恢复':'暂停和恢复线程'}
+        self._escape_previous_action = next((actions_.get(name) for name, keys in self.db.get_global_shortcut().items()
+            if [key.lower() for key in keys] in (['esc'], ['escape'])), None)
+        try:
+            if not global_hotkeys_supported(self.hk_stop):
+                raise RuntimeError('当前环境不支持全局快捷键')
+            if self._escape_previous_action is None and not is_hotkey_valid(self.hk_stop, ['escape']):
+                raise RuntimeError('Esc 已被其他程序占用')
+            self.hk_stop.register(('escape',), callback=lambda *_: self.shortcut_requested.emit('终止线程'), overwrite=True)
+            self._escape_registered = True
+            return True
+        except Exception as error:
+            self.statusBar.showMessage(f'{error}；本次不隐藏窗口，请使用结束任务按钮。', 6000)
+            return False
+
+    def _runtime_finished(self):
+        if self.command_thread.isRunning():
+            return
+        self.escape_stop.setEnabled(False)
+        if self._escape_registered:
+            try:
+                self.hk_stop.unregister(('escape',))
+                if self._escape_previous_action:
+                    action = self._escape_previous_action
+                    self.hk_stop.register(('escape',), callback=lambda *_: self.shortcut_requested.emit(action), overwrite=True)
+            except Exception as error:
+                self.statusBar.showMessage(f'恢复 Esc 快捷键失败：{error}', 5000)
+            finally:
+                self._escape_registered = False
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
+        self.view_workspace.show_main()
+        self.raise_()
+        self.activateWindow()
 
     def clear_textEdit(self):
         """清空日志，主要用于在全局快捷键线程中调用，避免线程阻塞引发的程序闪退"""
@@ -699,6 +807,8 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 stopped_ = self.command_thread.stop_and_wait()
                 # 获取当前时间
                 self.send_message("任务终止！" if stopped_ else "任务正在等待当前指令结束。")
+                if stopped_:
+                    self._runtime_finished()
                 if self.checkBox_2.isChecked():
                     self.show()
                 QApplication.processEvents()

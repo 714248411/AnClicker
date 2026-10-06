@@ -33,13 +33,13 @@ class InstructionRegistryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.application_ = QApplication.instance() or QApplication([])
 
-    def test_registry_contains_exactly_35_unique_instruction_types(self):
+    def test_registry_contains_exactly_36_unique_instruction_types(self):
         type_ids_ = [spec_.type_id for spec_ in INSTRUCTION_SPECS]
         module_paths_ = [spec_.module_path for spec_ in INSTRUCTION_SPECS]
 
-        self.assertEqual(len(type_ids_), 35)
-        self.assertEqual(len(set(type_ids_)), 35)
-        self.assertEqual(len(set(module_paths_)), 35)
+        self.assertEqual(len(type_ids_), 36)
+        self.assertEqual(len(set(type_ids_)), 36)
+        self.assertEqual(len(set(module_paths_)), 36)
         self.assertEqual(tuple(module_paths_), hidden_imports())
         for spec_ in INSTRUCTION_SPECS:
             self.assertTrue(spec_.display_name)
@@ -58,6 +58,7 @@ class InstructionRegistryTests(unittest.TestCase):
             "开始位置",
             "结束位置",
             "点击位置",
+            "悬停位置",
             "区域",
             "单元格",
             "代码",

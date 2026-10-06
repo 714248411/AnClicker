@@ -55,7 +55,7 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
 def main() -> int:
     global DIST_ROOT
     parser_ = argparse.ArgumentParser()
-    parser_.add_argument("--version", default="v1.1.5")
+    parser_.add_argument("--version", default="v1.1.6")
     parser_.add_argument("--dist", type=Path, default=DIST_ROOT)
     arguments_ = parser_.parse_args()
     DIST_ROOT = arguments_.dist.resolve()
@@ -73,6 +73,21 @@ def main() -> int:
     }
     with zipfile.ZipFile(archive_path_, "w", allowZip64=True) as archive_:
         add_tree(archive_, source_, source_.name)
+        tool_prefix = '旧版数据迁移工具/'
+        archive_.writestr(tool_prefix + '使用说明.txt',
+            ('此文件夹与 AnClicker 主程序文件夹保持并列，请完整解压压缩包。\n'
+             'Windows 双击启动迁移器.cmd；macOS/Linux 在终端运行 bash 启动迁移器.sh。\n'
+             '选择旧版 Excel 和输出目录；转换后查看迁移报告，再导入主程序。\n'
+             '原文件会备份，多个独立分支分别输出；缺失图片需要补齐。\n'
+             '跨分支跳转及未知指令可能无法转换，以报告为准。\n').encode('utf-8'))
+        if sys.platform == 'win32':
+            archive_.writestr(tool_prefix + '启动迁移器.cmd',
+                '@echo off\r\nstart "" "%~dp0..\\AnClicker\\AnClicker.exe" --migration-tool\r\n')
+        else:
+            entry = '../AnClicker.app/Contents/MacOS/AnClicker' if sys.platform == 'darwin' else '../AnClicker/AnClicker'
+            info = zipfile.ZipInfo(tool_prefix + '启动迁移器.sh')
+            info.external_attr = (stat.S_IFREG | 0o755) << 16
+            archive_.writestr(info, '#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\nexec "' + entry + '" --migration-tool\n')
         archive_.writestr(
             "BUILD-MANIFEST.json",
             json.dumps(manifest_, ensure_ascii=False, indent=2).encode("utf-8"),

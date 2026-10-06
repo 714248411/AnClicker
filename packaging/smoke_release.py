@@ -54,6 +54,11 @@ def main():
                 raise RuntimeError(f"Packaged legacy migration checks missing: {ready}")
             print(f"Startup {attempt + 1}: ready; scale={env['QT_SCALE_FACTOR']}; editor checks={checks}")
             print(f"Legacy migration: {migration}")
+        result = subprocess.run([str(executable), '--migration-tool', '--startup-smoke-test'],
+                                env=env, cwd=folder, timeout=90)
+        if result.returncode or not (Path(folder) / 'migration-ready.json').is_file():
+            raise RuntimeError('Standalone migration entry failed packaged smoke test')
+        print('Standalone migration entry: ready; converted fixture and wrote report')
     return 0
 
 

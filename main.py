@@ -117,6 +117,26 @@ def main():
     except AttributeError:
         pass
     install_qt_chinese_translator(app)
+    if '--migration-tool' in sys.argv:
+        from migration_gui import MigrationWindow
+        migration_window = MigrationWindow()
+        migration_window.show()
+        if '--startup-smoke-test' in sys.argv:
+            from openpyxl import Workbook
+            from legacy_workbook import LEGACY_HEADERS
+            source = Path(os.environ['ANCLICKER_DATA_DIR']) / 'migration-fixture.xlsx'
+            book = Workbook()
+            book.active.title = '主流程'
+            book.active.append(LEGACY_HEADERS)
+            book.active.append([1, None, '时间等待', "{'类型':'时间等待','时长':0,'单位':'秒'}", None, None, None, 1, '自动跳过', 'smoke'])
+            book.save(source)
+            book.close()
+            output = migration_window.convert_file(source, source.parent)
+            if not output or not (output / '迁移报告.json').is_file():
+                raise RuntimeError('独立迁移器转换测试失败')
+            (source.parent / 'migration-ready.json').write_text(json.dumps({'ready':True}), encoding='utf-8')
+            QTimer.singleShot(100, app.quit)
+        return app.exec()
     shared_memory = QSharedMemory()
     shared_memory.setKey(SINGLETON_KEY)
     if shared_memory.attach():
