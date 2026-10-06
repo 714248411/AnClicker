@@ -99,6 +99,7 @@ class InstructionFallbackTests(unittest.TestCase):
             "运行Python": {"代码": "answer = ☾值☽ + 1", "返回值": "answer", "变量": "Python"},
             "运行cmd": {"命令": "echo ok", "等待完成": True},
             "运行外部文件": {"文件路径": "a.exe", "参数": ""},
+            "运行项目": {"项目路径": "a.xlsx"},
             "窗口控制": {"标题包含": "目标", "操作": "激活", "报错": True},
             "信息录入": {"图像路径": "a.png", "工作簿": "a.xlsx", "工作表": "Sheet1", "单元格": "A1", "模拟输入": False, "异常": 2, "空值处理": "抛出异常"},
             "屏幕截图": {"截图类型": "全屏截图", "保存路径": "shot.png", "截图后": "保存到路径"},
@@ -122,6 +123,7 @@ class InstructionFallbackTests(unittest.TestCase):
             stack_.enter_context(patch.object(sys, "platform", "win32"))
             stack_.enter_context(patch.object(actions, "pyautogui_module", return_value=self.gui_))
             stack_.enter_context(patch.object(actions, "wait_seconds"))
+            stack_.enter_context(patch.object(os.path, "isfile", return_value=True))
             stack_.enter_context(patch.object(actions, "locate_image", return_value=_Point()))
             stack_.enter_context(patch.object(actions, "locate_image_with_policy", return_value=(_Point(), False)))
             stack_.enter_context(patch.object(actions, "image_random_offset", return_value=(0, 0)))

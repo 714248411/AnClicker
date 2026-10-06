@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import gc
 import time
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from PySide6.QtCore import QMutex, QThread, QWaitCondition, Signal
 
@@ -225,6 +227,12 @@ class CommandThread(QThread):
     def _execute_commands(
         self, commands_: list[CommandRecord], context_: ExecutionContext
     ) -> None:
+        context_.metadata['run_project'] = self._run_project
+        context_.metadata['wait_interruptibly'] = self._wait_interruptibly
+        root_path_ = self.db.get_setting_value('当前文件路径')
+        if root_path_ and root_path_ != 'None' and 'project_path' not in context_.metadata:
+            context_.metadata['project_path'] = str(Path(root_path_).resolve())
+            context_.metadata['project_stack'] = [Path(root_path_).resolve()]
         if self.run_mode[0] == "全部指令":
             self._execute_flow(self.repository.execution_snapshot(), context_)
             return
@@ -417,8 +425,75 @@ class CommandThread(QThread):
         self.send_message.emit(
             f"执行ID为{command_.id}的指令：{spec_.display_name}"
         )
-        self.send_type_and_id.emit(command_.type_id, str(command_.id))
+        # Child IDs belong to an isolated database, not the visible root table.
+        if not context_.metadata.get('child_project'):
+            self.send_type_and_id.emit(command_.type_id, str(command_.id))
         return executor_.execute(context_, command_)
+
+    def _wait_interruptibly(self, seconds: float, context: ExecutionContext):
+        if context.stop_requested or not self.check_mutex():
+            return False
+        remaining = max(0.0, float(seconds))
+        while remaining > 0 and not context.stop_requested:
+            if not self.check_mutex():
+                return False
+            started = time.monotonic()
+            time.sleep(min(0.05, remaining))
+            remaining -= time.monotonic() - started
+        return self.start_state and not context.stop_requested
+
+    def _run_project(self, file_path: str, context: ExecutionContext):
+        """Call a workbook on this same stoppable worker, without changing UI data."""
+        from openpyxl import load_workbook
+
+        if context.stop_requested or not self.check_mutex():
+            return
+        if not file_path.strip():
+            raise ValueError('未设置要运行的项目文件')
+        path = Path(file_path.strip().strip('"')).expanduser()
+        parent_path = context.metadata.get('project_path')
+        if not path.is_absolute():
+            if not parent_path:
+                raise ValueError('当前项目尚未保存，请使用目标项目的完整路径')
+            path = Path(parent_path).parent / path
+        path = path.resolve()
+        stack = context.metadata.get('project_stack', [])
+        if path in stack:
+            raise ValueError('项目循环调用已阻止：' + ' → '.join(p.name for p in [*stack, path]))
+        if len(stack) >= 32:
+            raise ValueError('项目嵌套超过 32 层，已阻止继续调用')
+        if path.suffix.lower() != '.xlsx' or not path.is_file():
+            raise ValueError(f'项目文件不存在或不是 .xlsx：{path}')
+        with TemporaryDirectory(prefix='anclicker-project-') as directory:
+            database = DatabaseOperation(str(Path(directory) / 'project.db'))
+            repository = GraphRepository(database.db_path)
+            workbook = load_workbook(path, data_only=False)
+            try:
+                repository.import_from_workbook(workbook)
+            finally:
+                workbook.close()
+            snapshot = repository.execution_snapshot()
+            if context.stop_requested or not self.check_mutex():
+                return
+            saved_metadata = context.metadata
+            # Keep input ownership shared so emergency stop releases held keys.
+            context.metadata = dict(saved_metadata, database=database,
+                                    project_path=str(path), project_stack=[*stack, path],
+                                    child_project=True, recorded_clocks={})
+            try:
+                for name, value in database.get_variable_info('dict').items():
+                    context.variables.setdefault(name, value)
+                context.emit(f'开始运行项目：{path}')
+                self._execute_flow(snapshot, context)
+                context.emit(f'项目{"已中断" if context.stop_requested or not self.start_state else "已完成"}：{path.name}')
+            finally:
+                # Propagate key/button tracking changes back to the calling scope.
+                for key in ('recorded_keys', 'recorded_buttons'):
+                    if key in context.metadata:
+                        saved_metadata[key] = context.metadata[key]
+                    else:
+                        saved_metadata.pop(key, None)
+                context.metadata = saved_metadata
 
     def _handle_command_error(
         self, command_: CommandRecord, error_: Exception

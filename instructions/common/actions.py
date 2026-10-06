@@ -76,6 +76,12 @@ def resolve_image_path(parameters: dict, context: ExecutionContext | None = None
     if not image_:
         raise ValueError("未设置图像路径")
     image_path_ = substitute_variables(context, str(image_)) if context is not None else str(image_)
+    if context is not None and not os.path.isabs(image_path_):
+        project_ = context.metadata.get('project_path')
+        if project_:
+            candidate_ = os.path.join(os.path.dirname(project_), image_path_)
+            if os.path.isfile(candidate_):
+                image_path_ = candidate_
     if not os.path.isfile(image_path_) and context is not None:
         database_ = context.metadata.get("database")
         if database_ is not None:

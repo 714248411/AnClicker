@@ -33,13 +33,13 @@ class InstructionRegistryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.application_ = QApplication.instance() or QApplication([])
 
-    def test_registry_contains_exactly_37_unique_instruction_types(self):
+    def test_registry_contains_exactly_38_unique_instruction_types(self):
         type_ids_ = [spec_.type_id for spec_ in INSTRUCTION_SPECS]
         module_paths_ = [spec_.module_path for spec_ in INSTRUCTION_SPECS]
 
-        self.assertEqual(len(type_ids_), 37)
-        self.assertEqual(len(set(type_ids_)), 37)
-        self.assertEqual(len(set(module_paths_)), 37)
+        self.assertEqual(len(type_ids_), 38)
+        self.assertEqual(len(set(type_ids_)), 38)
+        self.assertEqual(len(set(module_paths_)), 38)
         self.assertEqual(tuple(module_paths_), hidden_imports())
         for spec_ in INSTRUCTION_SPECS:
             self.assertTrue(spec_.display_name)

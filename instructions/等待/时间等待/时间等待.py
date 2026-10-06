@@ -65,7 +65,12 @@ class InstructionExecutor(InstructionExecutorBase):
                 remaining_ = (target_dt_ - datetime.now()).total_seconds()
                 if remaining_ <= 0:
                     break
-                actions.wait_seconds(min(interval_, remaining_))
+                wait_ = context.metadata.get('wait_interruptibly')
+                if wait_ is not None:
+                    if not wait_(min(interval_, remaining_), context):
+                        break
+                else:
+                    actions.wait_seconds(min(interval_, remaining_))
             seconds_ = max(0.0, (target_dt_ - now_).total_seconds())
         else:
             seconds_ = self._duration_seconds(
@@ -73,7 +78,11 @@ class InstructionExecutor(InstructionExecutorBase):
                 str(actions.parameter(p_, "单位", default="秒")),
             )
         if type_ != "定时等待":
-            actions.wait_seconds(seconds_)
+            wait_ = context.metadata.get('wait_interruptibly')
+            if wait_ is not None:
+                wait_(seconds_, context)
+            else:
+                actions.wait_seconds(seconds_)
         context.emit(f"时间等待：{seconds_:.3f}秒")
         return seconds_
 

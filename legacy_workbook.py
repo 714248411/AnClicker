@@ -89,6 +89,9 @@ def _convert_parameters(type_id, payload, raw, base_directory):
         raise ValueError("该指令包含尚未识别的图像名称/内容字段")
     if type_id == "多图点击" and "图像路径" in parameters:
         parameters["图像路径"] = parameters["图像路径"].replace("、", "\n")
+    if type_id == "图像等待":
+        from instructions.common.image_wait import normalize_image_wait
+        parameters = normalize_image_wait(parameters)
     if type_id == "时间等待":
         for key in ("最小", "最大"):
             value = parameters.get(key)

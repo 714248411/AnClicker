@@ -61,6 +61,7 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
         "屏幕截图", "提示音", "提示窗口",
     )),
     _spec("终止流程", "流程", "#eb5757"),
+    _spec("运行项目", "流程", "#5b6fdc"),
     InstructionSpec(
         "循环", "循环", "流程", "instructions.流程.循环.循环", node_color="#5b6fdc",
     ),
@@ -73,8 +74,8 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
 )
 
 _SPEC_BY_ID = {spec_.type_id: spec_ for spec_ in INSTRUCTION_SPECS}
-if len(INSTRUCTION_SPECS) != 37 or len(_SPEC_BY_ID) != 37:
-    raise RuntimeError("指令注册表必须包含 37 个唯一 type_id")
+if len(INSTRUCTION_SPECS) != 38 or len(_SPEC_BY_ID) != 38:
+    raise RuntimeError("指令注册表必须包含 38 个唯一 type_id")
 
 
 def get_instruction_spec(type_id: str) -> InstructionSpec:
