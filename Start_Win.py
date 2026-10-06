@@ -21,7 +21,7 @@ from time import time as current_time
 from typing import Optional
 
 import openpyxl
-from PySide6.QtCore import QTimer, Signal, QUrl, Qt
+from PySide6.QtCore import QTimer, Signal, Slot, QUrl, Qt
 from PySide6.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -161,7 +161,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.escape_stop.setContext(Qt.ApplicationShortcut)
         self.escape_stop.setEnabled(False)
         self.escape_stop.activated.connect(lambda: self.shortcut_requested.emit('终止线程'))
-        self.command_thread.cache_cleanup_requested.connect(self.clear_runtime_cache)
+        self.command_thread.cache_cleanup_requested.connect(self.clear_runtime_cache, Qt.QueuedConnection)
         # Prevent long/infinite runs from retaining an unbounded log document.
         self.textEdit.document().setMaximumBlockCount(1500)
         self.workspace.statusMessage.connect(self.statusBar.showMessage)
@@ -771,11 +771,13 @@ class Main_window(QMainWindow, Ui_MainWindow):
         """清空日志，主要用于在全局快捷键线程中调用，避免线程阻塞引发的程序闪退"""
         self.textEdit.clear()
 
+    @Slot(int)
     def clear_runtime_cache(self, iteration: int) -> None:
         """Bound GUI/Python caches during long repeated runs."""
         QPixmapCache.clear()
         gc.collect()
-        self.statusBar.showMessage(f"第 {iteration} 次循环后已自动释放运行缓存", 2500)
+        if iteration > 0:
+            self.statusBar.showMessage(f"第 {iteration} 次循环后已自动释放运行缓存", 2500)
 
     def exporting_operation_logs(self):
         """导出操作日志"""

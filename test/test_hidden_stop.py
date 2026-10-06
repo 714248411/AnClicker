@@ -112,3 +112,17 @@ def test_single_view_menu_keeps_toolbar_toggle(host):
     assert host.toolBar.isHidden()
     host.actiong.setChecked(True)
     assert not host.toolBar.isHidden()
+
+
+def test_worker_cache_cleanup_is_queued_to_gui_thread(host):
+    from PySide6.QtCore import QThread
+    import gc
+    observed = []
+    with patch.object(gc, 'collect', side_effect=lambda: observed.append(QThread.currentThread())):
+        host.command_thread.number = 25
+        host.command_thread._release_runtime_cache()
+        host.command_thread._release_runtime_cache(notify=False)
+        assert observed == []
+        QApplication.processEvents()
+        assert len(observed) == 2
+        assert all(thread == QApplication.instance().thread() for thread in observed)

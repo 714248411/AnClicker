@@ -32,9 +32,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
     env:
-      # Exercise Linux window show/hide on Xvfb's actual X11 backend. The Qt
-      # offscreen plugin can crash in deferred window event processing here.
-      QT_QPA_PLATFORM: ${{ matrix.os == 'ubuntu-24.04' && 'xcb' || 'offscreen' }}
+      QT_QPA_PLATFORM: offscreen
       DISPLAY: ":99"
     steps:
       - uses: actions/checkout@v4

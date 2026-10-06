@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gc
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -130,10 +129,8 @@ class CommandThread(QThread):
         self.finished_signal.emit("任务完成" if self.start_state else "任务已终止")
 
     def _release_runtime_cache(self, notify: bool = True) -> None:
-        """Release cyclic Python objects and ask the GUI to drop image caches."""
-        gc.collect()
-        if notify:
-            self.cache_cleanup_requested.emit(self.number)
+        """Collect on the GUI thread: Python cycles can own Qt widgets."""
+        self.cache_cleanup_requested.emit(self.number if notify else 0)
 
     def _commands_for_mode(self) -> list[CommandRecord]:
         # Defensive graph validation is required immediately before every run.
