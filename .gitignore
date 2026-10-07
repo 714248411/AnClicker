@@ -57,3 +57,12 @@ dist-theme/
 build-input-full/
 build-variables/
 build-recording/
+
+/data/templates/
+.env
+.env.*
+/packaging/update-source.json
+/.release-validation/
+
+*.egg-info/
+.venv/

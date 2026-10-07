@@ -61,7 +61,7 @@ jobs:
         # Import errors and error dialogs must fail the release, not count as readiness.
         run: python packaging/smoke_release.py
       - name: Package verified application
-        run: python packaging/build_release.py --version "${{ github.ref_name }}"
+        run: python packaging/build_release.py
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.artifact }}
