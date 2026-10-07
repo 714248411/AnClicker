@@ -6,6 +6,19 @@ from PySide6.QtTest import QTest
 from instructions.models import InstructionDraft
 import pytest
 
+def test_control_option_default_position_and_persistence(host):
+    check=host.run_unconnected_checkbox
+    assert check.isChecked()
+    assert check.parentWidget().layout().indexOf(check)<check.parentWidget().layout().indexOf(host.checkBox_2)
+    check.setChecked(False)
+    assert host.db.get_setting_value('运行未连接模块')=='False'
+    host.view_workspace.refresh_all()
+    assert not check.isChecked()
+    host.view_workspace.compact.set_active(True)
+    assert check.isVisible()
+    host.view_workspace.compact.set_active(False)
+    assert not check.isChecked()
+
 def context(view, pos, choose=None):
     texts=[]
     def act():
@@ -144,3 +157,19 @@ def test_branch_roles_redo_and_failed_restore_preserve_history(flow,monkeypatch)
         assert w.repository.snapshot().edges==before.edges
     w.redo_connections();assert not w.repository.snapshot().edges
     w.undo_connections();assert w.repository.snapshot().edges==before.edges
+
+def test_identical_project_import_clears_both_histories(flow):
+    from openpyxl import Workbook
+    host,(a,b,c)=flow
+    w=host.workspace
+    w._connect_nodes(a,b);w._connect_nodes(b,c);w.undo_connections()
+    assert w._connection_history and w._connection_redo
+    workbook=Workbook()
+    try:
+        w.repository.export_to_workbook(workbook,host.db)
+        w.repository.import_from_workbook(workbook)
+        w.clear_connection_history()
+        w.reload_graph()
+        assert not w._connection_history and not w._connection_redo
+    finally:
+        workbook.close()

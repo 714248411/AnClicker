@@ -18,18 +18,6 @@ def flow(host):
     return host, [nodes[c.id] for c in commands]
 
 
-def test_default_option_position_persistence_and_compact_mode(host):
-    check = host.run_unconnected_checkbox
-    assert check.isChecked()
-    assert check.parentWidget().layout().indexOf(check) < check.parentWidget().layout().indexOf(host.checkBox_2)
-    check.setChecked(False)
-    assert host.db.get_setting_value('运行未连接模块') == 'False'
-    host.view_workspace.refresh_all()
-    assert not check.isChecked()
-    host.view_workspace.compact.set_active(True)
-    assert check.isVisible()
-    host.view_workspace.compact.set_active(False)
-    assert not check.isChecked()
 
 
 def test_single_edge_delete_undo_preserves_other_edges_and_commands(flow):

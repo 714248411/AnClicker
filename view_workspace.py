@@ -1067,12 +1067,11 @@ class ViewWorkspace:
             QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 2px 3px; spacing: 2px; font-size: 11px; }}
             QToolBar QToolButton {{ padding: 3px 6px; border-radius: 6px; font-size: 11px; }}
             QToolBar QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
-            QTabWidget::pane {{ border: none; background: {c['bg']}; top: 0px; }}
+            QTabWidget::pane {{ border: 1px solid {c['line']}; border-radius: 12px; background: {c['bg']}; top: -1px; }}
             QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 9px 18px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
             QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
             QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
-            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: none; border-radius: 12px; }}
-            QTreeWidget#instructionTree {{ border: none; background: transparent; }}
+            QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 12px; }}
             QGroupBox#groupBox_3::title {{ color: {c['text']}; }}
             QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,
             QGroupBox#groupBox_3 QTextEdit {{ background: {c['surface2']}; color: {c['text']}; }}
@@ -1086,7 +1085,7 @@ class ViewWorkspace:
             QListWidget#beginnerNavigation::item:selected {{ background: {c['accent']}; color: {c['accent_text']}; border-radius: 8px; }}
             QListWidget#beginnerNavigation::item:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QFrame#contentCard {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; padding: 12px; }}
-            QFrame#workspacePanel {{ background: {c['surface']}; border: none; border-radius: 12px; }}
+            QFrame#workspacePanel {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; }}
             QLabel#cardTitle {{ color: {c['text']}; font-size: 18px; font-weight: 700; padding: 4px; }}
             QLabel#sectionTitle {{ color: {c['text']}; font-size: 15px; font-weight: 700; padding: 2px 4px 7px 4px; }}
             QLabel#mutedText {{ color: {c['dim']}; padding: 3px; }}
@@ -1119,10 +1118,9 @@ class ViewWorkspace:
             QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
             QTableWidget#commandTable {{ background-color: {c['surface']}; alternate-background-color: {c['surface2']}; }}
             QTableWidget#commandTable::item {{ background-color: transparent; color: {c['text']}; border: none; padding: 5px; }}
-            QTableWidget#commandTable {{ border: none; }}
             QTableWidget#commandTable::item:alternate {{ background-color: {c['surface2']}; }}
             QTableWidget#commandTable::item:hover:!selected {{ background-color: {c['surface3']}; border-bottom: 1px solid {c['accent']}; }}
-            QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: none; border-radius: 10px; padding: 8px; }}
+            QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 10px; padding: 8px; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
             QHeaderView {{ background: {c['surface2']}; color: {c['accent']}; }}
             QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}

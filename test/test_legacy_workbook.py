@@ -153,7 +153,7 @@ def test_import_dialog_converts_and_keeps_original(tmp_path, accept):
     legacy([row(id=2)]).save(source)
     before = source.read_bytes()
     window = SimpleNamespace(
-        db=database, workspace=SimpleNamespace(repository=repo, reload_graph=Mock()),
+        db=database, workspace=SimpleNamespace(repository=repo, reload_graph=Mock(), clear_connection_history=Mock()),
         view_workspace=SimpleNamespace(refresh_all=Mock()), menuzv=Mock(),
         add_recent_to_fileMenu=Mock(), statusBar=Mock(),
     )
@@ -161,6 +161,7 @@ def test_import_dialog_converts_and_keeps_original(tmp_path, accept):
     with patch.object(QMessageBox, "question", return_value=answer), \
          patch.object(QMessageBox, "information"), patch.object(QMessageBox, "warning") as warning:
         Main_window.data_import(window, str(source))
+        assert window.workspace.clear_connection_history.call_count == int(accept)
     warning.assert_not_called()
     assert source.read_bytes() == before
     assert [item.id for item in repo.list_commands()] == ([2] if accept else [99])

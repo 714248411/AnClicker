@@ -13,8 +13,6 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 DIST_ROOT = PROJECT_ROOT / "dist"
 RELEASE_ROOT = PROJECT_ROOT / "release"
 
@@ -57,14 +55,9 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
 def main() -> int:
     global DIST_ROOT
     parser_ = argparse.ArgumentParser()
-    from info import CURRENT_VERSION
-    parser_.add_argument("--version", default=CURRENT_VERSION)
+    parser_.add_argument("--version", default="v1.2.6")
     parser_.add_argument("--dist", type=Path, default=DIST_ROOT)
     arguments_ = parser_.parse_args()
-    if arguments_.version.removeprefix('v') != CURRENT_VERSION.removeprefix('v'):
-        parser_.error('打包版本必须与 info.py 的 CURRENT_VERSION 一致')
-    if os.environ.get('GITHUB_REF_TYPE') == 'tag' and os.environ.get('GITHUB_REF_NAME') != CURRENT_VERSION:
-        parser_.error('发布 tag 必须与 CURRENT_VERSION 一致')
     DIST_ROOT = arguments_.dist.resolve()
     source_ = build_root()
     label_ = platform_label()

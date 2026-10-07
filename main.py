@@ -4,11 +4,6 @@ import os
 import sys
 from pathlib import Path
 
-# Handle lifecycle hooks before creating storage, GUI, or importing desktop modules.
-if __name__ == "__main__" and sys.platform == "win32" and getattr(sys, "frozen", False):
-    import velopack
-    velopack.App().set_auto_apply_on_startup(False).run()
-
 from startup_environment import prepare_environment, record_startup_error
 
 STARTUP_DATA_FOLDER = prepare_environment()
@@ -114,9 +109,6 @@ def show_splash_screen(app, image_path):
 def main():
     """初始化并启动 Clicker。"""
     ensure_data_directories()
-    if '--release-update-smoke' in sys.argv:
-        from update.local_smoke import run_update_smoke
-        return run_update_smoke()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(CURRENT_VERSION)
@@ -169,18 +161,15 @@ def main():
     splash.finish(main_window)
     splash.deleteLater()
     app.processEvents()
-    if "--startup-smoke-test" in sys.argv or "--release-smoke" in sys.argv:
+    if "--startup-smoke-test" in sys.argv:
         from ui_validation import validate_instruction_editors, validate_legacy_migration
         editor_validation = validate_instruction_editors(main_window)
         migration_validation = validate_legacy_migration()
         def report_ready():
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
-                "ok": True,
-                "window_visible": main_window.isVisible(),
-                "data_root": os.environ["ANCLICKER_DATA_DIR"],
                 "ready": main_window.isVisible(),
-                "version": app.applicationVersion().removeprefix("v") if "--release-smoke" in sys.argv else app.applicationVersion(),
+                "version": app.applicationVersion(),
                 "title": main_window.windowTitle(),
                 "views": main_window.tabWidget.count(),
                 "database": main_window.db.db_path,

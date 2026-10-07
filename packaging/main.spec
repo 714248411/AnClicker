@@ -41,28 +41,9 @@ def collect_instruction_datas():
 
 
 instruction_datas = collect_instruction_datas()
-update_source = os.environ.get('ANCLICKER_BUILD_UPDATE_SOURCE')
-if update_source:
-    instruction_datas.append((update_source, '.'))
 dynamic_instruction_imports = list(instruction_hidden_imports())
 app_name = 'AnClicker'
 icon_path = os.path.join(project_root, 'clicker.ico') if sys.platform == 'win32' else None
-windows_version = None
-if sys.platform == 'win32':
-    from PyInstaller.utils.win32.versioninfo import VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
-    version = CURRENT_VERSION.removeprefix('v')
-    numbers = tuple(map(int, version.split('.'))) + (0,)
-    windows_version = VSVersionInfo(
-        ffi=FixedFileInfo(filevers=numbers, prodvers=numbers, mask=0x3f, flags=0, OS=0x40004, fileType=1, subtype=0, date=(0, 0)),
-        kids=[StringFileInfo([StringTable('080404B0', [
-            StringStruct('CompanyName', 'An Clicker contributors'),
-            StringStruct('FileDescription', 'An Clicker'),
-            StringStruct('FileVersion', version + '.0'),
-            StringStruct('ProductVersion', version),
-            StringStruct('InternalName', 'AnClicker'),
-            StringStruct('OriginalFilename', 'AnClicker.exe'),
-            StringStruct('ProductName', 'An Clicker'),
-        ])]), VarFileInfo([VarStruct('Translation', [2052, 1200])])])
 
 
 a = Analysis(
@@ -70,7 +51,7 @@ a = Analysis(
     pathex=[project_root],
     binaries=[],
     datas=[
-        (seed_database, 'defaults'),
+        (seed_database, 'data'),
         (os.path.join(project_root, 'flat', 'Combinear.qss'), 'flat'),
         (os.path.join(project_root, 'flat', 'chevron-down.svg'), 'flat'),
         (os.path.join(project_root, 'flat', 'chevron-up.svg'), 'flat'),
@@ -107,7 +88,7 @@ exe = EXE(
     contents_directory='.',
     uac_admin=False,
     icon=icon_path,
-    version=windows_version,
+    version=os.path.join(project_root, 'packaging', 'windows-version.txt') if sys.platform == 'win32' else None,
 )
 coll = COLLECT(
     exe,

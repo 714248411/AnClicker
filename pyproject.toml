@@ -1,6 +1,6 @@
 [project]
 name = "an-clicker"
-dynamic = ["version"]
+version = "1.0.0b1"
 description = "Cross-platform visual automation workspace for Windows, macOS, and Linux"
 requires-python = ">=3.10"
 dependencies = [
@@ -11,7 +11,7 @@ dependencies = [
     "PyWinCtl>=0.4.1",
     "mouse; sys_platform != 'darwin'",
     "keyboard; sys_platform != 'darwin'",
-    "pynput==1.7.7",
+    "pynput; sys_platform == 'darwin'",
     "pandas",
     "pillow",
     "openpyxl",
@@ -24,16 +24,4 @@ dependencies = [
     "pyinstaller",
     "python-dateutil",
     "psutil",
-    "velopack==1.2.0; sys_platform == 'win32'",
 ]
-
-[dependency-groups]
-release = ["pytest"]
-[tool.uv]
-package = false
-
-[tool.setuptools]
-py-modules = ["info"]
-
-[tool.setuptools.dynamic]
-version = {attr = "info.CURRENT_VERSION"}

@@ -6,14 +6,6 @@ import tempfile
 from pathlib import Path
 
 
-def storage_install_folder(install):
-    # Portable user data must live outside Velopack's replaceable current folder.
-    if (install.name.casefold() == "current" and (install / "sq.version").is_file()
-            and (install.parent / "Update.exe").is_file()):
-        return install.parent
-    return install
-
-
 def prepare_environment():
     override = os.environ.get("ANCLICKER_DATA_DIR", "").strip()
     frozen = getattr(sys, "frozen", False)
@@ -21,7 +13,7 @@ def prepare_environment():
     if override:
         target = Path(override).expanduser().resolve()
     elif not frozen or sys.platform == "win32":
-        target = storage_install_folder(install) / "data"
+        target = install / "data"
     elif sys.platform == "darwin":
         target = Path.home() / "Library" / "Application Support" / "AnClicker"
     else:

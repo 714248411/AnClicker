@@ -5,11 +5,6 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Existing version tag to build and publish
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -41,8 +36,6 @@ jobs:
       DISPLAY: ":99"
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -68,10 +61,7 @@ jobs:
         # Import errors and error dialogs must fail the release, not count as readiness.
         run: python packaging/smoke_release.py
       - name: Package verified application
-        env:
-          GITHUB_REF_TYPE: tag
-          GITHUB_REF_NAME: ${{ inputs.release_tag || github.ref_name }}
-        run: python packaging/build_release.py
+        run: python packaging/build_release.py --version "${{ github.ref_name }}"
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.artifact }}
@@ -79,7 +69,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -91,11 +81,10 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" release-assets/*.zip --repo "${{ github.repository }}"
-            gh release edit "$RELEASE_TAG" --repo "${{ github.repository }}" --title "An Clicker $RELEASE_TAG" --latest --notes-file packaging/RELEASE_NOTES.md
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" release-assets/*.zip --clobber --repo "${{ github.repository }}"
+            gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --title "An Clicker ${{ github.ref_name }}" --latest --notes-file packaging/RELEASE_NOTES.md
           else
-            gh release create "$RELEASE_TAG" release-assets/*.zip --repo "${{ github.repository }}" --title "An Clicker $RELEASE_TAG" --latest --notes-file packaging/RELEASE_NOTES.md
+            gh release create "${{ github.ref_name }}" release-assets/*.zip --repo "${{ github.repository }}" --title "An Clicker ${{ github.ref_name }}" --latest --notes-file packaging/RELEASE_NOTES.md
           fi

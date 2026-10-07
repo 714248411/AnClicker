@@ -129,14 +129,10 @@ def get_platform_data_folder() -> str:
     if override_:
         return os.path.abspath(os.path.expanduser(override_))
     if not getattr(sys, "frozen", False):
-        from pathlib import Path
-        from startup_environment import storage_install_folder
-        return str(storage_install_folder(Path(INSTALL_FOLDER)) / "data")
+        return os.path.join(INSTALL_FOLDER, "data")
     if sys.platform == "win32":
         # Keep compatibility with existing portable Windows releases.
-        from pathlib import Path
-        from startup_environment import storage_install_folder
-        return str(storage_install_folder(Path(INSTALL_FOLDER)) / "data")
+        return os.path.join(INSTALL_FOLDER, "data")
     if sys.platform == "darwin":
         return os.path.join(
             os.path.expanduser("~/Library/Application Support"), "AnClicker"
@@ -165,7 +161,7 @@ def ensure_data_directories() -> None:
         TEMP_FOLDER,
     ):
         os.makedirs(folder, exist_ok=True)
-    seed_database_ = os.path.join(RESOURCE_FOLDER, "defaults" if getattr(sys, "frozen", False) else "data", "命令集.db")
+    seed_database_ = os.path.join(RESOURCE_FOLDER, "data", "命令集.db")
     if not os.path.exists(DATABASE_PATH) and os.path.isfile(seed_database_):
         shutil.copy2(seed_database_, DATABASE_PATH)
 

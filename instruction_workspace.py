@@ -287,6 +287,12 @@ class InstructionWorkspace(QObject):
             return False
         return True
 
+    def clear_connection_history(self):
+        """A project import is a history boundary even if its graph is identical."""
+        self._connection_history.clear()
+        self._connection_redo.clear()
+        self._connection_expected = self._connection_state(self.repository.snapshot())
+
     def _remember_connections(self, before):
         after = self._connection_state(self.repository.snapshot())
         if self._connection_expected != before:
@@ -590,7 +596,6 @@ class InstructionWorkspace(QObject):
             return
 
         def execute_test_(draft_: InstructionDraft) -> None:
-            self._instruction_test_active = True
             try:
                 command_ = CommandRecord(
                     id=None,
@@ -616,8 +621,6 @@ class InstructionWorkspace(QObject):
                 self.statusMessage.emit(f"测试完成：{spec_.display_name}")
             except Exception as error_:
                 self._show_error("测试指令失败", error_)
-            finally:
-                self._instruction_test_active = False
 
         signal_.connect(execute_test_)
 
