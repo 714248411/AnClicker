@@ -86,6 +86,10 @@ class DatabaseOperation:
 
     def __init__(self, db_path: str = DATABASE_PATH):
         self.db_path = db_path
+        # Editors can initialize storage before the main startup bootstrap.
+        # A clean checkout/installation must not depend on a bundled live DB.
+        if db_path and os.fspath(db_path) != ':memory:':
+            os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
         self.create_all_tables()
         self.ensure_setting_values(DEFAULT_SETTINGS)
 
