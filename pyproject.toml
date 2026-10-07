@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-release = ["qiniu==7.17.0", "pytest"]
+release = ["pytest"]
 [tool.uv]
 package = false
 

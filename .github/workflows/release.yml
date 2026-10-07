@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') || github.ref_name != 'v1.2.4' }}
     strategy:
       fail-fast: false
       matrix:

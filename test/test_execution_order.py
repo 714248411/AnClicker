@@ -29,12 +29,13 @@ class ExecutionOrderTests(unittest.TestCase):
         return next(n.node_id for n in self.repo.snapshot().nodes
                     if n.command_id == command_id)
 
-    def run_ids(self, stop_after=None):
+    def run_ids(self, stop_after=None, run_unconnected=True):
         with patch("main_work.DatabaseOperation", return_value=self.db):
             thread = CommandThread(type("Window", (), {"execution_services": {}})())
         thread.repository = self.repo
         thread.run_mode = ("全部指令", None)
         thread.start_state = True
+        thread.run_unconnected = run_unconnected
         result = []
         def execute(command, context):
             result.append(command.id)
@@ -49,6 +50,15 @@ class ExecutionOrderTests(unittest.TestCase):
     def test_no_edges_uses_insertion_order(self):
         ids = [self.add() for _ in range(3)]
         self.assertEqual(self.run_ids(), ids)
+
+    def test_unconnected_toggle_off_skips_all_isolated_commands(self):
+        [self.add() for _ in range(3)]
+        self.assertEqual(self.run_ids(run_unconnected=False), [])
+
+    def test_unconnected_toggle_off_still_runs_linked_chain(self):
+        a, b, c, d = [self.add() for _ in range(4)]
+        self.repo.connect_nodes(self.node(c), self.node(b))
+        self.assertEqual(self.run_ids(run_unconnected=False), [c, b])
 
     def test_table_reorder_updates_unlinked_execution_order(self):
         a, b, c = [self.add() for _ in range(3)]

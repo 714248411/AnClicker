@@ -127,11 +127,9 @@ PyInstaller 打包说明见 `packaging/打包文件说明.md`。
 - QQ 群 1：84284936（[加入群聊](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XCOQZMwDVB3y-vIz4LXdMITq-7sqGP3A&authKey=6FPrdTF0o6JIfJoc58deZ1cEWvUURazs%2FDh%2BJOz1aJI2DS%2BMFr3jRIai2%2F7bbvwN&noverify=0&group_code=84284936)）
 - QQ 群 2：308994839（[加入群聊](https://qm.qq.com/q/3ih3PE16Mg)）
 
-## Windows 自更新与七牛云发布
+## v1.2.4 源码发布
 
-Windows x64 可构建 Velopack Portable，自更新直接读取七牛云公开 HTTPS 更新源。发布维护者通过环境变量提供密钥，用户端无需密钥。普通 ZIP、源码运行及 macOS/Linux 不自动更新。
-
-- [AI 打包并发布说明](packaging/AI打包并发布说明.md)
-- [快速复制打包命令](packaging/快速复制打包命令.md)
-
-旧 ZIP 首次迁移需手动安装 Portable，并将原 `data` 复制到新根目录，与 `current` 并列。
+本版包含未连接模块运行开关、单根删线、20 步连线撤销及界面边框精简。
+保留通用 Windows 更新接口和数据目录隔离；不附带云存储发布工具、云 SDK、密钥或更新源配置。源码和普通 ZIP 不自动更新。
+运行方式：安装 requirements.txt 后执行 `python main.py`。首次启动会创建用户数据目录；不要覆盖已有 data。
+本次仅发布源码，不提供新的可执行安装包。完整更新内容见 CHANGELOG.md。

@@ -323,7 +323,8 @@ class CommandThread(QThread):
                 if not pending_:
                     fallback_ = True
                     pending_ = [node_.node_id for node_ in insertion_nodes_
-                                if node_.node_id not in executed_]
+                                if node_.node_id not in executed_
+                                and (getattr(self, 'run_unconnected', True) or node_.node_id in connected_)]
                 if not pending_:
                     return
                 current_id_ = pending_.pop(0)

@@ -939,6 +939,25 @@ class GraphRepository:
             )
         return GraphSnapshot(commands, tuple(node_views), edges)
 
+    def delete_connection(self, source_id: str, target_id: str) -> int:
+        """Delete exactly the selected edge, including its branch metadata."""
+        with self._transaction(validate_graph=False) as connection:
+            result = connection.execute('DELETE FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?', (source_id, target_id))
+            connection.execute('DELETE FROM flow_edge_metadata WHERE source_id=? AND target_id=?', (source_id, target_id))
+            return result.rowcount
+
+    def restore_connections(self, edges, command_ids) -> None:
+        """Restore an in-session edge snapshot without changing command data."""
+        with self._transaction(validate_graph=False) as connection:
+            nodes = {row[0] for row in connection.execute('SELECT 节点ID FROM 节点')}
+            if any(edge.source not in nodes or edge.target not in nodes for edge in edges):
+                raise GraphValidationError('节点已发生变化，不能撤销旧连线')
+            self._set_command_orders(connection, list(command_ids))
+            connection.execute('DELETE FROM flow_edge_metadata')
+            connection.execute('DELETE FROM 节点连接')
+            connection.executemany('INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)', [(e.source, e.target) for e in edges])
+            connection.executemany('INSERT INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, ?)', [(e.source, e.target, e.kind) for e in edges])
+
     def delete_node_connections(self, node_id: str, mode: str = "all") -> int:
         """Delete incoming/outgoing draft edges without deleting the node."""
         node_id = str(node_id)

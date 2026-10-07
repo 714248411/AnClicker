@@ -111,6 +111,8 @@ class AutoUpdateManager(QObject):
         return self._ready_update_info
 
     def check_on_startup(self) -> None:
+        if getattr(self.main_window, '_closing', False):
+            return
         self.check_for_updates(show_message=False)
 
     def check_for_updates(self, show_message: bool = False) -> None:
@@ -122,7 +124,11 @@ class AutoUpdateManager(QObject):
                 )
             return
         self.show_check_message = bool(show_message)
-        check_thread_ = self.check_thread_factory(self.main_window)
+        try:
+            check_thread_ = self.check_thread_factory(self.main_window)
+        except Exception as error:
+            self.handle_check_failure(f'更新配置读取失败：{error}')
+            return
         check_thread_.pending_update_found.connect(self.handle_pending_update)
         check_thread_.update_found.connect(self.handle_update_info)
         check_thread_.no_update.connect(self.handle_no_update)

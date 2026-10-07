@@ -52,7 +52,6 @@ dependencies = [
 [package.dev-dependencies]
 release = [
     { name = "pytest" },
-    { name = "qiniu" },
 ]
 
 [package.metadata]
@@ -83,7 +82,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 release = [
     { name = "pytest" },
-    { name = "qiniu", specifier = "==7.17.0" },
 ]
 
 [[package]]
@@ -3559,18 +3557,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/be/33/8e4f632210b28fc9e998a9ab990e7ed97ecd2800cc50038e3800e1d85dbe/PyWinCtl-0.4.1-py3-none-any.whl", hash = "sha256:4d875e22969e1c6239d8c73156193630aaab876366167b8d97716f956384b089", size = 63158, upload-time = "2024-09-23T08:33:39.881Z" },
-]
-
-[[package]]
-name = "qiniu"
-version = "7.17.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/bd/b4c669df1ee2a6dbaf23b14796d72445545bf9a913dff93c37eb79ee08b0/qiniu-7.17.0.tar.gz", hash = "sha256:4bcc61b6d53fa0416edd49f9e6290fb5e6bdf4056537936be1a6d48cd020f9fb", size = 62486, upload-time = "2025-07-11T07:32:43.364Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/1d/bd3703fe3c1c2efc1eff9314a9d2f5dd276ecb78d303634942756e231b0c/qiniu-7.17.0-py3-none-any.whl", hash = "sha256:3cd3d25ba1fb9abd2eefb98d5669873d7199e9d84decb25ff5db7968a08a9fb9", size = 81769, upload-time = "2025-07-11T07:32:41.665Z" },
 ]
 
 [[package]]

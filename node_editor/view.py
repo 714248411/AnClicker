@@ -6,7 +6,7 @@ from PySide6.QtCore import QPoint, Signal, Qt
 from PySide6.QtGui import QKeySequence, QPainter
 from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
-from node_editor.items import NodeItem
+from node_editor.items import NodeItem, EdgeItem
 from node_editor.palette import INSTRUCTION_MIME_TYPE
 from node_editor.style import MAX_ZOOM, MIN_ZOOM
 
@@ -20,6 +20,8 @@ class NodeView(QGraphicsView):
     runSingleRequested = Signal(object)
     runFromRequested = Signal(object)
     deleteConnectionsRequested = Signal(object, str)
+    deleteEdgeRequested = Signal(object, object)
+    undoConnectionsRequested = Signal()
     noteChanged = Signal(object, str)
     saveTemplateRequested = Signal(object, str)
     insertTemplateRequested = Signal(str, float, float)
@@ -33,6 +35,7 @@ class NodeView(QGraphicsView):
         self._instruction_types: set[str] = set()
         self._instruction_specs = {}
         self.template_names_provider = lambda: ()
+        self.connection_undo_count = lambda: 0
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing
             | QPainter.RenderHint.TextAntialiasing
@@ -142,14 +145,37 @@ class NodeView(QGraphicsView):
             item_ = item_.parentItem()
         return item_ if isinstance(item_, NodeItem) else None
 
+    def _add_connection_undo(self, menu):
+        count = self.connection_undo_count()
+        action = menu.addAction(f'撤销连线操作（剩余 {count} 步，最多 20 步）')
+        action.setEnabled(count > 0)
+        action.triggered.connect(self.undoConnectionsRequested.emit)
+        return action
+
     def contextMenuEvent(self, event_):
         if self._pan_moved:
             self._pan_moved = False
             event_.accept()
             return
+        edge = self.itemAt(event_.pos())
+        if isinstance(edge, EdgeItem):
+            source, target = edge.source_node.node_id, edge.target_node.node_id
+            self.scene().clearSelection()
+            edge.setSelected(True)
+            menu = QMenu(self)
+            delete = menu.addAction('删除此连线')
+            self._add_connection_undo(menu)
+            chosen = menu.exec(event_.globalPos())
+            if chosen == delete:
+                self.deleteEdgeRequested.emit(source, target)
+            menu.deleteLater()
+            event_.accept()
+            return
         node_ = self._node_at(event_.pos())
         if node_ is None:
             menu_ = QMenu(self)
+            self._add_connection_undo(menu_)
+            menu_.addSeparator()
             select_all_action_ = menu_.addAction("全选")
             save_template_action_ = menu_.addAction("选中存为模板")
             save_template_action_.setEnabled(bool(self.scene().selected_command_ids()))
@@ -204,7 +230,11 @@ class NodeView(QGraphicsView):
             event_.accept()
             return
         if node_.is_terminal:
-            super().contextMenuEvent(event_)
+            menu = QMenu(self)
+            self._add_connection_undo(menu)
+            menu.exec(event_.globalPos())
+            menu.deleteLater()
+            event_.accept()
             return
         if not node_.isSelected():
             self.scene().clearSelection()
@@ -214,6 +244,8 @@ class NodeView(QGraphicsView):
             return
 
         menu_ = QMenu(self)
+        self._add_connection_undo(menu_)
+        menu_.addSeparator()
         configure_action_ = menu_.addAction("配置")
         note_action_ = menu_.addAction("备注")
         save_template_action_ = menu_.addAction("存为模板")
@@ -233,6 +265,9 @@ class NodeView(QGraphicsView):
             delete_incoming_edge_ = menu_.addAction("删除前流程连接线")
             delete_outgoing_edge_ = menu_.addAction("删除后流程连接线")
         selected_action_ = menu_.exec(event_.globalPos())
+        if selected_action_ is None:
+            event_.accept()
+            return
         if selected_action_ == configure_action_:
             self.scene().activate_node(node_)
         elif selected_action_ == note_action_:

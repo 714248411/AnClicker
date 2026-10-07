@@ -104,6 +104,19 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.workspace = InstructionWorkspace(self.db.db_path, self)
         self._install_instruction_workspace()
         self.view_workspace = ViewWorkspace(self)
+        from PySide6.QtWidgets import QCheckBox, QWidget, QVBoxLayout
+        self.run_unconnected_checkbox = QCheckBox('运行未连接模块', self.groupBox_3)
+        self.run_unconnected_checkbox.setObjectName('runUnconnectedCheckBox')
+        self.run_unconnected_checkbox.setChecked(self.db.get_setting_value('运行未连接模块') != 'False')
+        self.run_unconnected_checkbox.setToolTip('默认运行没有任何连线的节点；取消后跳过孤立节点。单行测试不受影响。')
+        self.run_unconnected_checkbox.toggled.connect(lambda checked: self.db.set_setting_value('运行未连接模块', str(checked)))
+        self.gridLayout_2.removeWidget(self.checkBox_2)
+        options = QWidget(self.groupBox_3)
+        options_layout = QVBoxLayout(options)
+        options_layout.setContentsMargins(0, 0, 0, 0)
+        options_layout.addWidget(self.run_unconnected_checkbox)
+        options_layout.addWidget(self.checkBox_2)
+        self.gridLayout_2.addWidget(options, 2, 0, 1, 2)
         from recent_projects import RecentProjectPicker, ProjectDropFilter
         self.recent_project_picker = RecentProjectPicker(self.groupBox_3)
         self.gridLayout_2.addWidget(self.recent_project_picker, 3, 0, 1, 2)
@@ -441,11 +454,6 @@ class Main_window(QMainWindow, Ui_MainWindow):
         if current and os.path.normcase(os.path.abspath(file_path)) == os.path.normcase(os.path.abspath(current)):
             self.add_recent_to_fileMenu()
             return
-        updater = getattr(self, 'auto_update', None)
-        if updater is not None and not updater.shutdown():
-            QMessageBox.information(self, '正在更新', '正在检查或下载更新，请完成后再退出。')
-            event.ignore()
-            return
         recording = self.view_workspace.recording_page
         if recording.drafts and not recording.written:
             QMessageBox.warning(self, '录制尚未写入', '请先写入或清空录制，再切换项目。')
@@ -610,6 +618,11 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """关闭窗口事件"""
+        updater = getattr(self, 'auto_update', None)
+        if updater is not None and not updater.shutdown():
+            QMessageBox.information(self, '正在更新', '正在检查或下载更新，请完成后再退出。')
+            event.ignore()
+            return
         recording = self.view_workspace.recording_page
         if recording.busy or (recording.drafts and not recording.written):
             if QMessageBox.question(
@@ -719,6 +732,9 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 target_path_ = save_converted_copy(converted_, target_path_)
                 migration_message_ = f"旧版数据已转换。\n新版文件：{target_path_}\n导入前备份：{backup_path_}"
             self.workspace.repository.import_from_workbook(converted_)
+            history = getattr(self.workspace, '_connection_history', None)
+            if history is not None:
+                history.clear()
         except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError, zipfile.BadZipFile) as error_:
             QMessageBox.warning(
                 self, "导入失败", str(error_), QMessageBox.StandardButton.Ok
@@ -781,7 +797,9 @@ class Main_window(QMainWindow, Ui_MainWindow):
         # 记录开始时间的时间戳
         self.start_time = current_time()
         # 开始运行
+        self.command_thread.run_unconnected = self.run_unconnected_checkbox.isChecked()
         self.command_thread.start()
+        self.run_unconnected_checkbox.setEnabled(False)
         return True
 
     def _arm_escape_stop(self):
@@ -806,6 +824,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
             return
         if self.command_thread.isRunning():
             return
+        self.run_unconnected_checkbox.setEnabled(True)
         self.escape_stop.setEnabled(False)
         if self._escape_registered:
             try:

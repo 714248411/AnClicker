@@ -37,6 +37,8 @@ class InstructionWorkspace(QObject):
         self.repository = GraphRepository(db_path)
         self.palette = InstructionPalette(INSTRUCTION_SPECS, parent_=parent)
         self.editor = NodeEditorWidget(parent_=parent)
+        self._connection_history = []
+        self._connection_expected = None
         self._connect_signals()
         self.reload_graph()
 
@@ -60,6 +62,9 @@ class InstructionWorkspace(QObject):
         self.editor.insertTemplateRequested.connect(self._insert_template)
         self.editor.manageTemplatesRequested.connect(self._manage_templates)
         self.editor.view.template_names_provider = self._template_names
+        self.editor.view.deleteEdgeRequested.connect(self._delete_edge)
+        self.editor.view.undoConnectionsRequested.connect(self.undo_connections)
+        self.editor.view.connection_undo_count = lambda: len(self._connection_history)
 
     # Public node-workspace interface used by the main window.
     def selected_command_ids(self) -> list[int]:
@@ -70,6 +75,10 @@ class InstructionWorkspace(QObject):
 
     def reload_graph(self, focus_command_id: Optional[int] = None) -> None:
         snapshot_ = self.repository.snapshot()
+        state = self._connection_state(snapshot_)
+        if self._connection_expected is not None and state != self._connection_expected:
+            self._connection_history.clear()
+        self._connection_expected = state
         self.editor.load_graph(
             snapshot_.nodes, snapshot_.edges, INSTRUCTION_SPECS,
             allow_incomplete=True,
@@ -260,9 +269,69 @@ class InstructionWorkspace(QObject):
             self.reload_graph()
             self._show_error("保存节点大小失败", error_)
 
+    @staticmethod
+    def _connection_state(snapshot):
+        return (tuple(sorted((n.node_id, n.command_id, n.type_id) for n in snapshot.nodes)),
+                tuple(c.id for c in snapshot.commands), tuple(snapshot.edges))
+
+    def _connection_edit_allowed(self):
+        thread = getattr(self.parent_window, 'command_thread', None)
+        recording = getattr(getattr(self.parent_window, 'view_workspace', None), 'recording_page', None)
+        if (thread is not None and thread.isRunning()) or (recording is not None and recording.busy):
+            self.statusMessage.emit('请先停止运行或录制，再修改连线')
+            return False
+        return True
+
+    def _remember_connections(self, before):
+        after = self._connection_state(self.repository.snapshot())
+        if self._connection_expected != before:
+            self._connection_history.clear()
+        if before != after:
+            self._connection_history.append(before)
+            self._connection_history = self._connection_history[-20:]
+        self._connection_expected = after
+
+    def _delete_edge(self, source, target):
+        if not self._connection_edit_allowed():
+            return
+        before = self._connection_state(self.repository.snapshot())
+        try:
+            count = self.repository.delete_connection(str(source), str(target))
+            self._remember_connections(before)
+            self.reload_graph()
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit(f'已删除 {count} 根连线，可右键撤销')
+        except Exception as error:
+            self._show_error('删除连线失败', error)
+
+    def undo_connections(self):
+        if not self._connection_edit_allowed():
+            return
+        current = self._connection_state(self.repository.snapshot())
+        if current != self._connection_expected:
+            self._connection_history.clear()
+            self._connection_expected = current
+        if not self._connection_history:
+            self.statusMessage.emit('没有可撤销的连线操作')
+            return
+        previous = self._connection_history[-1]
+        try:
+            self.repository.restore_connections(previous[2], previous[1])
+            self._connection_history.pop()
+            self._connection_expected = previous
+            self.reload_graph()
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit(f'已撤销连线操作，剩余 {len(self._connection_history)} 步')
+        except Exception as error:
+            self._show_error('撤销连线失败', error)
+
     def _connect_nodes(self, source_id, target_id, kind=None) -> None:
+        if not self._connection_edit_allowed():
+            return
+        before = self._connection_state(self.repository.snapshot())
         try:
             complete_ = self.repository.connect_nodes(str(source_id), str(target_id), kind)
+            self._remember_connections(before)
             self.reload_graph()
             self.graphFinalized.emit(complete_)
             self.statusMessage.emit(
@@ -274,8 +343,12 @@ class InstructionWorkspace(QObject):
             self._show_error("连接流程失败", error_)
 
     def _delete_connections(self, node_id, mode: str) -> None:
+        if not self._connection_edit_allowed():
+            return
+        before = self._connection_state(self.repository.snapshot())
         try:
             deleted_ = self.repository.delete_node_connections(str(node_id), mode)
+            self._remember_connections(before)
             self.reload_graph()
             self.graphFinalized.emit(False)
             self.statusMessage.emit(f"已删除 {deleted_} 条流程连接线")

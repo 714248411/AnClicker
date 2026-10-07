@@ -93,70 +93,12 @@ def test_silent_auto_errors(app):
         assert warning.called
 
 
-def publisher():
-    name = 'anclicker_publisher_test'
-    spec = importlib.util.spec_from_file_location(name, Path(__file__).parents[1] / 'packaging/发布Velopack.py')
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
-def test_config_and_version_reject_invalid_targets(monkeypatch):
-    m = publisher()
-    monkeypatch.delenv('QINIU_PUBLIC_BASE_URL', raising=False)
-    with pytest.raises(ValueError):
-        m.PublishConfig.from_environment()
-    monkeypatch.setenv('QINIU_PUBLIC_BASE_URL', 'http://example.com')
-    with pytest.raises(ValueError):
-        m.PublishConfig.from_environment()
-    monkeypatch.setenv('QINIU_PUBLIC_BASE_URL', 'https://example.com')
-    monkeypatch.setenv('QINIU_KEY_PREFIX', '../other')
-    with pytest.raises(ValueError):
-        m.PublishConfig.from_environment()
-    monkeypatch.setenv('QINIU_KEY_PREFIX', 'an-clicker/win-x64')
-    config = m.PublishConfig.from_environment()
-    assert config.source_url == 'https://example.com/an-clicker/win-x64'
-    with pytest.raises(ValueError):
-        m.assert_newer('1.2.2', {'Assets': [{'PackageId':'AnClicker', 'Version':'1.2.2', 'Type':'Full', 'FileName':'x'}]})
-    monkeypatch.delenv('QINIU_ACCESS_KEY', raising=False)
-    monkeypatch.delenv('QINIU_SECRET_KEY', raising=False)
-    with pytest.raises(ValueError, match='QINIU_ACCESS_KEY'):
-        m.QiniuUploader(config)
 
 
-def test_upload_failure_never_publishes_feed(tmp_path, monkeypatch):
-    m = publisher()
-    config = m.PublishConfig('bucket', 'z0', 'https://example.com', 'an-clicker/win-x64')
-    monkeypatch.setattr(m, 'RELEASE', tmp_path)
-    asset = {'FileName':'full.nupkg', 'Size':1, 'SHA256':'ABC'}
-    uploader = Mock()
-    uploader.upload.side_effect = RuntimeError('upload failed')
-    monkeypatch.setattr(m, 'validate_local', lambda c: ({'Assets':[asset]}, [asset]))
-    monkeypatch.setattr(m, 'get_feed', lambda c: {'Assets':[]})
-    monkeypatch.setattr(m, 'QiniuUploader', lambda c: uploader)
-    with pytest.raises(RuntimeError):
-        m.publish(config)
-    assert uploader.upload.call_args.args == (tmp_path / 'full.nupkg',)
-    uploader.refresh_feed.assert_not_called()
 
 
-def test_feed_published_after_assets_verified(tmp_path, monkeypatch):
-    m = publisher()
-    config = m.PublishConfig('bucket', 'z0', 'https://example.com', 'an-clicker/win-x64')
-    monkeypatch.setattr(m, 'RELEASE', tmp_path)
-    asset = {'FileName':'full.nupkg', 'Size':1, 'SHA256':'ABC'}
-    feed = {'Assets':[asset]}
-    (tmp_path / m.FEED_NAME).write_text(json.dumps(feed), encoding='utf-8')
-    order = []
-    uploader = SimpleNamespace(upload=lambda p, **kw: order.append(p.name), refresh_feed=lambda: order.append('refresh'))
-    monkeypatch.setattr(m, 'validate_local', lambda c: (feed, [asset]))
-    monkeypatch.setattr(m, 'get_feed', Mock(side_effect=[{'Assets':[]}, {'Assets':[]}, feed]))
-    monkeypatch.setattr(m, 'verify_public', lambda *args: order.append('verify'))
-    monkeypatch.setattr(m, 'QiniuUploader', lambda c: uploader)
-    monkeypatch.setattr(m.requests, 'get', lambda *a, **k: SimpleNamespace(raise_for_status=lambda: None, json=lambda: feed))
-    m.publish(config)
-    assert order == ['full.nupkg', 'verify', m.FEED_NAME, 'refresh']
 
 
 def test_prepare_blocks_task_and_save_cancel(app):
@@ -177,27 +119,15 @@ def test_prepare_blocks_task_and_save_cancel(app):
         window.save_data.assert_called_once()
 
 
-def test_network_error_is_not_first_release(monkeypatch):
-    m = publisher()
-    config = m.PublishConfig('bucket', 'z0', 'https://example.com', 'an-clicker/win-x64')
-    monkeypatch.setattr(m.requests, 'get', Mock(side_effect=m.requests.exceptions.SSLError('invalid cert')))
-    with pytest.raises(m.requests.exceptions.SSLError):
-        m.get_feed(config)
 
 
-def test_source_mismatch_blocks_publish(tmp_path, monkeypatch):
-    m = publisher()
-    config = m.PublishConfig('bucket', 'z0', 'https://example.com', 'an-clicker/win-x64')
-    monkeypatch.setattr(m, 'APP', tmp_path)
-    (tmp_path / 'update-source.json').write_text(json.dumps({'url':'https://wrong.example.com',
-        'pack_id':'AnClicker', 'runtime':'win-x64'}), encoding='utf-8')
-    with pytest.raises(ValueError, match='更新源'):
-        m.validate_local(config)
 
 
 def test_gate_allows_only_audited_readonly_files():
-    m = publisher()
-    gate = sys.modules['发布门槛']
+    spec = importlib.util.spec_from_file_location('release_gate_test', Path(__file__).parents[1] / 'packaging/发布门槛.py')
+    gate = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = gate
+    spec.loader.exec_module(gate)
     for path in ('defaults/命令集.db', 'lib/app/defaults/命令集.db', 'current/cv2/data/__init__.py'):
         gate._check_member(path)
     for path in ('data/命令集.db', 'current/data/命令集.db', '../defaults/命令集.db',
