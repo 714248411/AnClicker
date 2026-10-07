@@ -17,6 +17,32 @@ class InstructionEditor(SchemaInstructionEditor):
         FieldSpec("手动输入", "特殊控件手动输入", "bool", False),
     )
 
+    def __init__(self, parent=None, draft=None, context=None):
+        super().__init__(parent, draft, context)
+        from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+        from instructions.common.input_controls import PasteTextEdit
+        original = self._controls['内容']
+        holder = QWidget(self)
+        layout = QVBoxLayout(holder)
+        layout.setContentsMargins(0, 0, 0, 0)
+        editor = PasteTextEdit(holder)
+        editor.setObjectName(original.objectName())
+        editor.setMinimumHeight(100)
+        editor.setPlainText(original.toPlainText())
+        editor.paste_status = QLabel('', holder)
+        editor.paste_status.setWordWrap(True)
+        button = QPushButton('粘贴文本', holder)
+        button.setAutoDefault(False)
+        button.clicked.connect(editor.paste)
+        layout.addWidget(editor)
+        layout.addWidget(button)
+        layout.addWidget(editor.paste_status)
+        self.ui.parameterFormLayout.replaceWidget(original, holder)
+        original.hide()
+        original.deleteLater()
+        self._controls['内容'] = editor
+        self.ui.parameter_0 = editor
+
 
 class InstructionExecutor(InstructionExecutorBase):
     TYPE_ID = "文本输入"
