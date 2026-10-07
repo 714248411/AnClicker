@@ -3,6 +3,7 @@
 import os
 import sys
 import tempfile
+os.environ['QT_API'] = 'pyqt5'
 
 
 project_root = os.path.dirname(os.path.abspath(SPECPATH))
@@ -58,12 +59,14 @@ a = Analysis(
         (os.path.join(project_root, 'flat', '开屏.png'), 'flat'),
         (os.path.join(project_root, 'Window', 'res', 'donation_qr.png'), 'Window/res'),
     ] + instruction_datas,
-    hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
+    hiddenimports=['Start_Win', 'qt_compat', 'qtpy.QtCore', 'qtpy.QtGui', 'qtpy.QtWidgets',
+                   'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets',
+                   'pyttsx4.drivers', *dynamic_instruction_imports,
                    *collect_submodules('pynput')],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['PySide6', 'PySide2', 'PyQt6', 'shiboken6'],
     noarchive=False,
     optimize=0,
 )

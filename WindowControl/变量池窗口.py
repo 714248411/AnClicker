@@ -1,6 +1,6 @@
 """Shared variable manager, also used to select instruction output variables."""
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+from qt_compat.QtCore import Qt
+from qt_compat.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QComboBox, QHeaderView, QAbstractItemView,
     QDialogButtonBox, QMessageBox)
 from 数据库操作 import DatabaseOperation

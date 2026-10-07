@@ -23,9 +23,9 @@ import win32clipboard
 import win32con
 import win32gui
 import winsound
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter, QPen, QColor, QPixmap
-from PySide6.QtWidgets import QWidget, QApplication
+from qt_compat.QtCore import Qt
+from qt_compat.QtGui import QPainter, QPen, QColor, QPixmap
+from qt_compat.QtWidgets import QWidget, QApplication
 from aip import AipOcr
 from dateutil.parser import parse
 

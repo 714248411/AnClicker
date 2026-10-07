@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from PySide6.QtWidgets import (
+from qt_compat.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,

@@ -1,8 +1,8 @@
 import math
 
-from PySide6.QtCore import QLineF, QPointF, QRectF, Signal, Qt
-from PySide6.QtGui import QBrush, QPen
-from PySide6.QtWidgets import QGraphicsScene
+from qt_compat.QtCore import QLineF, QPointF, QRectF, Signal, Qt
+from qt_compat.QtGui import QBrush, QPen
+from qt_compat.QtWidgets import QGraphicsScene
 
 from node_test.edge import EdgeItem
 from node_test.node import NodeItem, PortItem

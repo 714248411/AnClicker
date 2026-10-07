@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any
 import re
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QCursor
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QPoint, QRect, Qt, Signal
+from qt_compat.QtGui import QCursor
+from qt_compat.QtWidgets import (
     QApplication,
     QAbstractSpinBox,
     QCheckBox,

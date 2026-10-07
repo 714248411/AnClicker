@@ -1,5 +1,5 @@
 """Release-only checks of actual loaded instruction dialogs, without input replay."""
-from PySide6.QtWidgets import QApplication, QAbstractSpinBox, QLineEdit
+from qt_compat.QtWidgets import QApplication, QAbstractSpinBox, QLineEdit
 from instructions.registry import INSTRUCTION_SPECS
 from instructions.models import ExecutionContext
 

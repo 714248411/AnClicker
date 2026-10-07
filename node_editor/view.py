@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, Signal, Qt
-from PySide6.QtGui import QKeySequence, QPainter
-from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
+from qt_compat.QtCore import QPoint, Signal, Qt
+from qt_compat.QtGui import QKeySequence, QPainter
+from qt_compat.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
 from node_editor.items import NodeItem, EdgeItem
 from node_editor.palette import INSTRUCTION_MIME_TYPE

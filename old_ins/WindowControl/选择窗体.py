@@ -1,9 +1,9 @@
 import sys
 
-from PySide6 import QtWidgets
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QCursor
-from PySide6.QtWidgets import QDialog, QHeaderView, QTableWidgetItem, QApplication
+from qt_compat import QtWidgets
+from qt_compat.QtCore import Qt
+from qt_compat.QtGui import QStandardItemModel, QStandardItem, QCursor
+from qt_compat.QtWidgets import QDialog, QHeaderView, QTableWidgetItem, QApplication
 
 from WindowControl.变量池窗口 import VariablePool_Win
 from 数据库操作 import DatabaseOperation

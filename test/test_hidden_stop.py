@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtWidgets import QApplication
-from PySide6.QtTest import QTest
+from qt_compat.QtWidgets import QApplication
+from qt_compat.QtTest import QTest
 from instructions.models import InstructionDraft
 from 数据库操作 import DatabaseOperation
 
@@ -115,7 +115,7 @@ def test_single_view_menu_keeps_toolbar_toggle(host):
 
 
 def test_worker_cache_cleanup_is_queued_to_gui_thread(host):
-    from PySide6.QtCore import QThread
+    from qt_compat.QtCore import QThread
     import gc
     observed = []
     with patch.object(gc, 'collect', side_effect=lambda: observed.append(QThread.currentThread())):

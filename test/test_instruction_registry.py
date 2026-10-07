@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ElementTree
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from qt_compat.QtWidgets import QApplication  # noqa: E402
 
 from instructions.models import (  # noqa: E402
     CommandRecord,

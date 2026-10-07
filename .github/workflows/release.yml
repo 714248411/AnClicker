@@ -1,9 +1,9 @@
-name: Build cross-platform release
+name: Build PyQt5 legacy Windows release
 
 on:
   push:
     tags:
-      - "v*"
+      - "v*-legacy*"
   workflow_dispatch:
 
 permissions:
@@ -11,80 +11,36 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            shell: pwsh
-            artifact: windows-x64
-          - os: macos-15-intel
-            shell: bash
-            artifact: macos-x64
-          - os: macos-15
-            shell: bash
-            artifact: macos-arm64
-          - os: ubuntu-24.04
-            shell: bash
-            artifact: linux-x64
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
+    runs-on: windows-latest
     env:
+      QT_API: pyqt5
       QT_QPA_PLATFORM: offscreen
-      DISPLAY: ":99"
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.10"
+          architecture: x64
           cache: pip
-      - name: Install Linux desktop libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            xvfb scrot xdotool \
-            libegl1 libgl1 libopengl0 \
-            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-render-util0 libxcb-xinerama0 libxkbcommon-x11-0
-          Xvfb :99 -screen 0 1920x1080x24 >/tmp/anclicker-xvfb.log 2>&1 &
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pytest
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pytest
       - name: Run tests
         run: python -m pytest -v
-      - name: Build native application
+      - name: Build application
         run: python -m PyInstaller --clean -y packaging/main.spec
-      - name: Verify packaged first and second startup
-        # Test a real first launch and a second launch before publishing.
-        # Import errors and error dialogs must fail the release, not count as readiness.
+      - name: Verify packaged startup, editors and migration
         run: python packaging/smoke_release.py
-      - name: Package verified application
-        run: python packaging/build_release.py --version "${{ github.ref_name }}"
+      - name: Package legacy edition and matching source
+        run: python packaging/build_legacy_release.py
       - uses: actions/upload-artifact@v4
         with:
-          name: package-${{ matrix.artifact }}
-          path: release/*.zip
+          name: pyqt5-legacy-windows-x64
+          path: release/*
           if-no-files-found: error
-
-  publish:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          merge-multiple: true
-      - name: Publish GitHub Release
+      - name: Publish separate compatibility preview
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload "${{ github.ref_name }}" release-assets/*.zip --clobber --repo "${{ github.repository }}"
-            gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --title "An Clicker ${{ github.ref_name }}" --latest --notes-file packaging/RELEASE_NOTES.md
-          else
-            gh release create "${{ github.ref_name }}" release-assets/*.zip --repo "${{ github.repository }}" --title "An Clicker ${{ github.ref_name }}" --latest --notes-file packaging/RELEASE_NOTES.md
-          fi
+          gh release create "${{ github.ref_name }}" release/*.zip release/SHA256SUMS.txt --repo "${{ github.repository }}" --title "An Clicker v1.2.6 旧系统版（win101607兼容未经测试）" --prerelease --latest=false --notes-file LEGACY_WINDOWS.md

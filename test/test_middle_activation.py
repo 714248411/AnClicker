@@ -8,9 +8,9 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QTimer, Qt
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication
 from instruction_workspace import InstructionWorkspace
 from instructions.common import actions
 from instructions.common.middle_wait import wait_for_middle

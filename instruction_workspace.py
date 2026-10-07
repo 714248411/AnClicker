@@ -7,8 +7,8 @@ import math
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
+from qt_compat.QtCore import QObject, Signal
+from qt_compat.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from graph_repository import END_NODE_ID, GraphRepository
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft

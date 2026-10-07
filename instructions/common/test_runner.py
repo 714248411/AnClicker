@@ -1,6 +1,6 @@
 """Modal, responsive test runner for instructions that wait for user input."""
-from PySide6.QtCore import QThread, Signal, Slot, QTimer
-from PySide6.QtWidgets import QDialog, QLabel, QPushButton, QVBoxLayout
+from qt_compat.QtCore import QThread, Signal, Slot, QTimer
+from qt_compat.QtWidgets import QDialog, QLabel, QPushButton, QVBoxLayout
 
 
 class _TestWorker(QThread):

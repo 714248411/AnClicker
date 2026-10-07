@@ -6,7 +6,7 @@ import time
 import math
 import os
 from dataclasses import replace
-from PySide6.QtWidgets import QMessageBox
+from qt_compat.QtWidgets import QMessageBox
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft

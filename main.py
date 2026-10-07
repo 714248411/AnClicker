@@ -11,8 +11,8 @@ STARTUP_DATA_FOLDER = prepare_environment()
 if sys.platform == "win32":
     os.environ.setdefault("QT_QPA_PLATFORM", "windows:darkmode=0")
 
-from PySide6.QtCore import QLibraryInfo, QLocale, QSharedMemory, Qt, QTranslator, QTimer
-from PySide6.QtGui import (
+from qt_compat.QtCore import QLibraryInfo, QLocale, QSharedMemory, Qt, QTranslator, QTimer, QRectF
+from qt_compat.QtGui import (
     QColor,
     QFont,
     QGuiApplication,
@@ -20,7 +20,7 @@ from PySide6.QtGui import (
     QPainterPath,
     QPixmap,
 )
-from PySide6.QtWidgets import QApplication, QSplashScreen
+from qt_compat.QtWidgets import QApplication, QSplashScreen
 
 from functions import RESOURCE_FOLDER, ensure_data_directories, show_window
 from info import APP_NAME, CURRENT_VERSION, WINDOW_TITLE
@@ -82,7 +82,7 @@ def show_splash_screen(app, image_path):
         painter = QPainter(rounded_pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         path = QPainterPath()
-        path.addRoundedRect(pixmap.rect(), 24, 24)
+        path.addRoundedRect(QRectF(pixmap.rect()), 24, 24)
         painter.setClipPath(path)
         painter.drawPixmap(0, 0, pixmap)
         painter.end()
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     except Exception as error:
         log_path = record_startup_error(STARTUP_DATA_FOLDER, error)
         if "--startup-smoke-test" not in sys.argv:
-            from PySide6.QtWidgets import QMessageBox
+            from qt_compat.QtWidgets import QMessageBox
             app = QApplication.instance() or QApplication(sys.argv)
             QMessageBox.critical(None, "启动失败", f"无法完成启动：{error}\n\n详细日志：{log_path}\n请完整解压安装包后运行 AnClicker.exe。")
         raise

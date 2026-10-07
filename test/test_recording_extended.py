@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtWidgets import QApplication, QMainWindow
+from qt_compat.QtWidgets import QApplication, QMainWindow
 from input_recording import GlobalInputRecorder, RecordingBuffer, InputEvent, events_to_drafts, recording_key
 from recorded_input import windows_key_parameters, key_event, button_event, scroll_event
 from instructions.common.actions import release_recorded_inputs

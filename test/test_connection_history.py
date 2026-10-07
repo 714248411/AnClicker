@@ -1,8 +1,8 @@
 import pytest
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QContextMenuEvent
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import Qt, QTimer
+from qt_compat.QtGui import QContextMenuEvent
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication
 from test.test_hidden_stop import host
 from instructions.models import InstructionDraft
 from node_editor.items import EdgeItem

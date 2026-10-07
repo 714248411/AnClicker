@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QMimeData, QUrl, QEvent, QPointF, Qt
-from PySide6.QtGui import QDropEvent
-from PySide6.QtWidgets import QApplication, QMainWindow, QPlainTextEdit, QMessageBox
+from qt_compat.QtCore import QMimeData, QUrl, QEvent, QPointF, Qt
+from qt_compat.QtGui import QDropEvent
+from qt_compat.QtWidgets import QApplication, QMainWindow, QPlainTextEdit, QMessageBox
 from recent_projects import RecentProjectPicker, ProjectDropFilter, dropped_project, short_path
 
 

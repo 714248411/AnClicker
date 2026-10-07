@@ -21,9 +21,9 @@ from time import time as current_time
 from typing import Optional
 
 import openpyxl
-from PySide6.QtCore import QTimer, Signal, Slot, QUrl, Qt
-from PySide6.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QTimer, Signal, Slot, QUrl, Qt
+from qt_compat.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
+from qt_compat.QtWidgets import (
     QApplication,
     QDialog,
     QFileDialog,
@@ -104,7 +104,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.workspace = InstructionWorkspace(self.db.db_path, self)
         self._install_instruction_workspace()
         self.view_workspace = ViewWorkspace(self)
-        from PySide6.QtWidgets import QCheckBox, QWidget, QVBoxLayout
+        from qt_compat.QtWidgets import QCheckBox, QWidget, QVBoxLayout
         self.run_unconnected_checkbox = QCheckBox('运行未连接模块', self.groupBox_3)
         self.run_unconnected_checkbox.setObjectName('runUnconnectedCheckBox')
         self.run_unconnected_checkbox.setChecked(self.db.get_setting_value('运行未连接模块') != 'False')

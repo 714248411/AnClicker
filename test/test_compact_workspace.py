@@ -2,8 +2,8 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from types import SimpleNamespace
 import pytest
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMainWindow, QFrame, QVBoxLayout, QSplitter, QStatusBar
+from qt_compat.QtGui import QAction
+from qt_compat.QtWidgets import QApplication, QMainWindow, QFrame, QVBoxLayout, QSplitter, QStatusBar
 from Window.mainwindow_ui import Ui_MainWindow
 from window_chrome import install_title_bar
 from compact_workspace import CompactWorkspace

@@ -2,10 +2,10 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import tempfile
 import unittest
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor
-from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QPointF, Qt
+from qt_compat.QtGui import QColor
+from qt_compat.QtTest import QSignalSpy
+from qt_compat.QtWidgets import QApplication
 from node_editor.items import NodeItem, EdgeItem
 from node_editor.scene import NodeScene
 from instruction_workspace import InstructionWorkspace

@@ -1,9 +1,9 @@
 """Compact title bar with a theme control beside the window controls."""
 import math
 import sys
-from PySide6.QtCore import QEvent, QLineF, QRectF, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton, QVBoxLayout, QWidget
+from qt_compat.QtCore import QEvent, QLineF, QRectF, Qt
+from qt_compat.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from qt_compat.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton, QVBoxLayout, QWidget
 
 
 def apply_native_shadow(window):
@@ -228,7 +228,7 @@ class WindowTitleBar(QFrame):
         if kind not in (QEvent.Type.WindowStateChange, QEvent.Type.MouseButtonPress,
                         QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease):
             return False
-        from shiboken6 import isValid
+        from qt_compat import isValid
         if not isValid(self.host) or not isValid(watched):
             return False
         if watched is self.host and event.type() == QEvent.Type.WindowStateChange:

@@ -5,8 +5,8 @@ import string
 import tkinter as tk
 
 import pyautogui
-from PySide6 import QtGui
-from PySide6.QtWidgets import QDialog, QMessageBox
+from qt_compat import QtGui
+from qt_compat.QtWidgets import QDialog, QMessageBox
 
 from functions import normalize_png_filename
 from Window.image_preview_ui import Ui_Image

@@ -1,4 +1,4 @@
-from PySide6.QtGui import QIcon, QPixmap
+from qt_compat.QtGui import QIcon, QPixmap
 
 
 class Icon:

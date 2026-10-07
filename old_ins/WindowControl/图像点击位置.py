@@ -1,8 +1,8 @@
 import sys
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QLabel, QDialog
+from qt_compat.QtCore import Qt
+from qt_compat.QtGui import QPixmap, QPainter, QPen
+from qt_compat.QtWidgets import QApplication, QLabel, QDialog
 
 from Window.clickposition_ui import Ui_ClickPosition
 

@@ -2,9 +2,9 @@
 from pathlib import Path
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QRectF, Signal, QTimer, QUrl
-from PySide6.QtGui import QPixmap, QPainter, QPen, QDesktopServices
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import Qt, QRectF, Signal, QTimer, QUrl
+from qt_compat.QtGui import QPixmap, QPainter, QPen, QDesktopServices
+from qt_compat.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
     QDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QGridLayout,
     QGroupBox, QFileDialog, QMessageBox, QTabWidget, QSizePolicy,

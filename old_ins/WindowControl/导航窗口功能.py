@@ -5,10 +5,10 @@ import re
 import sqlite3
 
 import pyautogui
-from PySide6 import QtCore
-from PySide6.QtCore import Qt, QRegularExpression
-from PySide6.QtGui import QPixmap, QImage, QIntValidator, QRegularExpressionValidator, QKeySequence
-from PySide6.QtWidgets import QDialog, QMessageBox, QWidget, QTreeWidgetItemIterator, QApplication, QFileDialog, \
+from qt_compat import QtCore
+from qt_compat.QtCore import Qt, QRegularExpression
+from qt_compat.QtGui import QPixmap, QImage, QIntValidator, QRegularExpressionValidator, QKeySequence
+from qt_compat.QtWidgets import QDialog, QMessageBox, QWidget, QTreeWidgetItemIterator, QApplication, QFileDialog, \
     QColorDialog
 from dateutil.parser import parse
 from openpyxl.utils.exceptions import InvalidFileException

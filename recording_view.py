@@ -3,9 +3,9 @@ import json
 import time
 import sys
 
-from PySide6.QtCore import Signal, QTimer
-from PySide6.QtGui import QShortcut, QKeySequence
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+from qt_compat.QtCore import Signal, QTimer
+from qt_compat.QtGui import QShortcut, QKeySequence
+from qt_compat.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                                QCheckBox, QSpinBox, QTableWidget, QTableWidgetItem,
                                QHeaderView, QAbstractItemView, QMessageBox)
 from input_recording import RecordingBuffer, GlobalInputRecorder, events_to_drafts
