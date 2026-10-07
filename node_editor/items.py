@@ -48,7 +48,8 @@ class PortItem(QGraphicsObject):
         self.setAcceptHoverEvents(True)
         self.setToolTip("流程输入" if direction_ == "input" else "流程输出")
         if link_kind_ is not None:
-            self.setToolTip("条件否（顶部输出）" if link_kind_ == 2 else "条件是（右侧输出）")
+            self.setToolTip({2:"条件否（顶部输出）",5:"异常输出：连接报错跳转模块后才启用",
+                            6:"报错跳转目标",7:"比较是：跳转目标",8:"比较否：跳转目标"}.get(link_kind_,"条件是（右侧输出）"))
         self.setZValue(2.0)
         self.setCursor(Qt.CursorShape.CrossCursor)
 
@@ -93,8 +94,10 @@ class PortItem(QGraphicsObject):
     def paint(self, painter_, option_, widget_=None):
         del option_, widget_
         color_ = INPUT_PORT_COLOR if self.direction == "input" else OUTPUT_PORT_COLOR
-        if self.link_kind == 2:
+        if self.link_kind in (2,8):
             color_ = QColor("#d69ad5")
+        elif self.link_kind == 5:
+            color_ = QColor("#d99653")
         if self.isUnderMouse():
             color_ = color_.lighter(135)
         painter_.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -156,15 +159,20 @@ class NodeItem(QGraphicsObject):
         self.input_port: PortItem | None = None
         self.output_port: PortItem | None = None
         self.no_port: PortItem | None = None
+        self.error_port: PortItem | None = None
         if terminal_role_ != "start":
             self.input_port = PortItem(self, "input")
             self.input_port.setPos(0.0, self.height / 2.0)
         if terminal_role_ != "end":
-            self.output_port = PortItem(self, "output", 1 if type_id_ in {"条件判断", "颜色判断"} else None)
+            kind = 7 if type_id_ == '变量比较' else 6 if type_id_ == '报错跳转' else 1 if type_id_ in {"条件判断", "颜色判断"} else None
+            self.output_port = PortItem(self, "output", kind)
             self.output_port.setPos(self.width, self.height / 2.0)
-        if type_id_ in {"条件判断", "颜色判断"}:
-            self.no_port = PortItem(self, "output", 2)
+        if type_id_ in {"条件判断", "颜色判断", "变量比较"}:
+            self.no_port = PortItem(self, "output", 8 if type_id_ == '变量比较' else 2)
             self.no_port.setPos(self.width / 2.0, 0.0)
+        if terminal_role_ is None and type_id_ != '报错跳转':
+            self.error_port = PortItem(self,'output',5)
+            self.error_port.setPos(self.width,self.height*0.82)
         self._active_connection_port = None
         self._resizing = False
         self._hovered = False
@@ -293,6 +301,8 @@ class NodeItem(QGraphicsObject):
                 self.output_port.update_edge()
             if self.no_port is not None:
                 self.no_port.update_edge()
+            if self.error_port is not None:
+                self.error_port.update_edge()
             scene_ = self.scene()
             if scene_ is not None and hasattr(scene_, "node_position_changed"):
                 scene_.node_position_changed(self)
@@ -364,6 +374,9 @@ class NodeItem(QGraphicsObject):
             if self.no_port is not None:
                 self.no_port.setPos(self.width / 2.0, 0.0)
                 self.no_port.update_edge()
+            if self.error_port is not None:
+                self.error_port.setPos(self.width,self.height*0.82)
+                self.error_port.update_edge()
             self.update()
             event_.accept()
             return
@@ -440,13 +453,14 @@ class EdgeItem(QGraphicsPathItem):
             raise ValueError("terminal ports cannot form this edge")
         self.source_node = source_node_
         self.target_node = target_node_
-        self.source_port = (source_node_.no_port if link_kind_ == 2 and source_node_.no_port is not None
+        self.source_port = (source_node_.error_port if link_kind_ == 5 and source_node_.error_port is not None
+                            else source_node_.no_port if link_kind_ in (2,8) and source_node_.no_port is not None
                             else source_node_.output_port)
         self.target_port = target_node_.input_port
         self.link_kind = int(link_kind_ or 0)
         self.source_port.add_edge(self)
         self.target_port.add_edge(self)
-        self.setZValue(-1.0)
+        self.setZValue(-2.0 if self.link_kind >= 5 else -1.0)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setAcceptHoverEvents(True)
         self.update_path()
@@ -458,6 +472,7 @@ class EdgeItem(QGraphicsPathItem):
         direct_ = candidates_[0]
         path_ = direct_ if self._route_score(direct_) == direct_.length() else min(candidates_, key=self._route_score)
         self.setPath(path_)
+        self._arrow_geometry = self.arrow_anchor()
         index_ = getattr(self.scene(), "_route_index", None)
         if index_ is not None:
             stroker_ = QPainterPathStroker()
@@ -478,6 +493,18 @@ class EdgeItem(QGraphicsPathItem):
                 Qt.PenCapStyle.RoundCap,
             )
         )
+        if self.link_kind >= 5:
+            self.setPen(self.jump_pen())
+
+    def jump_pen(self, viewport=None):
+        """Cosmetic pen: dash lengths use viewport pixels, never scene zoom."""
+        extent = min(viewport.width(),viewport.height()) if viewport is not None else 600
+        dash = max(4.0,min(18.0,extent*0.015))
+        color,label = self._branch_style()
+        pen = QPen(EDGE_SELECTED_COLOR if self.isSelected() or self.isUnderMouse() else color,2.0)
+        pen.setCosmetic(True)
+        pen.setDashPattern([dash/2.0,dash*0.65/2.0])
+        return pen
 
     @staticmethod
     def _polyline(points_) -> QPainterPath:
@@ -488,6 +515,8 @@ class EdgeItem(QGraphicsPathItem):
 
     def _route_candidates(self, start_: QPointF, end_: QPointF) -> list[QPainterPath]:
         """Build several deterministic routes; scoring selects the clearest one."""
+        if self.link_kind >= 5:
+            return self._outer_routes(start_,end_)
         direct_ = QPainterPath(start_)
         distance_ = max(abs(end_.x() - start_.x()) * 0.5, 60.0)
         direct_.cubicTo(
@@ -557,6 +586,23 @@ class EdgeItem(QGraphicsPathItem):
                                                QPointF(end_x_, end_.y()), end_)))
         return candidates_
 
+    def _outer_routes(self,start,end):
+        scene = self.scene()
+        rects = [node.sceneBoundingRect() for node in getattr(scene,'nodes_by_id',{}).values()]
+        rects = rects or [self.source_node.sceneBoundingRect(),self.target_node.sceneBoundingRect()]
+        jumps = sorted((edge for edge in getattr(scene,'edges',()) if edge.link_kind>=5),
+                       key=lambda edge:(str(edge.source_node.node_id),edge.link_kind,str(edge.target_node.node_id)))
+        index = jumps.index(self) if self in jumps else 0
+        gap = 40 + index*18
+        left = min(rect.left() for rect in rects)-gap
+        right = max(rect.right() for rect in rects)+gap
+        top = min(rect.top() for rect in rects)-gap
+        bottom = max(rect.bottom() for rect in rects)+gap
+        # Both perimeter directions are scored for node overlap and crossings.
+        return [self._polyline((start,QPointF(sx,start.y()),QPointF(sx,y),
+                                QPointF(tx,y),QPointF(tx,end.y()),end))
+                for y in (top,bottom) for sx,tx in ((right,left),(start.x()+26,end.x()-26))]
+
     def _route_score(self, path_: QPainterPath) -> float:
         scene_ = self.scene()
         node_hits_ = 0
@@ -582,6 +628,8 @@ class EdgeItem(QGraphicsPathItem):
             for other_ in nearby_:
                 if other_ is self or not isinstance(other_, EdgeItem):
                     continue
+                if self.link_kind < 5 and other_.link_kind >= 5:
+                    continue  # Side routes never push the ordinary tree out of shape.
                 if {
                     self.source_node, self.target_node
                 } & {other_.source_node, other_.target_node}:
@@ -595,10 +643,15 @@ class EdgeItem(QGraphicsPathItem):
         return node_hits_ * 1_000_000.0 + crossing_hits_ * 10_000.0 + path_.length()
 
     def paint(self, painter_, option_, widget_=None):
-        super().paint(painter_, option_, widget_)
-        end_ = self.path().pointAtPercent(1.0)
-        before_ = self.path().pointAtPercent(0.96)
-        angle_ = math.atan2(end_.y() - before_.y(), end_.x() - before_.x())
+        if self.link_kind >= 5:
+            painter_.save()
+            painter_.setPen(self.jump_pen(widget_))
+            painter_.setBrush(Qt.BrushStyle.NoBrush)
+            painter_.drawPath(self.path())
+            painter_.restore()
+        else:
+            super().paint(painter_, option_, widget_)
+        end_, angle_ = self._arrow_geometry
         size_ = 16.0
         left_ = QPointF(
             end_.x() - size_ * math.cos(angle_ - math.pi / 6.0),
@@ -619,7 +672,51 @@ class EdgeItem(QGraphicsPathItem):
             painter_.setFont(QFont("Microsoft YaHei UI", 9, QFont.Weight.DemiBold))
             painter_.drawText(label_position_ + QPointF(6.0, -6.0), branch_label_)
 
+    def arrow_anchor(self):
+        """Stop the arrow just outside the final entry into the target's body.
+
+        A connector may cross the body before reaching its input port.  Walking
+        backward finds that last entry (including rounded/diamond boundaries),
+        so the arrow remains visible even when the port itself is occluded.
+        """
+        path = self.path()
+        body = self.target_node.mapToScene(self.target_node.shape())
+        length = path.length()
+        if length <= 0:
+            return path.pointAtPercent(1), 0.0
+        endpoint = path.pointAtPercent(1)
+        # Arc-length samples avoid missing a small node at the end of a long route.
+        distance = length
+        step = min(2.0, max(0.25,self.target_node.height/30.0))
+        previous = endpoint
+        hit_body = body.contains(previous)
+        boundary_distance = length
+        while distance > 0:
+            distance = max(0.0,distance-step)
+            point = path.pointAtPercent(path.percentAtLength(distance))
+            inside = body.contains(point)
+            if inside:
+                hit_body = True
+            elif hit_body:
+                low, high = distance, min(length,distance+step)
+                for _ in range(14):
+                    middle = (low+high)/2
+                    if body.contains(path.pointAtPercent(path.percentAtLength(middle))): high=middle
+                    else: low=middle
+                boundary_distance = low
+                break
+            elif length-distance > step*2:
+                # The normal case: the last segment already approaches from outside.
+                break
+            previous = point
+        tip_distance = max(0.0,boundary_distance-3.0)
+        tip = path.pointAtPercent(path.percentAtLength(tip_distance))
+        before = path.pointAtPercent(path.percentAtLength(max(0.0,tip_distance-4.0)))
+        return tip, math.atan2(tip.y()-before.y(),tip.x()-before.x())
+
     def _branch_style(self):
+        if self.link_kind >= 5:
+            return QColor('#d99653'), {5:'报错',6:'跳转',7:'是 · 跳转',8:'否 · 跳转'}.get(self.link_kind,'跳转')
         if self.link_kind == 1:
             return QColor("#7c8cff"), "是"
         if self.link_kind == 2:

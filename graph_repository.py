@@ -680,6 +680,11 @@ class GraphRepository:
         if any(not math.isfinite(node.x) or not math.isfinite(node.y) for node in nodes):
             raise GraphValidationError("节点坐标必须是有限数值")
 
+        from flow_jumps import JUMP_KINDS, ERROR_BIND, ERROR_TARGET, COMPARE_TRUE, COMPARE_FALSE
+        command_by_id = {command.id: command for command in commands}
+        type_by_node = {node.node_id: command_by_id[node.command_id].type_id
+                        for node in instruction_nodes}
+        jump_slots = set()
         outgoing: dict[str, set[str]] = {node_id: set() for node_id in node_by_id}
         incoming: dict[str, set[str]] = {node_id: set() for node_id in node_by_id}
         edge_pairs: set[tuple[str, str]] = set()
@@ -692,6 +697,28 @@ class GraphRepository:
             if edge.source == edge.target:
                 raise GraphValidationError("节点不能连接到自身")
             edge_pairs.add(pair)
+            if edge.kind not in range(9):
+                raise GraphValidationError("未知连线类型")
+            source_type = type_by_node.get(edge.source)
+            target_type = type_by_node.get(edge.target)
+            if edge.kind in JUMP_KINDS:
+                if edge.source in {START_NODE_ID, END_NODE_ID} or edge.target == START_NODE_ID:
+                    raise GraphValidationError("开始/结束节点不能设置跳转输出，开始节点不能作为跳转目标")
+                if (edge.source, edge.kind) in jump_slots:
+                    raise GraphValidationError("每个跳转接口只能连接一个目标")
+                jump_slots.add((edge.source, edge.kind))
+                if edge.kind == ERROR_BIND:
+                    if source_type == '报错跳转' or target_type != '报错跳转':
+                        raise GraphValidationError("异常接口只能连接报错跳转模块")
+                elif target_type == '报错跳转':
+                    raise GraphValidationError("跳转目标不能是报错跳转模块")
+                elif edge.kind == ERROR_TARGET and source_type != '报错跳转':
+                    raise GraphValidationError("报错跳转目标线只能由报错模块发出")
+                elif edge.kind in {COMPARE_TRUE,COMPARE_FALSE} and source_type != '变量比较':
+                    raise GraphValidationError("变量比较分支只能由变量比较模块发出")
+                continue  # Exceptional edges do not change ordinary topology or form normal loops.
+            if source_type in {'报错跳转','变量比较'} or target_type == '报错跳转':
+                raise GraphValidationError("报错/变量比较模块必须使用专用跳转连线")
             outgoing[edge.source].add(edge.target)
             incoming[edge.target].add(edge.source)
         if incoming[START_NODE_ID] or outgoing[END_NODE_ID]:
@@ -712,7 +739,7 @@ class GraphRepository:
                     raise GraphValidationError("条件或循环节点必须连接两条输出")
                 expected_kinds = {1, 2} if command.type_id in {"条件判断", "颜色判断"} else {3, 4}
                 actual_kinds = {
-                    int(edge.kind) for edge in edges if edge.source == node.node_id
+                    int(edge.kind) for edge in edges if edge.source == node.node_id and edge.kind not in JUMP_KINDS
                 }
                 if not actual_kinds <= expected_kinds or len(actual_kinds) != branch_count:
                     raise GraphValidationError("条件或循环节点的分支类型无效或重复")
@@ -1016,9 +1043,21 @@ class GraphRepository:
                 "WHERE 节点.节点ID=?", (source_id,)
             ).fetchone()
             source_type_id = str(source_type[0]) if source_type else ""
-            if source_type_id in {"条件判断", "颜色判断", "循环", "条件循环"}:
+            target_type = connection.execute(
+                "SELECT 命令.类型标识 FROM 节点 JOIN 命令 ON 节点.命令ID=命令.ID WHERE 节点.节点ID=?",
+                (target_id,),
+            ).fetchone()
+            target_type_id = str(target_type[0]) if target_type else ""
+            if target_type_id == '报错跳转':
+                kind = 5
+            elif source_type_id == '报错跳转':
+                kind = 6
+            elif source_type_id == '变量比较' and kind in (None, 0, 1, 2):
+                kind = 8 if kind == 2 else 7
+            if source_type_id in {"条件判断", "颜色判断", "循环", "条件循环"} and kind != 5:
                 branch_count = int(connection.execute(
-                    "SELECT COUNT(*) FROM 节点连接 WHERE 源节点ID=?", (source_id,)
+                    "SELECT COUNT(*) FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID NOT IN "
+                    "(SELECT target_id FROM flow_edge_metadata WHERE source_id=? AND kind>=5)", (source_id,source_id)
                 ).fetchone()[0])
                 existing_edge = connection.execute(
                     "SELECT 1 FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?",
@@ -1054,6 +1093,8 @@ class GraphRepository:
                     (source_id, target_id, int(kind)),
                 )
             self._validate_draft_connection(connection)
+            if kind is not None and kind >= 5:
+                return False  # Adding a side route must not silently reorder the table.
             try:
                 ordered_nodes = self._validate_connection(
                     connection, require_order=False
@@ -1745,7 +1786,7 @@ class GraphRepository:
                 or not target.strip()
             ):
                 raise WorkbookValidationError("连线的源节点和目标节点不能为空")
-            if isinstance(kind, bool) or not isinstance(kind, int) or kind not in range(5):
+            if isinstance(kind, bool) or not isinstance(kind, int) or kind not in range(9):
                 raise WorkbookValidationError("连线类型必须是 0 到 4 的整数")
             edges.append(EdgeRecord(source.strip(), target.strip(), kind))
         try:

@@ -990,7 +990,8 @@ class ViewWorkspace:
             lines.append(f"{command.type_id}({params}, 重复次数={command.repeat_count}, 异常处理={command.error_policy!r}){note}")
         if snapshot.edges:
             nodes = {node.node_id: node for node in snapshot.nodes}
-            kind_names = {0: "下一步", 1: "是", 2: "否", 3: "循环体", 4: "完成"}
+            kind_names = {0: "下一步", 1: "是", 2: "否", 3: "循环体", 4: "完成",
+                          5: "报错", 6: "异常跳转", 7: "比较是跳转", 8: "比较否跳转"}
             lines.extend(["", "# 流程连线（由流程图自动同步）"])
             for edge in snapshot.edges:
                 source = nodes[edge.source]

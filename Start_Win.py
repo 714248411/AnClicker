@@ -896,6 +896,10 @@ class About(QDialog, Ui_About):
             "<b>QQ：</b>{}　　{}<br>"
             "<b>邮箱：</b><a href=\"mailto:{}\">{}</a>　　"
             "<a href=\"mailto:{}\">{}</a><br>"
+            "<br><b>开源致敬：</b>感谢 "
+            "<a href=\"https://github.com/graphif/project-graph\">Project Graph</a> "
+            "开源作者与全体贡献者。<br>"
+            "流程图切线交互与视觉反馈参考其优秀设计。<br><br>"
             "Copyright © 2022–2026".format(
                 *CONTRIBUTORS,
                 *QQ_CONTACTS,

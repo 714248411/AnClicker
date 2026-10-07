@@ -109,6 +109,8 @@ class InstructionFallbackTests(unittest.TestCase):
             "循环": {"方式": "次数", "条件": "True", "次数": 3},
             "条件判断": {"条件": "True"},
             "条件循环": {"方式": "条件", "条件": "True", "次数": 3},
+            "报错跳转": {"跳转方式": "当前项目行", "目标行": 1, "项目路径": ""},
+            "变量比较": {"变量": "值", "比较条件": "等于", "比较值": "2"},
         }
 
     def test_all_registered_fallbacks_execute_without_delegated_service(self):
@@ -141,6 +143,11 @@ class InstructionFallbackTests(unittest.TestCase):
             for spec_ in INSTRUCTION_SPECS:
                 with self.subTest(type_id=spec_.type_id):
                     executor_ = spec_.create_executor()
+                    if spec_.type_id == "报错跳转":
+                        # This routing module is only executed by the graph's exception path.
+                        with self.assertRaisesRegex(ValueError, "不是普通指令"):
+                            executor_.execute(self.context_, _command(spec_.type_id, parameters_[spec_.type_id]))
+                        continue
                     if spec_.type_id == "数字验证码":
                         stack_.enter_context(patch.object(executor_, "_recognize", return_value="1234"))
                     elif spec_.type_id == "OCR识别":

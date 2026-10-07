@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QPointF, Signal, Qt
-from PySide6.QtGui import QKeySequence, QPainter
+from PySide6.QtGui import QContextMenuEvent, QKeySequence, QPainter
+from time import monotonic
 from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
 from node_editor.items import NodeItem, EdgeItem
 from node_editor.palette import INSTRUCTION_MIME_TYPE
 from node_editor.style import MAX_ZOOM, MIN_ZOOM
+from node_editor.cutting import ConnectionCutter
 
 
 class NodeView(QGraphicsView):
@@ -42,13 +44,16 @@ class NodeView(QGraphicsView):
         self.template_names_provider = lambda: ()
         self.connection_undo_count = lambda: 0
         self.connection_redo_count = lambda: 0
+        self.can_cut_connections = lambda: True
+        self.cutter = ConnectionCutter(self)
+        self._suppress_context_until = 0.0
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing
             | QPainter.RenderHint.TextAntialiasing
             | QPainter.RenderHint.SmoothPixmapTransform
         )
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
-        self.setToolTip("空白处按住鼠标中键拖动画布；滚轮缩放；左键框选。")
+        self.setToolTip("空白处右键拖拽切断连线，松开生效，Esc 取消；右键单击菜单；中键平移；滚轮缩放；左键框选。")
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
@@ -60,7 +65,7 @@ class NodeView(QGraphicsView):
         self._instruction_specs = dict(type_ids_) if hasattr(type_ids_, "items") else {}
 
     def wheelEvent(self, event_):
-        if self._panning:
+        if self._panning or self.cutter.active:
             event_.accept()
             return
         factor_ = 1.15 if event_.angleDelta().y() > 0 else 1.0 / 1.15
@@ -72,6 +77,17 @@ class NodeView(QGraphicsView):
         event_.accept()
 
     def mousePressEvent(self, event_):
+        self._suppress_context_until = 0.0
+        if self.cutter.active:
+            event_.accept()
+            return
+        if (not self._panning and event_.button() == Qt.MouseButton.RightButton
+                and self.itemAt(event_.position().toPoint()) is None):
+            if self.can_cut_connections():
+                self._pan_moved = False
+                self.cutter.begin(event_.position())
+            event_.accept()
+            return
         ctrl_pan_ = (
             event_.button() == Qt.MouseButton.LeftButton
             and bool(event_.modifiers() & Qt.KeyboardModifier.ControlModifier)
@@ -95,6 +111,13 @@ class NodeView(QGraphicsView):
         super().mousePressEvent(event_)
 
     def mouseMoveEvent(self, event_):
+        if self.cutter.active:
+            if not event_.buttons() & Qt.MouseButton.RightButton:
+                self.cutter.cancel()
+            else:
+                self.cutter.move(event_.position())
+            event_.accept()
+            return
         if self._panning:
             delta_ = event_.position() - self._pan_origin
             if abs(delta_.x()) + abs(delta_.y()) > 2:
@@ -110,6 +133,29 @@ class NodeView(QGraphicsView):
         super().mouseMoveEvent(event_)
 
     def mouseReleaseEvent(self, event_):
+        if self.cutter.active:
+            if event_.button() != Qt.MouseButton.RightButton:
+                event_.accept()
+                return
+            dragged, pairs = self.cutter.finish(event_.position())
+            if dragged:
+                if pairs and self.can_cut_connections():
+                    # The host's existing batch deletion gives one undo step and
+                    # synchronizes all views. Keep the camera still after reload.
+                    transform = self.transform()
+                    center = self.mapToScene(self.viewport().rect().center())
+                    self.deleteEdgesRequested.emit(pairs)
+                    self.setTransform(transform)
+                    self._zoom = transform.m11()
+                    self.centerOn(center)
+                    self.zoomChanged.emit(round(self._zoom*100))
+            else:
+                self.contextMenuEvent(QContextMenuEvent(
+                    QContextMenuEvent.Reason.Mouse, event_.position().toPoint(),
+                    event_.globalPosition().toPoint()))
+            self._suppress_context_until = monotonic()+.3
+            event_.accept()
+            return
         if self._panning and event_.button() == self._pan_button:
             self.mouseMoveEvent(event_)
             self._panning = False
@@ -122,6 +168,7 @@ class NodeView(QGraphicsView):
         super().mouseReleaseEvent(event_)
 
     def focusOutEvent(self, event_):
+        self.cutter.cancel()
         self._panning = False
         self._pan_button = Qt.MouseButton.NoButton
         self._pan_moved = False
@@ -182,6 +229,9 @@ class NodeView(QGraphicsView):
         return action
 
     def contextMenuEvent(self, event_):
+        if self.cutter.active or monotonic() < self._suppress_context_until:
+            event_.accept()
+            return
         if self._pan_moved:
             self._pan_moved = False
             event_.accept()
@@ -342,6 +392,11 @@ class NodeView(QGraphicsView):
         event_.accept()
 
     def keyPressEvent(self, event_):
+        if event_.key() == Qt.Key.Key_Escape and self.cutter.active:
+            self.cutter.cancel()
+            self._suppress_context_until = monotonic()+.3
+            event_.accept()
+            return
         selected_ids_ = self.scene().selected_command_ids()
         if event_.matches(QKeySequence.StandardKey.SelectAll):
             for item_ in self.scene().nodes_by_id.values():
@@ -359,7 +414,20 @@ class NodeView(QGraphicsView):
             return
         super().keyPressEvent(event_)
 
+    def paintEvent(self, event_):
+        super().paintEvent(event_)
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.cutter.paint(painter)
+        painter.end()
+
+    def hideEvent(self, event_):
+        self.cutter.cancel()
+        super().hideEvent(event_)
+
     def fit_graph(self):
+        if self.cutter.active:
+            self.cutter.cancel()
         fitted_rect_ = self.scene().graph_items_rect()
         self.fitInView(fitted_rect_, Qt.AspectRatioMode.KeepAspectRatio)
         fitted_zoom_ = self.transform().m11()
@@ -375,9 +443,16 @@ class NodeView(QGraphicsView):
         self._set_zoom(max(MIN_ZOOM, self._zoom / 1.2))
 
     def _set_zoom(self, zoom_: float):
+        if self.cutter.active:
+            self.cutter.cancel()
         zoom_ = max(MIN_ZOOM, min(float(zoom_), MAX_ZOOM))
         if zoom_ == self._zoom:
             return
         self.scale(zoom_ / self._zoom, zoom_ / self._zoom)
         self._zoom = zoom_
         self.zoomChanged.emit(round(self._zoom * 100))
+
+    def resizeEvent(self, event_):
+        if hasattr(self, 'cutter') and self.cutter.active:
+            self.cutter.cancel()
+        super().resizeEvent(event_)

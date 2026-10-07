@@ -65,6 +65,7 @@ class InstructionWorkspace(QObject):
         self.editor.view.template_names_provider = self._template_names
         self.editor.view.deleteEdgeRequested.connect(self._delete_edge)
         self.editor.view.deleteEdgesRequested.connect(self._delete_edges)
+        self.editor.view.can_cut_connections = self._connection_edit_allowed
         self.editor.view.undoConnectionsRequested.connect(self.undo_connections)
         self.editor.view.redoConnectionsRequested.connect(self.redo_connections)
         self.editor.view.connection_undo_count = lambda: len(self._connection_history)

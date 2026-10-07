@@ -92,8 +92,8 @@ class NodeScene(QGraphicsScene):
                 max((rect_.bottom() for rect_ in rects_), default=0),
             )
             self._routing_right = max((rect_.right() for rect_ in rects_), default=0)
-            routing_order_ = sorted(self.edges, key=lambda edge_: QLineF(
-                edge_.source_port.scenePos(), edge_.target_port.scenePos()).length(), reverse=True)
+            routing_order_ = sorted(self.edges, key=lambda edge_: (edge_.link_kind >= 5, -QLineF(
+                edge_.source_port.scenePos(), edge_.target_port.scenePos()).length()))
             # A second pass lets earlier edges account for routes selected by
             # later edges without introducing an unstable recursive update.
             for _ in range(2):
@@ -144,14 +144,19 @@ class NodeScene(QGraphicsScene):
         if source_port_ is None or target_node_ is None or target_node_ is source_port_.node:
             return
         if source_port_.direction == "output" and target_node_.input_port is not None:
+            if target_node_.type_id == '报错跳转':
+                self.branchConnectionRequested.emit(source_port_.node.node_id,target_node_.node_id,5)
+                return
             if source_port_.link_kind is not None:
                 self.branchConnectionRequested.emit(source_port_.node.node_id, target_node_.node_id, source_port_.link_kind)
             else:
                 self.connectionRequested.emit(source_port_.node.node_id, target_node_.node_id)
         elif source_port_.direction == "input" and target_node_.output_port is not None:
             target_port_ = target_node_.connection_port_at(target_node_.mapFromScene(scene_position_))
-            if target_node_.type_id in {"条件判断", "颜色判断"}:
-                kind_ = 2 if target_port_ is target_node_.no_port else 1
+            if source_port_.node.type_id == '报错跳转':
+                self.branchConnectionRequested.emit(target_node_.node_id,source_port_.node.node_id,5)
+            elif target_node_.type_id in {"条件判断", "颜色判断", "变量比较"}:
+                kind_ = (8 if target_port_ is target_node_.no_port else 7) if target_node_.type_id == '变量比较' else (2 if target_port_ is target_node_.no_port else 1)
                 self.branchConnectionRequested.emit(target_node_.node_id, source_port_.node.node_id, kind_)
             else:
                 self.connectionRequested.emit(target_node_.node_id, source_port_.node.node_id)
@@ -318,7 +323,7 @@ class NodeScene(QGraphicsScene):
                     color_,
                     role_,
                     control_kind_=(
-                        "condition" if record_["type_id"] in {"条件判断", "条件循环", "颜色判断"}
+                        "condition" if record_["type_id"] in {"条件判断", "条件循环", "颜色判断", "变量比较"}
                         else "loop" if record_["type_id"] == "循环" else None
                     ),
                     subtitle_=self._node_subtitle(
@@ -434,6 +439,8 @@ class NodeScene(QGraphicsScene):
 
     def _validate_and_order_edges(self, edge_records_) -> list[NodeItem]:
         """Validate a complete DAG and return a stable topological order."""
+        if any(self._edge_kind(edge)>=5 for edge in edge_records_):
+            raise ValueError('Explicit jumps keep persisted row order, not a draggable linear chain')
         successors_: dict[object, set[object]] = {
             node_id_: set() for node_id_ in self.nodes_by_id
         }

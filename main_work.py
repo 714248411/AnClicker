@@ -108,6 +108,9 @@ class CommandThread(QThread):
             try:
                 self._execute_commands(commands_, context_)
                 self._persist_variables(context_.variables)
+            except Exception as error_:
+                self.send_message.emit(f"流程执行失败：{error_}")
+                self.request_stop()
             finally:
                 from instructions.common.actions import release_recorded_inputs
                 release_recorded_inputs(context_)
@@ -233,6 +236,12 @@ class CommandThread(QThread):
         if self.run_mode[0] == "全部指令":
             self._execute_flow(self.repository.execution_snapshot(), context_)
             return
+        snapshot_ = self.repository.execution_snapshot()
+        if any(command.type_id in {'报错跳转','变量比较'} for command in snapshot_.commands) and commands_:
+            from flow_jump_runtime import execute_jump_flow
+            start_id = next(node.node_id for node in snapshot_.nodes if node.command_id == commands_[0].id)
+            execute_jump_flow(self,snapshot_,context_,start_id,self.run_mode[0]=='单行指令')
+            return
         active_nodes_: set[str] | None = None
         node_by_command_: dict[int, object] = {}
         outgoing_: dict[str, list[str]] = {}
@@ -285,8 +294,11 @@ class CommandThread(QThread):
                     targets_ = [targets_[selected_index_]]
                 active_nodes_.update(targets_)
 
-    def _execute_flow(self, snapshot_, context_: ExecutionContext) -> None:
+    def _execute_flow(self, snapshot_, context_: ExecutionContext, start_id=None) -> None:
         """Follow persisted links, including condition branches and loop backs."""
+        if start_id is not None or any(command.type_id in {'报错跳转','变量比较'} for command in snapshot_.commands):
+            from flow_jump_runtime import execute_jump_flow
+            return execute_jump_flow(self,snapshot_,context_,start_id)
         node_by_id_ = {node_.node_id: node_ for node_ in snapshot_.nodes}
         command_by_id_ = {int(command_.id): command_ for command_ in snapshot_.commands}
         outgoing_: dict[str, list] = {node_id_: [] for node_id_ in node_by_id_}
@@ -441,7 +453,7 @@ class CommandThread(QThread):
             remaining -= time.monotonic() - started
         return self.start_state and not context.stop_requested
 
-    def _run_project(self, file_path: str, context: ExecutionContext):
+    def _run_project(self, file_path: str, context: ExecutionContext, start_row=None):
         """Call a workbook on this same stoppable worker, without changing UI data."""
         from openpyxl import load_workbook
 
@@ -472,6 +484,11 @@ class CommandThread(QThread):
             finally:
                 workbook.close()
             snapshot = repository.execution_snapshot()
+            if start_row is not None:
+                from flow_jumps import row_node
+                start_id = row_node(snapshot,start_row)
+            else:
+                start_id = None
             if context.stop_requested or not self.check_mutex():
                 return
             saved_metadata = context.metadata
@@ -483,7 +500,7 @@ class CommandThread(QThread):
                 for name, value in database.get_variable_info('dict').items():
                     context.variables.setdefault(name, value)
                 context.emit(f'开始运行项目：{path}')
-                self._execute_flow(snapshot, context)
+                self._execute_flow(snapshot, context, start_id)
                 context.emit(f'项目{"已中断" if context.stop_requested or not self.start_state else "已完成"}：{path.name}')
             finally:
                 # Propagate key/button tracking changes back to the calling scope.

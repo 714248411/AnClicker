@@ -105,6 +105,8 @@ class NodeEditorWidget(QWidget):
         self.set_theme("dark")
 
     def load_graph(self, nodes_, edges_, specs_, allow_incomplete=False) -> None:
+        if self.view.cutter.active:
+            self.view.cutter.cancel()
         normalized_specs_ = normalize_specs(specs_)
         self.view.set_instruction_types(normalized_specs_)
         self.scene.load_graph(
