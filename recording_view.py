@@ -6,9 +6,9 @@ import sys
 from PySide6.QtCore import Signal, QTimer
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                               QCheckBox, QSpinBox, QTableWidget, QTableWidgetItem,
+                               QCheckBox, QSpinBox, QDoubleSpinBox, QTableWidget, QTableWidgetItem,
                                QHeaderView, QAbstractItemView, QMessageBox)
-from input_recording import RecordingBuffer, GlobalInputRecorder, events_to_drafts
+from input_recording import RecordingBuffer, GlobalInputRecorder, events_to_drafts, recording_at_speed
 
 
 class RecordingView(QWidget):
@@ -64,8 +64,9 @@ class RecordingView(QWidget):
         self.timing_option.setChecked(True)
         self.connect_option = QCheckBox("自动连接录制流程")
         self.connect_option.setChecked(True)
-        self.auto_option = QCheckBox("停止后自动写入")
-        self.auto_option.setChecked(True)
+        self.auto_option = QCheckBox("停止后自动写入（原速）")
+        self.auto_option.setChecked(False)
+        self.auto_option.setToolTip("默认停止后预览，再选择原速或倍速写入；勾选后自动按原速写入。")
         layout.addLayout(options)
         options = QHBoxLayout()
         for option in (self.hide_option, self.timing_option, self.connect_option, self.auto_option):
@@ -78,17 +79,35 @@ class RecordingView(QWidget):
         self.stop_button = QPushButton("停止录制（Esc / F8）")
         self.stop_button.setObjectName("dangerButton")
         self.write_button = QPushButton("写入表格与流程图")
+        self.speed = QDoubleSpinBox()
+        self.speed.setRange(0.1, 10.0)
+        self.speed.setDecimals(2)
+        self.speed.setSingleStep(0.25)
+        self.speed.setValue(1.25)
+        self.speed.setSuffix(" ×")
+        self.speed.setMinimumWidth(95)
+        self.speed.setToolTip("自定义 0.10–10.00 倍速；1.25 倍将 10 秒录制缩短至 8 秒。需保留操作时间间隔。")
+        self.speed_write_button = QPushButton("按倍速（1.25）写入表格与流程图")
+        self.speed.valueChanged.connect(lambda value: self.speed_write_button.setText(
+            f"按倍速（{value:g}）写入表格与流程图"))
+        self.speed_write_button.clicked.connect(self.write_at_speed)
         self.clear_button = QPushButton("清空录制预览")
         self.start_button.clicked.connect(self.begin)
         self.stop_button.clicked.connect(self.finish)
         self.escape_shortcut = QShortcut(QKeySequence("Esc"), self)
         self.escape_shortcut.activated.connect(self.finish)
-        self.write_button.clicked.connect(self.write)
+        self.write_button.clicked.connect(lambda: self.write())
         self.clear_button.clicked.connect(self.clear)
-        for button in (self.start_button, self.stop_button, self.write_button, self.clear_button):
+        for button in (self.start_button, self.stop_button, self.clear_button):
             controls.addWidget(button)
         controls.addStretch()
         layout.addLayout(controls)
+        write_controls = QHBoxLayout()
+        write_controls.addWidget(self.write_button)
+        write_controls.addWidget(self.speed_write_button)
+        write_controls.addWidget(self.speed)
+        write_controls.addStretch()
+        layout.addLayout(write_controls)
         self.f8_option.toggled.connect(self.update_stop_mode)
         self.status = QLabel("未录制 · 鼠标移动每 10 毫秒采样，最多 20000 个事件；按键、点击及滚轮不降采样")
         self.status.setWordWrap(True)
@@ -114,6 +133,8 @@ class RecordingView(QWidget):
         self.start_button.setEnabled(not self.busy)
         self.stop_button.setEnabled(self.busy)
         self.write_button.setEnabled(not self.busy and bool(self.drafts) and not self.written)
+        self.speed_write_button.setEnabled(self.write_button.isEnabled())
+        self.speed.setEnabled(not self.busy and not self.written)
         self.clear_button.setEnabled(not self.busy and bool(self.drafts))
         for control in (self.delay, self.f8_option, self.hide_option, self.timing_option, self.connect_option, self.auto_option):
             control.setEnabled(not self.busy)
@@ -228,7 +249,11 @@ class RecordingView(QWidget):
                                            json.dumps(draft.parameters, ensure_ascii=False))):
                 self.preview.setItem(row, column, QTableWidgetItem(text))
 
-    def write(self):
+    def write_at_speed(self):
+        self.speed.interpretText()
+        self.write(speed=self.speed.value())
+
+    def write(self, *, speed=1.0):
         if self.busy or not self.drafts or self.written:
             return
         if self.window.command_thread.isRunning():
@@ -236,12 +261,13 @@ class RecordingView(QWidget):
             return
         try:
             workspace = self.window.workspace
-            ids = workspace.repository.append_recording(self.drafts, connect=self.connect_option.isChecked())
+            drafts = recording_at_speed(self.drafts, speed)
+            ids = workspace.repository.append_recording(drafts, connect=self.connect_option.isChecked())
             self.written = True  # Never insert a duplicate if projection refresh fails.
             self.update_buttons()
             workspace.reload_graph()
             workspace.graphFinalized.emit(False)
-            self.status.setText(f"已追加 {len(ids)} 条指令 · 表格、流程图与多功能已同步 · 未修改原有指令")
+            self.status.setText(f"已按 {speed:g} 倍速追加 {len(ids)} 条指令 · 表格、流程图与多功能已同步 · 未修改原有指令")
             workspace.statusMessage.emit(f"键鼠录制已写入：{len(ids)} 条指令")
         except Exception as error:
             QMessageBox.warning(self, "录制写入失败", str(error))

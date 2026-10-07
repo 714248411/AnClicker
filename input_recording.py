@@ -1,7 +1,8 @@
 """Opt-in, bounded input capture and conversion to ordinary persisted commands."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import math
 from threading import RLock
 import time
 import uuid
@@ -141,6 +142,20 @@ def events_to_drafts(events, preserve_timing=True):
         add("鼠标点击", {"鼠标": button_label(button), "录制鼠标键": button,
                       "录制动作": "松开", "次数": 1, "间隔": 0, "按压": 0}, last_time)
     return drafts
+
+
+def recording_at_speed(drafts, speed=1.0):
+    """Copy a recording at a new playback rate without changing input identity/order."""
+    speed = float(speed)
+    if not math.isfinite(speed) or speed <= 0:
+        raise ValueError("录制倍速必须是大于 0 的有限数值")
+    result = []
+    for draft in drafts:
+        parameters = dict(draft.parameters)
+        if "录制时间" in parameters:
+            parameters["录制时间"] = round(float(parameters["录制时间"]) / speed, 6)
+        result.append(replace(draft, parameters=parameters))
+    return result
 
 
 def button_label(button):

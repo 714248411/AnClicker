@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, Signal, Qt
+from PySide6.QtCore import QPoint, QPointF, Signal, Qt
 from PySide6.QtGui import QKeySequence, QPainter
 from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
@@ -34,6 +34,9 @@ class NodeView(QGraphicsView):
         self._panning = False
         self._pan_start = QPoint()
         self._pan_moved = False
+        self._pan_button = Qt.MouseButton.NoButton
+        self._pan_origin = QPointF()
+        self._pan_scroll_origin = QPoint()
         self._instruction_types: set[str] = set()
         self._instruction_specs = {}
         self.template_names_provider = lambda: ()
@@ -44,7 +47,8 @@ class NodeView(QGraphicsView):
             | QPainter.RenderHint.TextAntialiasing
             | QPainter.RenderHint.SmoothPixmapTransform
         )
-        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
+        self.setToolTip("空白处按住鼠标中键拖动画布；滚轮缩放；左键框选。")
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
@@ -56,6 +60,9 @@ class NodeView(QGraphicsView):
         self._instruction_specs = dict(type_ids_) if hasattr(type_ids_, "items") else {}
 
     def wheelEvent(self, event_):
+        if self._panning:
+            event_.accept()
+            return
         factor_ = 1.15 if event_.angleDelta().y() > 0 else 1.0 / 1.15
         new_zoom_ = max(MIN_ZOOM, min(self._zoom * factor_, MAX_ZOOM))
         if new_zoom_ != self._zoom:
@@ -70,10 +77,18 @@ class NodeView(QGraphicsView):
             and bool(event_.modifiers() & Qt.KeyboardModifier.ControlModifier)
             and self.itemAt(event_.position().toPoint()) is None
         )
-        if event_.button() == Qt.MouseButton.RightButton or ctrl_pan_:
+        middle_pan_ = (event_.button() == Qt.MouseButton.MiddleButton
+                       and self.itemAt(event_.position().toPoint()) is None)
+        if self._panning:
+            event_.accept()
+            return
+        if event_.button() == Qt.MouseButton.RightButton or ctrl_pan_ or middle_pan_:
             self._panning = True
             self._pan_moved = False
             self._pan_start = event_.position().toPoint()
+            self._pan_origin = event_.position()
+            self._pan_scroll_origin = QPoint(self.horizontalScrollBar().value(), self.verticalScrollBar().value())
+            self._pan_button = event_.button()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event_.accept()
             return
@@ -81,30 +96,37 @@ class NodeView(QGraphicsView):
 
     def mouseMoveEvent(self, event_):
         if self._panning:
-            current_position_ = event_.position().toPoint()
-            delta_ = current_position_ - self._pan_start
-            if delta_.manhattanLength() > 2:
+            delta_ = event_.position() - self._pan_origin
+            if abs(delta_.x()) + abs(delta_.y()) > 2:
                 self._pan_moved = True
-            self._pan_start = current_position_
             self.horizontalScrollBar().setValue(
-                self.horizontalScrollBar().value() - delta_.x()
+                self._pan_scroll_origin.x() - round(delta_.x())
             )
             self.verticalScrollBar().setValue(
-                self.verticalScrollBar().value() - delta_.y()
+                self._pan_scroll_origin.y() - round(delta_.y())
             )
             event_.accept()
             return
         super().mouseMoveEvent(event_)
 
     def mouseReleaseEvent(self, event_):
-        if self._panning and event_.button() in {
-            Qt.MouseButton.RightButton, Qt.MouseButton.LeftButton
-        }:
+        if self._panning and event_.button() == self._pan_button:
+            self.mouseMoveEvent(event_)
             self._panning = False
+            if self._pan_button != Qt.MouseButton.RightButton:
+                self._pan_moved = False
+            self._pan_button = Qt.MouseButton.NoButton
             self.unsetCursor()
             event_.accept()
             return
         super().mouseReleaseEvent(event_)
+
+    def focusOutEvent(self, event_):
+        self._panning = False
+        self._pan_button = Qt.MouseButton.NoButton
+        self._pan_moved = False
+        self.unsetCursor()
+        super().focusOutEvent(event_)
 
     def dragEnterEvent(self, event_):
         if self._drop_type(event_) is not None:
