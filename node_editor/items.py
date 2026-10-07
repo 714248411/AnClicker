@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import weakref
+
 import math
 
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
@@ -39,16 +41,33 @@ class PortItem(QGraphicsObject):
 
     def __init__(self, node_, direction_, link_kind_=None):
         super().__init__(node_)
-        self.node = node_
+        self._node_ref = weakref.ref(node_)
         self.direction = direction_
         self.link_kind = link_kind_
-        self.edges: list[EdgeItem] = []
+        self._edge_refs = []
         self.setAcceptHoverEvents(True)
         self.setToolTip("流程输入" if direction_ == "input" else "流程输出")
         if link_kind_ is not None:
             self.setToolTip("条件否（顶部输出）" if link_kind_ == 2 else "条件是（右侧输出）")
         self.setZValue(2.0)
         self.setCursor(Qt.CursorShape.CrossCursor)
+
+    @property
+    def node(self):
+        return self._node_ref()
+
+    @property
+    def edges(self):
+        # Scene/edge own nodes; back-references must not form Python cycles
+        # that let GC destroy Qt parents and children in an arbitrary order.
+        return [edge for ref in self._edge_refs if (edge := ref()) is not None]
+
+    def add_edge(self, edge):
+        self._edge_refs = [ref for ref in self._edge_refs if ref() is not None]
+        self._edge_refs.append(weakref.ref(edge))
+
+    def remove_edge(self, edge):
+        self._edge_refs = [ref for ref in self._edge_refs if ref() is not None and ref() is not edge]
 
     def mousePressEvent(self, event_):
         if event_.button() == Qt.MouseButton.LeftButton and self.scene() is not None:
@@ -425,8 +444,8 @@ class EdgeItem(QGraphicsPathItem):
                             else source_node_.output_port)
         self.target_port = target_node_.input_port
         self.link_kind = int(link_kind_ or 0)
-        self.source_port.edges.append(self)
-        self.target_port.edges.append(self)
+        self.source_port.add_edge(self)
+        self.target_port.add_edge(self)
         self.setZValue(-1.0)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setAcceptHoverEvents(True)
@@ -649,7 +668,5 @@ class EdgeItem(QGraphicsPathItem):
         self.update_path()
 
     def detach(self):
-        if self in self.source_port.edges:
-            self.source_port.edges.remove(self)
-        if self in self.target_port.edges:
-            self.target_port.edges.remove(self)
+        self.source_port.remove_edge(self)
+        self.target_port.remove_edge(self)

@@ -28,8 +28,8 @@ from 数据库操作 import DatabaseOperation
 class BrandingAndThemeTests(unittest.TestCase):
     def test_branding_and_qq_group_are_current(self):
         self.assertEqual(APP_NAME, "An Clicker")
-        self.assertEqual(CURRENT_VERSION, "v1.2.1")
-        self.assertEqual(WINDOW_TITLE, "An Clicker    [v1.2.1]")
+        self.assertEqual(CURRENT_VERSION, "v1.2.2")
+        self.assertEqual(WINDOW_TITLE, "An Clicker    [v1.2.2]")
         self.assertEqual(QQ, "84284936")
         self.assertIn("group_code=84284936", QQ_GROUP)
         self.assertTrue(QQ_GROUP.startswith("http://qm.qq.com/cgi-bin/qm/qr?"))

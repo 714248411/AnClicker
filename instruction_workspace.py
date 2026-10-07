@@ -487,11 +487,11 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                if spec_.type_id == '中键激活':
+                if spec_.type_id in {'中键激活', '时间等待'}:
                     from instructions.common.test_runner import run_cancellable_test
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:
-                        self.statusMessage.emit('中键激活测试已取消')
+                        self.statusMessage.emit(f'{spec_.display_name}测试已取消')
                         return
                 else:
                     spec_.create_executor().execute(context_, command_)

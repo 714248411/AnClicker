@@ -29,7 +29,7 @@ class CancellableTestDialog(QDialog):
         self.setMinimumWidth(360)
         self.context = context
         layout = QVBoxLayout(self)
-        self.message = QLabel('正在启动鼠标监听…', self)
+        self.message = QLabel(f'正在测试：{spec.display_name}…', self)
         self.message.setWordWrap(True)
         layout.addWidget(self.message)
         self.cancel_button = QPushButton('取消测试（Esc）', self)
@@ -44,7 +44,7 @@ class CancellableTestDialog(QDialog):
     def done(self, result):
         if not self._finished_safely:
             self.context.stop_requested = True
-            self.message.setText('正在取消测试并释放鼠标监听…')
+            self.message.setText('正在取消测试并安全结束等待…')
             self.cancel_button.setEnabled(False)
             return
         super().done(result)
