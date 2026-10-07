@@ -6,10 +6,11 @@ import hashlib
 import json
 import os
 
-from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap
+from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QDialog,
     QFormLayout,
     QFrame,
@@ -54,10 +55,88 @@ class InstructionTableWidget(QTableWidget):
     """Command table that accepts instruction MIME drops from the palette."""
 
     instructionDropped = Signal(str)
+    deleteRequested = Signal()
+    copyRequested = Signal()
+    pasteRequested = Signal()
+    rowsMoved = Signal(object, int)
+    ROW_MIME = 'application/x-anclicker-table-row'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAcceptDrops(True)
+        self._row_press = None
+        self._drop_line = QFrame(self.viewport())
+        self._drop_line.setStyleSheet('background: #5b6fdc;')
+        self._drop_line.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._drop_line.hide()
+
+    def selected_command_ids(self):
+        rows = sorted({index.row() for index in self.selectedIndexes()})
+        return [int(self.item(row, 0).data(Qt.ItemDataRole.UserRole)) for row in rows
+                if self.item(row, 0) is not None]
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self.deleteRequested.emit()
+        elif event.matches(QKeySequence.StandardKey.Copy):
+            self.copyRequested.emit()
+        elif event.matches(QKeySequence.StandardKey.Paste):
+            self.pasteRequested.emit()
+        else:
+            super().keyPressEvent(event)
+            return
+        event.accept()
+
+    def contextMenuEvent(self, event):
+        index = self.indexAt(event.pos())
+        if index.isValid() and not self.selectionModel().isSelected(index):
+            self.clearSelection()
+            self.setCurrentCell(index.row(), index.column())
+        menu = QMenu(self)
+        count = len(self.selected_command_ids())
+        copy = menu.addAction(f'复制选中指令（{count} 行）', self.copyRequested.emit)
+        copy.setEnabled(count > 0)
+        menu.addAction('粘贴指令到表格末尾', self.pasteRequested.emit)
+        menu.addSeparator()
+        delete = menu.addAction(f'删除选中指令（{count} 行）', self.deleteRequested.emit)
+        delete.setEnabled(count > 0)
+        menu.exec(event.globalPos())
+
+    def mousePressEvent(self, event):
+        self._row_press = None
+        index = self.indexAt(event.position().toPoint())
+        if event.button() == Qt.MouseButton.LeftButton and index.isValid() and index.column() == 0:
+            self.selectRow(index.row())
+            self._row_press = (event.position().toPoint(), self.item(index.row(), 0).data(Qt.ItemDataRole.UserRole))
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._row_press is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            origin, command_id = self._row_press
+            if (event.position().toPoint() - origin).manhattanLength() >= QApplication.startDragDistance():
+                self._row_press = None
+                drag = QDrag(self)
+                mime = QMimeData()
+                mime.setData(self.ROW_MIME, str(command_id).encode('ascii'))
+                drag.setMimeData(mime)
+                drag.exec(Qt.DropAction.MoveAction)
+                self._drop_line.hide()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._row_press = None
+        super().mouseReleaseEvent(event)
+
+    def _drop_row(self, event):
+        point = event.position().toPoint()
+        index = self.indexAt(point)
+        if not index.isValid():
+            return self.rowCount()
+        row = index.row()
+        return row + int(point.y() > self.visualRect(index).center().y())
 
     @staticmethod
     def _type_id(event_):
@@ -69,24 +148,48 @@ class InstructionTableWidget(QTableWidget):
             return None
 
     def dragEnterEvent(self, event_):
-        if self._type_id(event_):
+        if event_.source() is self and event_.mimeData().hasFormat(self.ROW_MIME):
+            event_.acceptProposedAction()
+        elif self._type_id(event_):
             event_.acceptProposedAction()
         else:
             super().dragEnterEvent(event_)
 
     def dragMoveEvent(self, event_):
-        if self._type_id(event_):
+        if event_.source() is self and event_.mimeData().hasFormat(self.ROW_MIME):
+            row = self._drop_row(event_)
+            y = self.rowViewportPosition(row) if row < self.rowCount() else (
+                self.rowViewportPosition(row - 1) + self.rowHeight(row - 1) if row else 0)
+            self._drop_line.setGeometry(0, max(0, y - 1), self.viewport().width(), 2)
+            self._drop_line.show()
+            scroll = self.verticalScrollBar()
+            if event_.position().y() < 20:
+                scroll.setValue(scroll.value() - 1)
+            elif event_.position().y() > self.viewport().height() - 20:
+                scroll.setValue(scroll.value() + 1)
+            event_.acceptProposedAction()
+        elif self._type_id(event_):
             event_.acceptProposedAction()
         else:
             super().dragMoveEvent(event_)
 
     def dropEvent(self, event_):
+        self._drop_line.hide()
+        if event_.source() is self and event_.mimeData().hasFormat(self.ROW_MIME):
+            command_id = int(bytes(event_.mimeData().data(self.ROW_MIME)).decode('ascii'))
+            self.rowsMoved.emit([command_id], self._drop_row(event_))
+            event_.acceptProposedAction()
+            return
         type_id_ = self._type_id(event_)
         if type_id_:
             self.instructionDropped.emit(type_id_)
             event_.acceptProposedAction()
         else:
             super().dropEvent(event_)
+
+    def dragLeaveEvent(self, event):
+        self._drop_line.hide()
+        super().dragLeaveEvent(event)
 
 
 class ViewWorkspace:
@@ -330,7 +433,8 @@ class ViewWorkspace:
         self.command_table.setHorizontalHeaderLabels(
             ["序号", "编号", "指令", "参数", "重复", "异常处理", "备注"]
         )
-        self.command_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.command_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        self.command_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.command_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.command_table.setAlternatingRowColors(True)
         self.command_table.setShowGrid(False)
@@ -344,6 +448,11 @@ class ViewWorkspace:
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
         self.command_table.cellDoubleClicked.connect(self._edit_table_command)
         self.command_table.instructionDropped.connect(self._add_table_command)
+        self.command_table.deleteRequested.connect(self.delete_table_commands)
+        self.command_table.copyRequested.connect(self.copy_table_commands)
+        self.command_table.pasteRequested.connect(self.paste_table_commands)
+        self.command_table.rowsMoved.connect(self.move_table_commands)
+        self.command_table.setToolTip('拖动序号上下排序；其他单元格拖动框选，Ctrl+C / Ctrl+V 复制粘贴，Delete 删除选中行')
 
         # Replace the legacy left/right log layout with a clear vertical stack:
         # commands on top and the continuously updating run log below.
@@ -665,10 +774,92 @@ class ViewWorkspace:
         self.code_status.setText("流程、表格与多功能已同步" if complete else "已同步流程草稿，可按连线优先、其余按添加顺序运行")
 
     def _edit_table_command(self, row: int, _column: int) -> None:
+        if _column == 0 or not self._table_mutation_allowed():
+            return
         item = self.command_table.item(row, 0)
         if item is not None:
             self.window.workspace.edit_command(item.data(Qt.ItemDataRole.UserRole))
             self.refresh_all()
+
+    def _table_mutation_allowed(self):
+        thread = getattr(self.window, 'command_thread', None)
+        if (thread is not None and thread.isRunning()) or self.recording_page.busy:
+            self.window.statusBar.showMessage('请先停止运行或录制，再修改表格。', 3000)
+            return False
+        return True
+
+    def delete_table_commands(self):
+        if not self._table_mutation_allowed():
+            return 0
+        ids = self.command_table.selected_command_ids()
+        if not ids:
+            return 0
+        return self.window.workspace.remove_commands(ids)
+
+    def copy_table_commands(self):
+        from dataclasses import asdict
+        ids = set(self.command_table.selected_command_ids())
+        commands = [c for c in self.window.workspace.repository.list_commands() if c.id in ids]
+        if not commands:
+            return
+        mime = QMimeData()
+        payload = json.dumps([asdict(c.to_draft()) for c in commands], ensure_ascii=False)
+        mime.setData('application/x-anclicker-commands', payload.encode('utf-8'))
+        mime.setText('\n'.join(f'{c.type_id}\t{json.dumps(c.parameters, ensure_ascii=False)}\t{c.repeat_count}\t{c.note}' for c in commands))
+        QApplication.clipboard().setMimeData(mime)
+        self.window.statusBar.showMessage(f'已复制 {len(commands)} 条指令', 2500)
+
+    def paste_table_commands(self):
+        if not self._table_mutation_allowed():
+            return
+        mime = QApplication.clipboard().mimeData()
+        if mime is None or not mime.hasFormat('application/x-anclicker-commands'):
+            self.window.statusBar.showMessage('请先在指令表格中复制指令。', 2500)
+            return
+        try:
+            from instructions.models import InstructionDraft
+            raw = bytes(mime.data('application/x-anclicker-commands'))
+            if len(raw) > 10_000_000:
+                raise ValueError('复制内容过大，请分批粘贴')
+            data = json.loads(raw)
+            if not isinstance(data, list) or not 0 < len(data) <= 10000 or not all(isinstance(x, dict) for x in data):
+                raise ValueError('剪贴板不是有效的指令列表')
+            drafts = [InstructionDraft.from_mapping(item) for item in data]
+            ids = self.window.workspace.repository.append_recording(drafts, connect=False)
+            self.window.workspace.reload_graph(ids[0])
+            self.window.workspace.graphFinalized.emit(False)
+            self._select_table_ids(ids)
+            self.window.statusBar.showMessage(f'已粘贴 {len(ids)} 条指令，表格与流程图已同步', 3000)
+        except Exception as error:
+            QMessageBox.warning(self.window, '粘贴失败', str(error))
+
+    def _select_table_ids(self, ids):
+        from PySide6.QtWidgets import QTableWidgetSelectionRange
+        self.command_table.clearSelection()
+        for row in range(self.command_table.rowCount()):
+            if self.command_table.item(row, 0).data(Qt.ItemDataRole.UserRole) in ids:
+                self.command_table.setRangeSelected(QTableWidgetSelectionRange(row, 0, row, self.command_table.columnCount()-1), True)
+
+    def move_table_commands(self, ids, destination):
+        if not self._table_mutation_allowed():
+            return
+        repo = self.window.workspace.repository
+        current = [c.id for c in repo.list_commands()]
+        moved = [item for item in current if item in ids]
+        remaining = [item for item in current if item not in ids]
+        destination = max(0, min(destination, len(current)))
+        index = destination - sum(item in ids for item in current[:destination])
+        ordered = remaining[:index] + moved + remaining[index:]
+        if ordered == current:
+            return
+        try:
+            rewired = repo.reorder_table_commands(ordered)
+            self.window.workspace.reload_graph(moved[0])
+            self.window.workspace.graphFinalized.emit(False)
+            self._select_table_ids(moved)
+            self.window.statusBar.showMessage('已同步表格排序和流程图' + ('；顺序连线已调整' if rewired else '；现有分支连线保持不变'), 4000)
+        except Exception as error:
+            QMessageBox.warning(self.window, '移动失败', str(error))
 
     def _save_task_name(self) -> None:
         name = self.task_name.text().strip() or "默认任务"

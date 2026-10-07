@@ -50,6 +50,23 @@ class ExecutionOrderTests(unittest.TestCase):
         ids = [self.add() for _ in range(3)]
         self.assertEqual(self.run_ids(), ids)
 
+    def test_table_reorder_updates_unlinked_execution_order(self):
+        a, b, c = [self.add() for _ in range(3)]
+        self.assertFalse(self.repo.reorder_table_commands([c, a, b]))
+        self.assertEqual(self.run_ids(), [c, a, b])
+
+    def test_table_reorder_preserves_branch_edges(self):
+        condition = self.repo.add_command(InstructionDraft(
+            '条件判断', {'条件': 'True'}), unconnected=True).id
+        a, b = self.add(), self.add()
+        self.repo.connect_nodes('start', self.node(condition))
+        self.repo.connect_nodes(self.node(condition), self.node(a))
+        self.repo.connect_nodes(self.node(condition), self.node(b))
+        edges = self.repo.snapshot().edges
+        self.assertFalse(self.repo.reorder_table_commands([b, condition, a]))
+        self.assertEqual(self.repo.snapshot().edges, edges)
+        self.assertEqual(self.run_ids(), [condition, a, b])
+
     def test_linked_chain_first_then_remaining_insertion_order(self):
         a, b, c, d = [self.add() for _ in range(4)]
         self.repo.connect_nodes(self.node(c), self.node(b))

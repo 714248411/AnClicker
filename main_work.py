@@ -293,10 +293,11 @@ class CommandThread(QThread):
         for edge_ in snapshot_.edges:
             outgoing_[edge_.source].append(edge_)
         start_edges_ = outgoing_.get("start", ())
-        # IDs are persistent insertion order; graph projection can change 排序.
+        # Persisted order includes explicit row moves from the table. Links
+        # still take precedence; unlinked commands follow this editable order.
         insertion_nodes_ = sorted(
             (node_ for node_ in snapshot_.nodes if node_.command_id is not None),
-            key=lambda node_: int(node_.command_id),
+            key=lambda node_: (command_by_id_[int(node_.command_id)].order, int(node_.command_id)),
         )
         connected_ = {edge_.source for edge_ in snapshot_.edges} | {
             edge_.target for edge_ in snapshot_.edges

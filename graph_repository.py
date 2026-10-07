@@ -1447,6 +1447,53 @@ class GraphRepository:
         with self._transaction() as connection:
             self._reorder_chain(connection, normalized_ids)
 
+    @classmethod
+    def _is_plain_chain(cls, connection) -> bool:
+        if connection.execute("SELECT 1 FROM 命令 WHERE 类型标识 IN ('条件判断','颜色判断','循环','条件循环') LIMIT 1").fetchone():
+            return False
+        nodes = {row[0] for row in connection.execute('SELECT 节点ID FROM 节点')}
+        edges = cls._edge_records(connection)
+        if len(edges) != len(nodes) - 1 or any(edge.kind != 0 for edge in edges):
+            return False
+        outgoing = {}
+        incoming = set()
+        for edge in edges:
+            if edge.source in outgoing or edge.target in incoming:
+                return False
+            outgoing[edge.source] = edge.target
+            incoming.add(edge.target)
+        visited, current = set(), START_NODE_ID
+        while current not in visited:
+            visited.add(current)
+            if current == END_NODE_ID:
+                return visited == nodes
+            if current not in outgoing:
+                return False
+            current = outgoing[current]
+        return False
+
+    def is_plain_chain(self) -> bool:
+        with self._connection() as connection:
+            return self._is_plain_chain(connection)
+
+    def reorder_table_commands(self, command_ids: Sequence[int]) -> bool:
+        """Persist table order/layout; only rewire a complete ordinary chain."""
+        ids = [int(item) for item in command_ids]
+        with self._transaction(validate_graph=False) as connection:
+            rows = connection.execute('SELECT 命令.ID, 节点.节点ID, 节点.X, 节点.Y FROM 命令 JOIN 节点 ON 命令.ID=节点.命令ID ORDER BY 命令.排序').fetchall()
+            if len(ids) != len(rows) or len(set(ids)) != len(ids) or set(ids) != {row[0] for row in rows}:
+                raise GraphValidationError('重排必须包含全部命令且每条命令只出现一次')
+            rewire = self._is_plain_chain(connection)
+            if rewire:
+                connection.execute('DELETE FROM flow_edge_metadata')
+                self._reorder_chain(connection, ids)
+            else:
+                self._set_command_orders(connection, ids)
+            node_ids = {row[0]: row[1] for row in rows}
+            for command_id, slot in zip(ids, rows):
+                connection.execute('UPDATE 节点 SET X=?, Y=? WHERE 节点ID=?', (slot[2], slot[3], node_ids[command_id]))
+        return rewire
+
     def reorder_chain_and_save_positions(
         self,
         command_ids: Sequence[int],

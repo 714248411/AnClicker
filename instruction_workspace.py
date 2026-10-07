@@ -183,7 +183,7 @@ class InstructionWorkspace(QObject):
             return 0
         try:
             deleted_ = self.repository.delete_commands(
-                command_ids_, preserve_flow=False
+                command_ids_, preserve_flow=self.repository.is_plain_chain()
             )
             self.reload_graph()
             try:

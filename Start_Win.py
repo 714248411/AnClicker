@@ -377,7 +377,9 @@ class Main_window(QMainWindow, Ui_MainWindow):
                     action.setChecked(True)
 
     def delete_data(self):
-        """删除节点画布中选中的指令。"""
+        """Delete from the active workspace, not stale flow selections."""
+        if self.tabWidget.currentIndex() == 1:
+            return self.view_workspace.delete_table_commands()
         return self.workspace.remove_commands()
 
     def open_project_path(self, file_path):
