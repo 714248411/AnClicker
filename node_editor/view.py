@@ -21,7 +21,9 @@ class NodeView(QGraphicsView):
     runFromRequested = Signal(object)
     deleteConnectionsRequested = Signal(object, str)
     deleteEdgeRequested = Signal(object, object)
+    deleteEdgesRequested = Signal(object)
     undoConnectionsRequested = Signal()
+    redoConnectionsRequested = Signal()
     noteChanged = Signal(object, str)
     saveTemplateRequested = Signal(object, str)
     insertTemplateRequested = Signal(str, float, float)
@@ -36,6 +38,7 @@ class NodeView(QGraphicsView):
         self._instruction_specs = {}
         self.template_names_provider = lambda: ()
         self.connection_undo_count = lambda: 0
+        self.connection_redo_count = lambda: 0
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing
             | QPainter.RenderHint.TextAntialiasing
@@ -150,6 +153,10 @@ class NodeView(QGraphicsView):
         action = menu.addAction(f'撤销连线操作（剩余 {count} 步，最多 20 步）')
         action.setEnabled(count > 0)
         action.triggered.connect(self.undoConnectionsRequested.emit)
+        redo_count = self.connection_redo_count()
+        redo = menu.addAction(f'回退连线（重做，剩余 {redo_count} 步）')
+        redo.setEnabled(redo_count > 0)
+        redo.triggered.connect(self.redoConnectionsRequested.emit)
         return action
 
     def contextMenuEvent(self, event_):
@@ -157,21 +164,33 @@ class NodeView(QGraphicsView):
             self._pan_moved = False
             event_.accept()
             return
+        node_ = self._node_at(event_.pos())
         edge = self.itemAt(event_.pos())
-        if isinstance(edge, EdgeItem):
-            source, target = edge.source_node.node_id, edge.target_node.node_id
-            self.scene().clearSelection()
-            edge.setSelected(True)
+        selected_edges = [item for item in self.scene().selectedItems() if isinstance(item, EdgeItem)]
+        in_edge_selection = False
+        if selected_edges:
+            bounds = selected_edges[0].sceneBoundingRect()
+            for item in selected_edges[1:]:
+                bounds = bounds.united(item.sceneBoundingRect())
+            in_edge_selection = bounds.contains(self.mapToScene(event_.pos()))
+        if node_ is None and (isinstance(edge, EdgeItem) or in_edge_selection):
+            if isinstance(edge, EdgeItem) and not edge.isSelected():
+                self.scene().clearSelection()
+                edge.setSelected(True)
+                selected_edges = [edge]
+            pairs = [(item.source_node.node_id, item.target_node.node_id) for item in selected_edges]
             menu = QMenu(self)
-            delete = menu.addAction('删除此连线')
+            delete = menu.addAction('删除此连线' if len(pairs) == 1 else f'删除选中连线（{len(pairs)} 根）')
             self._add_connection_undo(menu)
             chosen = menu.exec(event_.globalPos())
             if chosen == delete:
-                self.deleteEdgeRequested.emit(source, target)
+                if len(pairs) == 1:
+                    self.deleteEdgeRequested.emit(*pairs[0])
+                else:
+                    self.deleteEdgesRequested.emit(pairs)
             menu.deleteLater()
             event_.accept()
             return
-        node_ = self._node_at(event_.pos())
         if node_ is None:
             menu_ = QMenu(self)
             self._add_connection_undo(menu_)
@@ -260,10 +279,12 @@ class NodeView(QGraphicsView):
             menu_.addSeparator()
             run_single_action_ = menu_.addAction("运行此指令")
             run_from_action_ = menu_.addAction("从此指令运行")
-            menu_.addSeparator()
-            delete_all_edges_ = menu_.addAction("删除流程连接线")
-            delete_incoming_edge_ = menu_.addAction("删除前流程连接线")
-            delete_outgoing_edge_ = menu_.addAction("删除后流程连接线")
+        menu_.addSeparator()
+        delete_all_edges_ = menu_.addAction("删除流程连接线")
+        delete_incoming_edge_ = menu_.addAction("删除前流程连接线")
+        delete_outgoing_edge_ = menu_.addAction("删除后流程连接线")
+        for action in (delete_all_edges_, delete_incoming_edge_, delete_outgoing_edge_):
+            action.setToolTip('仅作用于当前右键点击的流程方块')
         selected_action_ = menu_.exec(event_.globalPos())
         if selected_action_ is None:
             event_.accept()
@@ -290,11 +311,11 @@ class NodeView(QGraphicsView):
             self.runSingleRequested.emit(selected_ids_[0])
         elif selected_action_ == run_from_action_:
             self.runFromRequested.emit(selected_ids_[0])
-        elif len(selected_ids_) == 1 and selected_action_ == delete_all_edges_:
+        elif selected_action_ == delete_all_edges_:
             self.deleteConnectionsRequested.emit(node_.node_id, "all")
-        elif len(selected_ids_) == 1 and selected_action_ == delete_incoming_edge_:
+        elif selected_action_ == delete_incoming_edge_:
             self.deleteConnectionsRequested.emit(node_.node_id, "incoming")
-        elif len(selected_ids_) == 1 and selected_action_ == delete_outgoing_edge_:
+        elif selected_action_ == delete_outgoing_edge_:
             self.deleteConnectionsRequested.emit(node_.node_id, "outgoing")
         event_.accept()
 

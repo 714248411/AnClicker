@@ -38,6 +38,7 @@ class InstructionWorkspace(QObject):
         self.palette = InstructionPalette(INSTRUCTION_SPECS, parent_=parent)
         self.editor = NodeEditorWidget(parent_=parent)
         self._connection_history = []
+        self._connection_redo = []
         self._connection_expected = None
         self._connect_signals()
         self.reload_graph()
@@ -63,8 +64,11 @@ class InstructionWorkspace(QObject):
         self.editor.manageTemplatesRequested.connect(self._manage_templates)
         self.editor.view.template_names_provider = self._template_names
         self.editor.view.deleteEdgeRequested.connect(self._delete_edge)
+        self.editor.view.deleteEdgesRequested.connect(self._delete_edges)
         self.editor.view.undoConnectionsRequested.connect(self.undo_connections)
+        self.editor.view.redoConnectionsRequested.connect(self.redo_connections)
         self.editor.view.connection_undo_count = lambda: len(self._connection_history)
+        self.editor.view.connection_redo_count = lambda: len(self._connection_redo)
 
     # Public node-workspace interface used by the main window.
     def selected_command_ids(self) -> list[int]:
@@ -78,6 +82,7 @@ class InstructionWorkspace(QObject):
         state = self._connection_state(snapshot_)
         if self._connection_expected is not None and state != self._connection_expected:
             self._connection_history.clear()
+            self._connection_redo.clear()
         self._connection_expected = state
         self.editor.load_graph(
             snapshot_.nodes, snapshot_.edges, INSTRUCTION_SPECS,
@@ -286,17 +291,26 @@ class InstructionWorkspace(QObject):
         after = self._connection_state(self.repository.snapshot())
         if self._connection_expected != before:
             self._connection_history.clear()
+            self._connection_redo.clear()
         if before != after:
+            self._connection_redo.clear()
             self._connection_history.append(before)
             self._connection_history = self._connection_history[-20:]
         self._connection_expected = after
 
     def _delete_edge(self, source, target):
+        self._delete_edges([(source, target)])
+
+    def _delete_edges(self, pairs):
         if not self._connection_edit_allowed():
             return
         before = self._connection_state(self.repository.snapshot())
         try:
-            count = self.repository.delete_connection(str(source), str(target))
+            targets = {(str(source), str(target)) for source, target in pairs}
+            remaining = tuple(edge for edge in before[2] if (edge.source, edge.target) not in targets)
+            count = len(before[2]) - len(remaining)
+            if count:
+                self.repository.restore_connections(remaining, before[1])
             self._remember_connections(before)
             self.reload_graph()
             self.graphFinalized.emit(False)
@@ -310,6 +324,7 @@ class InstructionWorkspace(QObject):
         current = self._connection_state(self.repository.snapshot())
         if current != self._connection_expected:
             self._connection_history.clear()
+            self._connection_redo.clear()
             self._connection_expected = current
         if not self._connection_history:
             self.statusMessage.emit('没有可撤销的连线操作')
@@ -318,12 +333,38 @@ class InstructionWorkspace(QObject):
         try:
             self.repository.restore_connections(previous[2], previous[1])
             self._connection_history.pop()
+            self._connection_redo.append(current)
+            self._connection_redo = self._connection_redo[-20:]
             self._connection_expected = previous
             self.reload_graph()
             self.graphFinalized.emit(False)
             self.statusMessage.emit(f'已撤销连线操作，剩余 {len(self._connection_history)} 步')
         except Exception as error:
             self._show_error('撤销连线失败', error)
+
+    def redo_connections(self):
+        if not self._connection_edit_allowed():
+            return
+        current = self._connection_state(self.repository.snapshot())
+        if current != self._connection_expected:
+            self._connection_history.clear()
+            self._connection_redo.clear()
+            self._connection_expected = current
+        if not self._connection_redo:
+            self.statusMessage.emit('没有可回退（重做）的连线操作')
+            return
+        following = self._connection_redo[-1]
+        try:
+            self.repository.restore_connections(following[2], following[1])
+            self._connection_redo.pop()
+            self._connection_history.append(current)
+            self._connection_history = self._connection_history[-20:]
+            self._connection_expected = following
+            self.reload_graph()
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit(f'已重做连线操作，剩余 {len(self._connection_redo)} 步')
+        except Exception as error:
+            self._show_error('重做连线失败', error)
 
     def _connect_nodes(self, source_id, target_id, kind=None) -> None:
         if not self._connection_edit_allowed():

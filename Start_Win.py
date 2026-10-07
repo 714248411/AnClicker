@@ -735,6 +735,9 @@ class Main_window(QMainWindow, Ui_MainWindow):
             history = getattr(self.workspace, '_connection_history', None)
             if history is not None:
                 history.clear()
+            redo = getattr(self.workspace, '_connection_redo', None)
+            if redo is not None:
+                redo.clear()
         except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError, zipfile.BadZipFile) as error_:
             QMessageBox.warning(
                 self, "导入失败", str(error_), QMessageBox.StandardButton.Ok
