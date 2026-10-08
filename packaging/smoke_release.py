@@ -58,6 +58,10 @@ def main():
             if image_checks.get('count') != 12 or not image_checks.get('synthetic_screen'):
                 raise RuntimeError(f"Packaged image execution checks missing: {ready}")
             print(f"Image execution: {image_checks['count']} real OpenCV checks; synthetic screen, no native input")
+            ocr_checks = ready.get('ocr_validation', {})
+            if not ocr_checks.get('rapidocr') or not ocr_checks.get('isolated_worker'):
+                raise RuntimeError(f'Packaged offline OCR checks missing: {ready}')
+            print(f'Offline OCR: {ocr_checks}')
         result = subprocess.run([str(executable), '--migration-tool', '--startup-smoke-test'],
                                 env=env, cwd=folder, timeout=90)
         if result.returncode or not (Path(folder) / 'migration-ready.json').is_file():

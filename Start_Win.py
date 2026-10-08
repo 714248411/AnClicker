@@ -104,6 +104,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)  # 实例化状态栏
         self.db = DatabaseOperation()
+        from ocr_pool import OcrPool
+        self.ocr_pool = OcrPool()
+        QApplication.instance().aboutToQuit.connect(self.ocr_pool.close)
         self.workspace = InstructionWorkspace(self.db.db_path, self)
         self._install_instruction_workspace()
         self.view_workspace = ViewWorkspace(self)
@@ -158,6 +161,10 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         # 主窗体开始按钮
         self.pushButton_5.clicked.connect(lambda: self.global_shortcut_key("开始线程"))
         self.start_time = None
+        self._runtime_messages = collections.deque(maxlen=1500)
+        self._runtime_message_timer = QTimer(self)
+        self._runtime_message_timer.setInterval(40)
+        self._runtime_message_timer.timeout.connect(self._flush_runtime_messages)
         self.pushButton_6.clicked.connect(
             lambda: self.global_shortcut_key("终止线程")
         )  # 结束任务按钮
@@ -823,6 +830,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return False
 
     def _runtime_finished(self):
+        self._flush_runtime_messages(all_pending=True)
         if getattr(self, '_closing', False):
             return
         if self.command_thread.isRunning():
@@ -854,6 +862,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def clear_textEdit(self):
         """清空日志，主要用于在全局快捷键线程中调用，避免线程阻塞引发的程序闪退"""
+        self._runtime_message_timer.stop()
+        self._runtime_messages.clear()
         self.textEdit.clear()
 
     @Slot(int)
@@ -866,6 +876,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def exporting_operation_logs(self):
         """导出操作日志"""
+        self._flush_runtime_messages(all_pending=True)
         # 打开保存文件对话框
         target_path = QFileDialog.getSaveFileName(
             parent=self,
@@ -920,10 +931,22 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
     def send_message(self, message):
         """向日志窗口发送信息"""
         time_message = f"<font color=#ffff00>{get_str_now_time()}</font>"
-        if message != "换行":
-            self.textEdit.append(f"{time_message}&nbsp;&nbsp;&nbsp;&nbsp;{message}")
+        text_ = (f"{time_message}&nbsp;&nbsp;&nbsp;&nbsp;{message}"
+                 if message != "换行" else "<br>")
+        self._runtime_messages.append(text_)
+        if self.command_thread.isRunning():
+            if not self._runtime_message_timer.isActive():
+                self._runtime_message_timer.start()
         else:
-            self.textEdit.append('')
+            self._flush_runtime_messages(all_pending=True)
+
+    def _flush_runtime_messages(self, all_pending=False):
+        count_ = len(self._runtime_messages) if all_pending else min(128, len(self._runtime_messages))
+        if count_:
+            text_ = "".join(f"<p>{self._runtime_messages.popleft()}</p>" for _ in range(count_))
+            self.textEdit.append(text_)
+        if not self._runtime_messages:
+            self._runtime_message_timer.stop()
 
     def thread_finished(self, message):
 
@@ -939,6 +962,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                 return f"{elapsed_time_sec}秒"
 
         self.send_message(f"{message}，耗时{send_elapsed_time()}。")
+        self._flush_runtime_messages(all_pending=True)
         if self.checkBox_2.isChecked():  # 显示窗口
             self.show()
             QApplication.processEvents()

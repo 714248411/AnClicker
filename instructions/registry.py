@@ -56,6 +56,12 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
         "数字验证码", "OCR识别",
     )),
     _spec("写入单元格", "Excel", "#5b6fdc"),
+    *(_spec(name_, "本地OCR", "#527cbb") for name_ in (
+        "OCR文字提取", "OCR精准找字点击", "OCR模糊找字返回坐标",
+        "OCR范围找字", "OCR等待文字出现", "OCR等待文字消失",
+        "截图OCR", "OCR复制", "OCR粘贴",
+        "OCR识别区域返回坐标", "OCR点击识别区域",
+    )),
     *(_spec(name_, "其他", "#8e44ad") for name_ in (
         "运行Python", "运行cmd", "运行外部文件", "窗口控制", "信息录入",
         "屏幕截图", "提示音", "提示窗口", "发送消息",
@@ -76,8 +82,8 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
 )
 
 _SPEC_BY_ID = {spec_.type_id: spec_ for spec_ in INSTRUCTION_SPECS}
-if len(INSTRUCTION_SPECS) != 41 or len(_SPEC_BY_ID) != 41:
-    raise RuntimeError("指令注册表必须包含 41 个唯一 type_id")
+if len(INSTRUCTION_SPECS) != 52 or len(_SPEC_BY_ID) != 52:
+    raise RuntimeError("指令注册表必须包含 52 个唯一 type_id")
 
 
 def get_instruction_spec(type_id: str) -> InstructionSpec:

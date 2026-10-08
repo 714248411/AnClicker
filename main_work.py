@@ -23,6 +23,9 @@ class CommandThread(QThread):
     cache_cleanup_requested = Signal(int, name="cache_cleanup_requested")
 
     CACHE_CLEANUP_INTERVAL = 25
+    CACHE_CLEANUP_SECONDS = 30.0
+    CPU_SLICE_SECONDS = 0.015
+    COOPERATIVE_YIELD_MS = 2
 
     def __init__(self, main_window):
         super().__init__(parent=None)
@@ -39,6 +42,8 @@ class CommandThread(QThread):
         self.is_paused = False
         self._active_context: ExecutionContext | None = None
         self._stop_requested = False
+        self._persisted_values: dict[str, str] = {}
+        self._next_cpu_yield = time.thread_time() + self.CPU_SLICE_SECONDS
 
     def set_run_mode(self, mode: str, info: int) -> None:
         """Set mode to 全部指令、单行指令 or 从当前行运行.
@@ -64,6 +69,10 @@ class CommandThread(QThread):
             self.mutex.unlock()
 
     def run(self) -> None:
+        if self.isRunning():
+            self.setPriority(QThread.Priority.LowPriority)
+        self._next_cpu_yield = time.thread_time() + self.CPU_SLICE_SECONDS
+        self._persisted_values = {}
         self.mutex.lock()
         try:
             self.start_state = not self._stop_requested
@@ -87,6 +96,8 @@ class CommandThread(QThread):
             return
 
         variables_ = self._load_variables()
+        self._persisted_values = {str(name): str(value) for name, value in variables_.items()}
+        last_cleanup_ = time.monotonic()
         services_ = getattr(self.main_window, "execution_services", {}) or {}
         loop_is_infinite_ = self.number_cycles == -1
         self.number = 1
@@ -124,8 +135,10 @@ class CommandThread(QThread):
                 break
             self.send_message.emit("换行")
             self.send_message.emit(f"完成第{self.number}次循环")
-            if self.number % self.CACHE_CLEANUP_INTERVAL == 0:
+            if (self.number % self.CACHE_CLEANUP_INTERVAL == 0
+                    and time.monotonic() - last_cleanup_ >= self.CACHE_CLEANUP_SECONDS):
                 self._release_runtime_cache()
+                last_cleanup_ = time.monotonic()
             self.number += 1
 
         self._release_runtime_cache(notify=False)
@@ -213,6 +226,9 @@ class CommandThread(QThread):
     def check_mutex(self) -> bool:
         self.mutex.lock()
         try:
+            if self.start_state and time.thread_time() >= self._next_cpu_yield:
+                self.condition.wait(self.mutex, self.COOPERATIVE_YIELD_MS)
+                self._next_cpu_yield = time.thread_time() + self.CPU_SLICE_SECONDS
             paused_at_ = time.monotonic() if self.is_paused else None
             while self.is_paused and self.start_state:
                 self.condition.wait(self.mutex)
@@ -363,6 +379,8 @@ class CommandThread(QThread):
 
             result_ = None
             while self.start_state:
+                if not self.check_mutex():
+                    return
                 try:
                     result_ = self._execute_one(command_, context_)
                     self._persist_variables(context_.variables)
@@ -578,7 +596,12 @@ class CommandThread(QThread):
 
     def _persist_variables(self, variables_: dict) -> None:
         try:
-            self.db.persist_global_variables(variables_)
+            values_ = {str(name): str(value) for name, value in variables_.items()}
+            changed_ = {name: value for name, value in values_.items()
+                        if self._persisted_values.get(name) != value}
+            if changed_:
+                self.db.persist_global_variables(changed_)
+                self._persisted_values.update(changed_)
         except Exception as error_:
             self.send_message.emit(f"保存全局变量失败：{error_}")
 

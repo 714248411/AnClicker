@@ -133,4 +133,6 @@ Windows Velopack 绿色便携版仅交付 ZIP，不生成安装包；完整解�
 
 ## 开源致谢
 
+本地 OCR 与智能截图说明见 [LOCAL_OCR.md](LOCAL_OCR.md)。感谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[ONNX Runtime](https://github.com/microsoft/onnxruntime)、[OpenCV](https://github.com/opencv/opencv) 及微信 OCR 社区适配项目 [wechat_ocr](https://github.com/kanadeblisst00/wechat_ocr)、[wechat-ocr](https://github.com/swigger/wechat-ocr)。遵循各自许可，微信私有原生组件不随包分发。截图交互参考 [Snipaste](https://www.snipaste.com/)，实现独立编写；Snipaste 并非本项目使用的开源代码依赖，也未完整复刻其所有功能。
+
 感谢 [Project Graph](https://github.com/graphif/project-graph) 的开源作者与全体贡献者。流程图右键拖拽切线交互与视觉反馈参考其设计，本项目的 Qt 实现独立编写。致谢仅展示在仓库介绍中，应用内不再添加该展示区；原有许可证与版权声明保留。

@@ -13,7 +13,7 @@ if project_root not in sys.path:
 from instructions.registry import hidden_imports as instruction_hidden_imports
 from info import (CURRENT_VERSION, APP_ID, APP_NAME, EXECUTABLE_NAME, VERSION, WINDOWS_VERSION,
                   COMPANY_NAME, COPYRIGHT, MACOS_BUNDLE_ID, UPDATE_CONFIG, update_source_config)
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
 from 数据库操作 import DatabaseOperation
 
 # Never bundle a developer's live commands or recording data in a release.
@@ -53,6 +53,14 @@ def collect_instruction_datas():
 
 
 instruction_datas = collect_instruction_datas()
+import rapidocr_onnxruntime
+rapid_source = Path(project_root) / 'ocr_models' / 'rapidocr'
+if not rapid_source.is_dir():
+    rapid_source = Path(rapidocr_onnxruntime.__file__).parent / 'models'
+instruction_datas.extend((str(path), 'ocr_models/rapidocr') for path in rapid_source.glob('*.onnx'))
+# Native WeChat components remain local opt-in, not publicly redistributed.
+if sys.platform == 'win32' and os.environ.get('ANCLICKER_BUNDLE_WXOCR') == '1':
+    instruction_datas.append((str(Path(project_root)/'ocr_models'/'wechat'), 'ocr_models/wechat'))
 if sys.platform == 'win32':
     import json
     source_snapshot = stable_seed(UPDATE_CONFIG['snapshot_name'],
@@ -65,7 +73,7 @@ icon_path = os.path.join(project_root, 'clicker.ico') if sys.platform == 'win32'
 a = Analysis(
     [os.path.join(project_root, 'main.py')],
     pathex=[project_root],
-    binaries=[],
+    binaries=collect_dynamic_libs('onnxruntime'),
     datas=[
         (seed_database, 'defaults'),
         (os.path.join(project_root, 'flat', 'Combinear.qss'), 'flat'),
@@ -73,9 +81,10 @@ a = Analysis(
         (os.path.join(project_root, 'flat', 'chevron-up.svg'), 'flat'),
         (os.path.join(project_root, 'flat', '开屏.png'), 'flat'),
         (os.path.join(project_root, 'Window', 'res', 'donation_qr.png'), 'Window/res'),
-    ] + instruction_datas,
+    ] + instruction_datas + collect_data_files('rapidocr_onnxruntime', excludes=['models/**']),
     hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
-                   *collect_submodules('pynput')],
+                   *collect_submodules('pynput'), *collect_submodules('rapidocr_onnxruntime'),
+                   'local_ocr_worker', 'onnxruntime'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

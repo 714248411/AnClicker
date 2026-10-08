@@ -62,3 +62,5 @@ build-recording/
 /data/*.db
 /data/*.db-*
 /.release-validation
+/ocr_models/
+/wxocr/

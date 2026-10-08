@@ -4,6 +4,8 @@ dynamic = ["version"]
 description = "Cross-platform visual automation workspace for Windows, macOS, and Linux"
 requires-python = ">=3.10"
 dependencies = [
+    "rapidocr-onnxruntime==1.4.4",
+    "onnxruntime==1.20.1",
     "PySide6",
     "pysidesix-frameless-window==0.8.1",
     "pyttsx4",

@@ -1,9 +1,9 @@
 name: Build cross-platform release
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Windows v1.4+ is published only after the local Velopack upgrade gates.
+  # Keep the ordinary cross-platform ZIP builder available on demand; it must
+  # not overwrite a verified Portable release merely because a tag was pushed.
   workflow_dispatch:
 
 permissions:

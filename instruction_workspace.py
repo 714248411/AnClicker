@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QTimer
 from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from graph_repository import END_NODE_ID, GraphRepository
@@ -44,6 +44,8 @@ class InstructionWorkspace(QObject):
         self.reload_graph()
 
     def _connect_signals(self) -> None:
+        self.palette.quickCaptureRequested.connect(self.quick_capture)
+        self.palette.quickOcrCaptureRequested.connect(self.quick_ocr_capture)
         self.palette.instructionActivated.connect(self.add_command)
         self.editor.instructionDropped.connect(self.add_command)
         self.editor.instructionCreateRequested.connect(self.add_command)
@@ -80,6 +82,12 @@ class InstructionWorkspace(QObject):
 
     def reload_graph(self, focus_command_id: Optional[int] = None) -> None:
         snapshot_ = self.repository.snapshot()
+        pool = getattr(self.parent_window, 'ocr_pool', None)
+        if pool is not None:
+            from instructions.common.local_ocr_instruction import OCR_TYPES
+            for command in snapshot_.commands:
+                if command.type_id in OCR_TYPES and command.type_id != 'OCR粘贴':
+                    pool.prewarm(command.parameters.get('引擎', 'RapidOCR'), command.parameters)
         state = self._connection_state(snapshot_)
         if self._connection_expected is not None and state != self._connection_expected:
             self._connection_history.clear()
@@ -93,6 +101,73 @@ class InstructionWorkspace(QObject):
             self.editor.focus_command(int(focus_command_id))
         else:
             self.editor.view.fit_graph()
+
+    def remember_capture(self, path):
+        self._recent_capture = str(path)
+        self.palette.show_recent_capture(path)
+
+    def quick_capture(self):
+        if not self._connection_edit_allowed():
+            return
+        from smart_capture import SmartCaptureDialog, capture_path
+        from functions import IMAGES_FOLDER
+        owner = self.parent_window
+        visible = owner is not None and owner.isVisible()
+        if visible:
+            owner.hide()
+        def choose():
+            dialog = None
+            try:
+                dialog = SmartCaptureDialog()
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    path = capture_path(IMAGES_FOLDER)
+                    dialog.save_selection(path)
+                    self.remember_capture(str(path))
+                    self.statusMessage.emit('截图已准备：拖入“点击快捷截图”或“图像点击”，自动组合为一个图像点击指令。')
+            except Exception as error:
+                self._show_error('快捷截图失败', error)
+            finally:
+                if dialog is not None:
+                    dialog.deleteLater()
+                if visible:
+                    owner.show()
+                    owner.activateWindow()
+        QTimer.singleShot(180, choose)
+
+    def quick_ocr_capture(self):
+        if not self._connection_edit_allowed():
+            return
+        from smart_capture import SmartCaptureDialog
+        from PySide6.QtWidgets import QInputDialog
+        from instructions.models import InstructionDraft
+        owner = self.parent_window
+        visible = owner is not None and owner.isVisible()
+        if visible:
+            owner.hide()
+        def choose():
+            dialog = None
+            region = None
+            try:
+                dialog = SmartCaptureDialog()
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    region = dialog.selected_region()
+            except Exception as error:
+                self._show_error('快捷OCR框选失败', error)
+            finally:
+                if dialog is not None:
+                    dialog.deleteLater()
+                if visible:
+                    owner.show()
+                    owner.activateWindow()
+            if region is None or not self._connection_edit_allowed():
+                return
+            action, accepted = QInputDialog.getItem(owner, '快捷截图（OCR）',
+                '后续流程（运行时识别框选区域）：', ('点击OCR识别区域', '复制OCR内容'), 0, False)
+            if not accepted:
+                return
+            kind = 'OCR点击识别区域' if action == '点击OCR识别区域' else 'OCR复制'
+            self.add_command(kind, initial_draft=InstructionDraft(kind, {'区域': str(tuple(region))}))
+        QTimer.singleShot(180, choose)
 
     def add_selected_instruction(self) -> None:
         type_id_ = self.palette.selected_type_id()
@@ -111,6 +186,7 @@ class InstructionWorkspace(QObject):
         type_id: str,
         x: Optional[float] = None,
         y: Optional[float] = None,
+        *, initial_draft=None,
     ) -> Optional[int]:
         """Open the independent editor and create only after confirmation."""
         try:
@@ -118,6 +194,7 @@ class InstructionWorkspace(QObject):
             editor_ = spec_.create_editor(
                 parent=self.parent_window,
                 context=self._editor_context(),
+                **({'draft': initial_draft} if initial_draft is not None else {}),
             )
             self._connect_editor_test(editor_, spec_)
             if editor_.exec() != QDialog.DialogCode.Accepted:
@@ -579,7 +656,10 @@ class InstructionWorkspace(QObject):
         return ExecutionContext(
             variables=self._load_variables(),
             output=self.statusMessage.emit,
-            metadata={"database": getattr(self.parent_window, "db", None)},
+            metadata={"database": getattr(self.parent_window, "db", None),
+                      "main_window": self.parent_window,
+                      "recent_capture": getattr(self, '_recent_capture', ''),
+                      "remember_capture": self.remember_capture},
         )
 
     def _load_variables(self) -> dict:
@@ -612,7 +692,7 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                if spec_.type_id in {'中键激活', '时间等待'}:
+                if spec_.type_id in {'中键激活', '时间等待'} or spec_.category == '本地OCR':
                     from instructions.common.test_runner import run_cancellable_test
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:

@@ -1,4 +1,6 @@
 altgraph==0.17.4
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.20.1
 attrs==24.2.0
 baidu-aip==4.16.13
 certifi==2024.8.30

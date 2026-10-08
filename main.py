@@ -4,6 +4,12 @@ import os
 import sys
 from pathlib import Path
 
+# Workers must not enter Velopack lifecycle hooks, Qt or the app singleton.
+if __name__ == '__main__' and '--local-ocr-worker' in sys.argv:
+    from local_ocr_worker import main as ocr_worker_main
+    ocr_worker_main()
+    raise SystemExit(0)
+
 # Handle lifecycle hooks before storage, Qt and singleton initialization.
 if __name__ == "__main__" and sys.platform == "win32" and getattr(sys, "frozen", False):
     import velopack
@@ -177,13 +183,15 @@ def main():
         QTimer.singleShot(500, upgrade_probe)
     if "--startup-smoke-test" in sys.argv or "--release-smoke" in sys.argv:
         full_checks = not ('--release-smoke' in sys.argv and os.environ.get('ANCLICKER_SMOKE_LIGHTWEIGHT') == '1')
-        editor_validation = migration_validation = image_validation = {}
+        editor_validation = migration_validation = image_validation = ocr_validation = {}
         if full_checks:
             from ui_validation import validate_instruction_editors, validate_legacy_migration
             editor_validation = validate_instruction_editors(main_window)
             migration_validation = validate_legacy_migration()
             from image_validation import validate_image_execution
             image_validation = validate_image_execution()
+            from ocr_validation import validate_offline_ocr
+            ocr_validation = validate_offline_ocr()
         def report_ready():
             from window_chrome import validate_window_chrome
             chrome_valid = validate_window_chrome(main_window)
@@ -203,6 +211,7 @@ def main():
                 "editor_validation": editor_validation,
                 "migration_validation": migration_validation,
                 "image_validation": image_validation,
+                "ocr_validation": ocr_validation,
             }), encoding="utf-8")
             app.exit(0)
         QTimer.singleShot(500, report_ready)
