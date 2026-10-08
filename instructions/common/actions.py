@@ -215,6 +215,29 @@ def recording_options(command):
     return {"_pause": False} if command.parameters.get("录制批次") else {}
 
 
+def release_inputs(context, gui, *, keys=(), buttons=()):
+    """Release this instruction's inputs even after a fail-safe or native error."""
+    from recorded_input import button_event
+    failsafe = getattr(gui, 'FAILSAFE', True)
+    try:
+        gui.FAILSAFE = False
+        for button in reversed(tuple(buttons)):
+            try:
+                if button in {'left', 'right', 'middle'}:
+                    gui.mouseUp(button=button, _pause=False)
+                else:
+                    button_event(context, button, False, gui)
+            except Exception as error:
+                context.emit(f'释放鼠标失败：{button}：{error}')
+        for key in reversed(tuple(keys)):
+            try:
+                gui.keyUp(key, _pause=False)
+            except Exception as error:
+                context.emit(f'释放按键失败：{key}：{error}')
+    finally:
+        gui.FAILSAFE = failsafe
+
+
 def release_recorded_inputs(context):
     """Release only inputs pressed by replay, even if stopped mid-recording."""
     keys = context.metadata.pop("recorded_keys", set())

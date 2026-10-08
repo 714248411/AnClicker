@@ -40,7 +40,7 @@ dependencies = [
     { name = "pygments" },
     { name = "pyinstaller" },
     { name = "pymsgbox" },
-    { name = "pynput", marker = "sys_platform == 'darwin'" },
+    { name = "pynput" },
     { name = "pyside6" },
     { name = "pysidesix-frameless-window" },
     { name = "python-dateutil" },
@@ -74,7 +74,7 @@ requires-dist = [
     { name = "pygments" },
     { name = "pyinstaller" },
     { name = "pymsgbox" },
-    { name = "pynput", marker = "sys_platform == 'darwin'" },
+    { name = "pynput", specifier = "==1.7.7" },
     { name = "pyside6" },
     { name = "pysidesix-frameless-window", specifier = "==0.8.1" },
     { name = "python-dateutil" },
@@ -227,6 +227,8 @@ version = "1.9.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version < '3.11' and sys_platform == 'darwin'",
+    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a5/f5/397b61091120a9ca5001041dd7bf76c385b3bfd67a0e5bcb74b852bd22a4/evdev-1.9.3.tar.gz", hash = "sha256:2c140e01ac8437758fa23fe5c871397412461f42d421aa20241dc8fe8cfccbc9", size = 32723, upload-time = "2026-02-05T21:54:24.987Z" }
 
@@ -236,7 +238,11 @@ version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.12' and sys_platform == 'darwin'",
+    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.12' and sys_platform != 'darwin' and sys_platform != 'linux')",
     "python_full_version == '3.11.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2e/07/eb30593524303d1367f0dc00c1c66582c994dba412a47751e34bad9fa29b/evdev-2.0.0.tar.gz", hash = "sha256:442fb3f4c8dfc9e61e901133c356220c02d663eca8f34722e0cecdd637eba504", size = 33766, upload-time = "2026-08-23T10:31:26.835Z" }
 
@@ -800,19 +806,18 @@ sdist = { url = "https://files.pythonhosted.org/packages/7d/ff/4c6f31a4f08979f12
 
 [[package]]
 name = "pynput"
-version = "1.8.2"
+version = "1.7.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "evdev", version = "1.9.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and 'linux' in sys_platform" },
     { name = "evdev", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and 'linux' in sys_platform" },
-    { name = "pyobjc-framework-applicationservices" },
-    { name = "pyobjc-framework-quartz" },
+    { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin'" },
+    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
     { name = "python-xlib", marker = "'linux' in sys_platform" },
     { name = "six" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/86/c6/e2d415610cfbc78308bee44218a46124aaa3301b1df08814df819b2254a1/pynput-1.8.2.tar.gz", hash = "sha256:f493c87157cd3861b4468f7f896857051762f44ed26f1b641e7cc5840a457087", size = 82818, upload-time = "2026-05-12T19:11:39.464Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/98/bbeb760852adb27f166ce1617f0e51aabb15f21b1e60ea703f2aed3c78ac/pynput-1.8.2-py2.py3-none-any.whl", hash = "sha256:8cc38cf13a6ab2749cb375678be8a0fd705d7ce49c8001ff5db4007a723bbef1", size = 92028, upload-time = "2026-05-12T19:11:37.89Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/1d/fdef3fdc9dc8dedc65898c8ad0e8922a914bb89c5308887e45f9aafaec36/pynput-1.7.7-py2.py3-none-any.whl", hash = "sha256:afc43f651684c98818de048abc76adf9f2d3d797083cb07c1f82be764a2d44cb", size = 90243, upload-time = "2024-05-10T13:30:04.238Z" },
 ]
 
 [[package]]

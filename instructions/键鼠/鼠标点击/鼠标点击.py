@@ -53,27 +53,30 @@ class InstructionExecutor(InstructionExecutorBase):
         if button_ is None:
             raise ValueError("其他鼠标键需通过录制生成，或选择明确的鼠标按键")
         modifier_ = str(actions.parameter(p_, "辅助键", default="")).strip()
-        if modifier_:
-            gui_.keyDown(modifier_)
+        pressed_keys_ = []
         try:
-            for index_ in range(int(actions.parameter(p_, "次数", default=1))):
-                if button_ in {"left", "right", "middle"}:
-                    gui_.mouseDown(button=button_)
-                    try:
-                        actions.wait_seconds(float(actions.parameter(p_, "按压", default=50)) / 1000)
-                    finally:
-                        gui_.mouseUp(button=button_)
-                else:
-                    gui_.failSafeCheck()
-                    button_event(context, button_, True, gui_)
-                    try:
-                        actions.wait_seconds(float(actions.parameter(p_, "按压", default=50)) / 1000)
-                    finally:
-                        button_event(context, button_, False, gui_)
-                if index_ + 1 < int(actions.parameter(p_, "次数", default=1)):
-                    actions.wait_seconds(float(actions.parameter(p_, "间隔", default=100)) / 1000)
-        finally:
+            if not actions.wait_interruptibly(context, 0):
+                return False
             if modifier_:
-                gui_.keyUp(modifier_)
+                pressed_keys_.append(modifier_)
+                gui_.keyDown(modifier_)
+            for index_ in range(int(actions.parameter(p_, "次数", default=1))):
+                if not actions.wait_interruptibly(context, 0):
+                    return False
+                try:
+                    if button_ in {"left", "right", "middle"}:
+                        gui_.mouseDown(button=button_)
+                    else:
+                        gui_.failSafeCheck()
+                        button_event(context, button_, True, gui_)
+                    if not actions.wait_interruptibly(context, float(actions.parameter(p_, "按压", default=50)) / 1000):
+                        return False
+                finally:
+                    actions.release_inputs(context, gui_, buttons=[button_])
+                if index_ + 1 < int(actions.parameter(p_, "次数", default=1)):
+                    if not actions.wait_interruptibly(context, float(actions.parameter(p_, "间隔", default=100)) / 1000):
+                        return False
+        finally:
+            actions.release_inputs(context, gui_, keys=pressed_keys_)
         context.emit("鼠标点击完成")
         return True

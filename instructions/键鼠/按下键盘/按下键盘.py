@@ -94,10 +94,17 @@ class InstructionExecutor(InstructionExecutorBase):
                 key_event(context, key_, False, gui_)
                 held_.discard(key_)
             return key_
-        for key_ in keys_:
-            gui_.keyDown(key_)
-        actions.wait_seconds(duration_)
-        for key_ in reversed(keys_):
-            gui_.keyUp(key_)
+        pressed_ = []
+        try:
+            for key_ in keys_:
+                if not actions.wait_interruptibly(context, 0):
+                    return None
+                # keyDown can send input and then raise during its fail-safe/pause.
+                pressed_.append(key_)
+                gui_.keyDown(key_)
+            if not actions.wait_interruptibly(context, duration_):
+                return None
+        finally:
+            actions.release_inputs(context, gui_, keys=pressed_)
         context.emit(f"按下键盘：{'+'.join(keys_)}")
         return keys_

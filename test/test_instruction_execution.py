@@ -54,7 +54,9 @@ class InstructionFallbackTests(unittest.TestCase):
         )
         self.workbook_ = _Workbook()
         self.pyperclip_ = SimpleNamespace(copy=Mock(), paste=Mock(return_value="剪切板内容"))
-        self.keyboard_ = SimpleNamespace(wait=Mock())
+        self.keyboard_ = SimpleNamespace(
+            add_hotkey=Mock(side_effect=lambda key, callback, **kwargs: callback() or 'owned'),
+            remove_hotkey=Mock())
         self.mouse_ = SimpleNamespace(wait=Mock(), click=Mock())
         self.pymsgbox_ = SimpleNamespace(
             STOP="STOP", WARNING="WARNING", INFO="INFO", QUESTION="QUESTION",

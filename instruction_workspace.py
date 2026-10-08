@@ -692,7 +692,7 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                if spec_.type_id in {'中键激活', '时间等待'} or spec_.category == '本地OCR':
+                if spec_.type_id in {'中键激活', '时间等待', '按键等待', '鼠标点击', '按下键盘'} or spec_.category == '本地OCR':
                     from instructions.common.test_runner import run_cancellable_test
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:
