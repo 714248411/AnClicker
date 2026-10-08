@@ -252,7 +252,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
             window_ = Main_window()
         self.assertFalse(hasattr(window_, "tableWidget"))
         self.assertFalse(hasattr(window_, "groupBox_4"))
-        self.assertEqual(len(window_.workspace.palette.specs()), 41)
+        self.assertEqual(len(window_.workspace.palette.specs()), 52)
         self.assertEqual(
             [
                 window_.gridLayout_4.indexOf(window_.instructionPaletteHost),

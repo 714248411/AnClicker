@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 from .editor import _RegionSelectionDialog
 from . import actions
+from smart_capture import SmartCaptureDialog
 
 
 class ImagePositionCanvas(QWidget):
@@ -118,6 +119,10 @@ class ImageClickEditorMixin:
         self._build_image_workspace()
         if draft is not None:
             self.load_draft(draft)
+        elif getattr(context, 'metadata', {}).get('recent_capture'):
+            path = context.metadata['recent_capture']
+            if Path(path).is_file():
+                self._set_image_path(path)
 
     def _build_image_workspace(self):
         ui = self.ui
@@ -305,6 +310,10 @@ class ImageClickEditorMixin:
             super()._run_auxiliary(key)
 
     def _select_screen(self, capture):
+        if capture and not self.folder_combo.currentText():
+            from functions import IMAGES_FOLDER
+            Path(IMAGES_FOLDER).mkdir(parents=True, exist_ok=True)
+            self.folder_combo.setCurrentText(IMAGES_FOLDER)
         if capture and (not self.folder_combo.currentText() or not Path(self.folder_combo.currentText()).is_dir()):
             QMessageBox.warning(self, '快捷截图', '请先选择有效资源文件夹。')
             return
@@ -318,22 +327,30 @@ class ImageClickEditorMixin:
                 host.show()
             self.show(); self.raise_(); self.activateWindow()
         def choose():
-            selector = _RegionSelectionDialog()
-            selector.exec()
-            region = selector.selected_region()
-            selector.deleteLater()
+            try:
+                selector = SmartCaptureDialog() if capture else _RegionSelectionDialog()
+                selector.exec()
+                region = selector.selected_region()
+            except Exception as error:
+                restore()
+                QMessageBox.warning(self, '截图失败', str(error))
+                return
             def finish():
                 try:
                     if region and capture:
                         path = Path(self.folder_combo.currentText()) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
-                        actions.pyautogui_module().screenshot(region=region).save(str(path))
+                        selector.save_selection(path)
                         self._set_image_path(path)
+                        callback = getattr(self.context, 'metadata', {}).get('remember_capture')
+                        if callable(callback):
+                            callback(str(path))
                     elif region:
                         self.ui.parameter_3.setText(str(region))
                         self.region_group.setChecked(True)
                 except Exception as error:
                     QMessageBox.warning(self, '截图/区域设置失败', str(error))
                 finally:
+                    selector.deleteLater()
                     restore()
             QTimer.singleShot(180, finish)
         QTimer.singleShot(180, choose)

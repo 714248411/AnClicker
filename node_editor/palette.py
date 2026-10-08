@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
+    QPushButton,
 )
 
 from node_editor.specs import NodeDisplaySpec, normalize_specs
@@ -76,6 +77,7 @@ class InstructionPalette(QWidget):
 
     instructionActivated = Signal(str)
     instructionDoubleClicked = Signal(str)
+    quickCaptureRequested = Signal()
 
     def __init__(self, specs_=None, parent_=None):
         super().__init__(parent_)
@@ -89,6 +91,10 @@ class InstructionPalette(QWidget):
         layout_.setContentsMargins(0, 0, 0, 0)
         layout_.setSpacing(6)
         layout_.addWidget(self.search_edit)
+        self.quick_capture_button = QPushButton('快捷截图（吸附边缘）', self)
+        self.quick_capture_button.setToolTip('截图后拖入图像点击，自动带入最近截图，只生成一个图像点击指令。')
+        self.quick_capture_button.clicked.connect(self.quickCaptureRequested.emit)
+        layout_.addWidget(self.quick_capture_button)
         layout_.addWidget(self.tree, 1)
 
         self._specs: dict[str, NodeDisplaySpec] = {}
@@ -102,6 +108,7 @@ class InstructionPalette(QWidget):
 
     def set_specs(self, specs_) -> None:
         self._specs = normalize_specs(specs_)
+        self._capture_item = None
         self.tree.clear()
         categories_: dict[str, QTreeWidgetItem] = {}
         for spec_ in self._specs.values():
@@ -120,6 +127,16 @@ class InstructionPalette(QWidget):
         self.tree.expandAll()
         self._apply_filter(self.search_edit.text())
 
+    def show_recent_capture(self, path):
+        from pathlib import Path
+        if self._capture_item is None:
+            self._capture_item = QTreeWidgetItem(['点击图片'])
+            self._capture_item.setData(0, TYPE_ID_ROLE, '图像点击')
+            self.tree.insertTopLevelItem(0, self._capture_item)
+        self._capture_item.setText(0, f'点击图片：{Path(path).name}')
+        self._capture_item.setToolTip(0, '拖入表格/流程图即组合为图像点击；范围、偏移和精度可继续编辑。\n'+str(path))
+        self._apply_filter(self.search_edit.text())
+
     def specs(self) -> dict[str, NodeDisplaySpec]:
         return dict(self._specs)
 
@@ -133,6 +150,9 @@ class InstructionPalette(QWidget):
         for category_index_ in range(self.tree.topLevelItemCount()):
             category_item_ = self.tree.topLevelItem(category_index_)
             category_match_ = needle_ in category_item_.text(0).casefold()
+            if category_item_.data(0, TYPE_ID_ROLE):
+                category_item_.setHidden(not category_match_)
+                continue
             any_visible_ = False
             for child_index_ in range(category_item_.childCount()):
                 instruction_item_ = category_item_.child(child_index_)

@@ -111,8 +111,9 @@ def test_invalid_file_prevents_accept_and_test(editor):
 def test_screen_selection_and_cancel(editor, capture):
     widget, path = editor
     widget.show()
+    selector_name = 'SmartCaptureDialog' if capture else '_RegionSelectionDialog'
     with patch('instructions.common.image_click_editor.QTimer.singleShot', side_effect=lambda delay, callback: callback()), \
-         patch('instructions.common.image_click_editor._RegionSelectionDialog') as selector, \
+         patch('instructions.common.image_click_editor.' + selector_name) as selector, \
          patch('instructions.common.image_click_editor.actions.pyautogui_module') as gui:
         selector.return_value.selected_region.return_value = None
         widget._select_screen(capture)
@@ -120,11 +121,12 @@ def test_screen_selection_and_cancel(editor, capture):
         assert widget.isVisible()
         assert widget.ui.parameter_0.text() == str(path)
         selector.return_value.selected_region.return_value = (10, 20, 100, 80)
-        gui.return_value.screenshot.return_value.save.side_effect = lambda target: QPixmap(str(path)).save(target)
+        selector.return_value.save_selection.side_effect = lambda target: QPixmap(str(path)).save(str(target))
         widget._select_screen(capture)
         assert widget.isVisible()
         if capture:
-            gui.return_value.screenshot.assert_called_once_with(region=(10, 20, 100, 80))
+            selector.return_value.save_selection.assert_called_once()
+            gui.assert_not_called()
             assert Path(widget.ui.parameter_0.text()).is_file()
             assert Path(widget.ui.parameter_0.text()).name.startswith('截图_')
             selected = Path(widget.ui.parameter_0.text())
@@ -147,11 +149,11 @@ def test_random_offset_stays_inside_image(editor):
 def test_consecutive_capture_selects_latest_and_failure_preserves_it(editor):
     widget, original = editor
     with patch('instructions.common.image_click_editor.QTimer.singleShot', side_effect=lambda delay, callback: callback()), \
-         patch('instructions.common.image_click_editor._RegionSelectionDialog') as selector, \
+         patch('instructions.common.image_click_editor.SmartCaptureDialog') as selector, \
          patch('instructions.common.image_click_editor.actions.pyautogui_module') as gui, \
          patch('instructions.common.image_click_editor.QMessageBox.warning') as warning:
         selector.return_value.selected_region.return_value = (10, 20, 100, 80)
-        gui.return_value.screenshot.return_value.save.side_effect = lambda target: QPixmap(str(original)).save(target)
+        selector.return_value.save_selection.side_effect = lambda target: QPixmap(str(original)).save(str(target))
         previous = str(original)
         for _ in range(2):
             widget.capture_button.click()
@@ -161,7 +163,7 @@ def test_consecutive_capture_selects_latest_and_failure_preserves_it(editor):
             assert widget.image_combo.findText(Path(selected).name) >= 0
             assert not widget.preview.pixmap().isNull()
             previous = selected
-        gui.return_value.screenshot.return_value.save.side_effect = OSError('disk full')
+        selector.return_value.save_selection.side_effect = OSError('disk full')
         widget.capture_button.click()
         warning.assert_called_once()
         assert widget.get_draft().parameters['图像路径'] == previous

@@ -95,6 +95,17 @@ class InstructionFallbackTests(unittest.TestCase):
             "获取对话框": {"标题": "标题", "提示": "提示", "变量": "对话框"},
             "数字验证码": {"区域": "0,0,10,10", "验证码类型": "通用数英1-4位", "变量": "验证码"},
             "OCR识别": {"区域": "0,0,10,10", "变量": "OCR"},
+            "OCR文字提取": {"变量": "本地OCR"},
+            "OCR精准找字点击": {"目标文字": "fixture"},
+            "OCR模糊找字返回坐标": {"目标文字": "fixture"},
+            "OCR范围找字": {"目标文字": "fixture", "区域": "10,20,30,40"},
+            "OCR等待文字出现": {"目标文字": "fixture", "连续次数": 1},
+            "OCR等待文字消失": {"目标文字": "missing", "连续次数": 1},
+            "截图OCR": {"区域": "0,0,100,100"},
+            "OCR复制": {"区域": "0,0,100,100"},
+            "OCR粘贴": {},
+            "OCR识别区域返回坐标": {},
+            "OCR点击识别区域": {},
             "写入单元格": {"工作簿": "a.xlsx", "工作表": "Sheet1", "单元格": "A1", "文本": "{{值}}"},
             "运行Python": {"代码": "answer = ☾值☽ + 1", "返回值": "answer", "变量": "Python"},
             "运行cmd": {"命令": "echo ok", "等待完成": True},
@@ -119,6 +130,8 @@ class InstructionFallbackTests(unittest.TestCase):
         self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS})
         self.context_.variables["值"] = 2
         self.context_.metadata['run_project'] = Mock(return_value=True)
+        self.context_.services = dict(self.context_.services, 本地OCR=lambda **kwargs: [
+            {'text': 'fixture', 'score': .99, 'box': [[0,0],[20,0],[20,10],[0,10]]}])
         process_result_ = SimpleNamespace(stdout="ok\n", returncode=0)
 
         with ExitStack() as stack_:
@@ -172,6 +185,8 @@ class InstructionFallbackTests(unittest.TestCase):
 
     def test_exposed_fields_are_consumed_by_executor_or_shared_runtime(self):
         common_source_ = (Path(actions.__file__).read_text(encoding="utf-8"))
+        from instructions.common import local_ocr_instruction
+        common_source_ += Path(local_ocr_instruction.__file__).read_text(encoding='utf-8')
         for spec_ in INSTRUCTION_SPECS:
             with self.subTest(type_id=spec_.type_id):
                 module_ = sys.modules.get(spec_.module_path)

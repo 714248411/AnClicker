@@ -11,7 +11,7 @@ if project_root not in sys.path:
 
 from instructions.registry import hidden_imports as instruction_hidden_imports
 from info import CURRENT_VERSION
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
 from 数据库操作 import DatabaseOperation
 
 # Never bundle a developer's live commands or recording data in a release.
@@ -49,7 +49,7 @@ icon_path = os.path.join(project_root, 'clicker.ico') if sys.platform == 'win32'
 a = Analysis(
     [os.path.join(project_root, 'main.py')],
     pathex=[project_root],
-    binaries=[],
+    binaries=collect_dynamic_libs('onnxruntime'),
     datas=[
         (seed_database, 'data'),
         (os.path.join(project_root, 'flat', 'Combinear.qss'), 'flat'),
@@ -57,9 +57,10 @@ a = Analysis(
         (os.path.join(project_root, 'flat', 'chevron-up.svg'), 'flat'),
         (os.path.join(project_root, 'flat', '开屏.png'), 'flat'),
         (os.path.join(project_root, 'Window', 'res', 'donation_qr.png'), 'Window/res'),
-    ] + instruction_datas,
+    ] + instruction_datas + collect_data_files('rapidocr_onnxruntime'),
     hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
-                   *collect_submodules('pynput')],
+                   *collect_submodules('pynput'), *collect_submodules('rapidocr_onnxruntime'),
+                   'local_ocr_worker', 'onnxruntime'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

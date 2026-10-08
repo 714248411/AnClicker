@@ -4,6 +4,12 @@ import os
 import sys
 from pathlib import Path
 
+# Dispatch before importing Qt, creating data or enforcing the app singleton.
+if __name__ == '__main__' and '--local-ocr-worker' in sys.argv:
+    from local_ocr_worker import main as ocr_worker_main
+    ocr_worker_main()
+    raise SystemExit(0)
+
 from startup_environment import prepare_environment, record_startup_error
 
 STARTUP_DATA_FOLDER = prepare_environment()
@@ -167,6 +173,8 @@ def main():
         migration_validation = validate_legacy_migration()
         from image_validation import validate_image_execution
         image_validation = validate_image_execution()
+        from ocr_validation import validate_offline_ocr
+        ocr_validation = validate_offline_ocr()
         def report_ready():
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
@@ -178,6 +186,7 @@ def main():
                 "editor_validation": editor_validation,
                 "migration_validation": migration_validation,
                 "image_validation": image_validation,
+                "ocr_validation": ocr_validation,
             }), encoding="utf-8")
             app.exit(0)
         QTimer.singleShot(500, report_ready)

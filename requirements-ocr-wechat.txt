@@ -1,0 +1,2 @@
+# Optional Windows WeChat 3.x Python adapter; user supplies WeChat native files.
+wechat-ocr==0.0.3; sys_platform == "win32"
