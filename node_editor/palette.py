@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QMimeData, QPoint, Signal, Qt
+from PySide6.QtCore import QMimeData, Signal, Qt
 from PySide6.QtGui import QDrag
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -25,13 +25,11 @@ class _InstructionTree(QTreeWidget):
 
     def __init__(self, parent_=None):
         super().__init__(parent_)
-        self._drag_start = QPoint()
         self.setHeaderHidden(True)
         self.setIndentation(16)
         self.setDragEnabled(True)
         self.setMouseTracking(True)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.itemDoubleClicked.connect(self._activate_item)
 
     @staticmethod
     def instruction_type(item_) -> str | None:
@@ -46,22 +44,25 @@ class _InstructionTree(QTreeWidget):
         if type_id_ is not None:
             self.instructionActivated.emit(type_id_)
 
-    def mousePressEvent(self, event_):
-        if event_.button() == Qt.MouseButton.LeftButton:
-            self._drag_start = event_.position().toPoint()
-        super().mousePressEvent(event_)
-
-    def mouseMoveEvent(self, event_):
-        if not event_.buttons() & Qt.MouseButton.LeftButton:
-            super().mouseMoveEvent(event_)
+    def mouseDoubleClickEvent(self, event_):
+        # Resolve the leaf under the pointer, rather than relying on the view's
+        # remembered press index (which can be lost after a drag/focus change).
+        # Handle leaves here only: categories retain Qt's expand/collapse logic.
+        item_ = self.itemAt(event_.position().toPoint())
+        if (event_.button() == Qt.MouseButton.LeftButton
+                and self.instruction_type(item_) is not None):
+            self.setCurrentItem(item_)
+            event_.accept()
+            self._activate_item(item_, 0)
             return
-        if (event_.position().toPoint() - self._drag_start).manhattanLength() < 8:
-            super().mouseMoveEvent(event_)
-            return
+        super().mouseDoubleClickEvent(event_)
 
+    def startDrag(self, supported_actions_):
+        # Let QAbstractItemView track presses/releases and the platform drag
+        # threshold. A fixed 8px mouseMoveEvent handler steals small movements
+        # from double clicks and can launch repeated drags with stale state.
         type_id_ = self.instruction_type(self.currentItem())
         if type_id_ is None:
-            super().mouseMoveEvent(event_)
             return
 
         mime_data_ = QMimeData()
