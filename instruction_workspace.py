@@ -7,8 +7,8 @@ import math
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QObject, Signal, QTimer
-from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
+from qt_compat.QtCore import QObject, Signal, QTimer
+from qt_compat.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from graph_repository import END_NODE_ID, GraphRepository
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft
@@ -138,7 +138,7 @@ class InstructionWorkspace(QObject):
         if not self._connection_edit_allowed():
             return
         from smart_capture import SmartCaptureDialog
-        from PySide6.QtWidgets import QInputDialog
+        from qt_compat.QtWidgets import QInputDialog
         from instructions.models import InstructionDraft
         owner = self.parent_window
         visible = owner is not None and owner.isVisible()

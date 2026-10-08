@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from PySide6.QtGui import QImage
+from qt_compat.QtGui import QImage
 
 from functions import RESOURCE_FOLDER
 from info import (

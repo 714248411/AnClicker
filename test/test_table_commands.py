@@ -3,10 +3,10 @@ import json
 from unittest.mock import patch, Mock
 
 import pytest
-from PySide6.QtCore import Qt, QMimeData, QTimer, QPointF
-from PySide6.QtGui import QContextMenuEvent
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QTableWidgetSelectionRange
+from qt_compat.QtCore import Qt, QMimeData, QTimer, QPointF
+from qt_compat.QtGui import QContextMenuEvent
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication, QMenu, QMessageBox, QTableWidgetSelectionRange
 
 from test.test_hidden_stop import host
 from instructions.models import InstructionDraft
@@ -30,7 +30,7 @@ def ids(host):
 
 
 def test_parameter_column_resizes_and_refresh_preserves_width(table_host):
-    from PySide6.QtWidgets import QHeaderView
+    from qt_compat.QtWidgets import QHeaderView
     table = table_host.view_workspace.command_table
     header = table.horizontalHeader()
     assert header.sectionResizeMode(3) == QHeaderView.ResizeMode.Interactive

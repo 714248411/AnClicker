@@ -1,6 +1,6 @@
-from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
+from qt_compat.QtCore import QRectF, Qt
+from qt_compat.QtGui import QBrush, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
+from qt_compat.QtWidgets import QGraphicsItem, QGraphicsObject
 
 from node_test.style import (
     INPUT_PORT_COLOR,

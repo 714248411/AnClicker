@@ -2,9 +2,9 @@
 from pathlib import Path
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QRectF, Signal, QTimer, QUrl, QSignalBlocker
-from PySide6.QtGui import QPixmap, QPainter, QPen, QDesktopServices
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import Qt, QRectF, Signal, QTimer, QUrl, QSignalBlocker
+from qt_compat.QtGui import QPixmap, QPainter, QPen, QDesktopServices
+from qt_compat.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
     QDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QGridLayout,
     QGroupBox, QFileDialog, QMessageBox, QTabWidget, QSizePolicy,
@@ -127,7 +127,9 @@ class ImageClickEditorMixin:
     def _build_image_workspace(self):
         ui = self.ui
         old = ui.parameterGroupBox
-        panel = QWidget()
+        # Qt 5's replaceWidget does not retain a Python-owned replacement.
+        # Give it its final QObject parent before replacing the old group.
+        panel = QWidget(self)
         panel.setObjectName('imageClickWorkspace')
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)

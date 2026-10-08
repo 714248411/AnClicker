@@ -5,9 +5,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PIL import Image, ImageDraw
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QWidget
+from qt_compat.QtCore import QPoint, Qt
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication, QDialog, QWidget
 
 from smart_capture import SmartCaptureDialog, edge_rectangles, snap_rectangle
 from instructions.models import ExecutionContext
@@ -38,7 +38,7 @@ def test_capture_matches_visible_selection_at_system_scales(app, tmp_path, scale
 
 
 def test_screen_capture_keeps_native_pixels_and_handles_row_padding(app):
-    from PySide6.QtGui import QImage, QPixmap
+    from qt_compat.QtGui import QImage, QPixmap
     from smart_capture import capture_screen_pixels
     qimage = QImage(101, 79, QImage.Format.Format_RGB888)
     qimage.fill(Qt.GlobalColor.red)
@@ -170,7 +170,7 @@ def test_quick_ocr_creates_one_prefilled_command(app, tmp_path, choice, kind):
     editor_type = get_instruction_spec(kind).load_editor_class()
     with patch('smart_capture.SmartCaptureDialog') as selector, \
          patch('instruction_workspace.QTimer.singleShot', side_effect=lambda ms, fn: fn()), \
-         patch('PySide6.QtWidgets.QInputDialog.getItem', return_value=(choice, True)), \
+         patch('qt_compat.QtWidgets.QInputDialog.getItem', return_value=(choice, True)), \
          patch.object(editor_type, 'exec', return_value=QDialog.DialogCode.Accepted):
         selector.return_value.exec.return_value = QDialog.DialogCode.Accepted
         selector.return_value.selected_region.return_value = (100, 200, 300, 120)
@@ -194,7 +194,7 @@ def test_quick_ocr_cancel_is_atomic(app, tmp_path, cancel_stage):
     editor_type = get_instruction_spec('OCR复制').load_editor_class()
     with patch('smart_capture.SmartCaptureDialog') as selector, \
          patch('instruction_workspace.QTimer.singleShot', side_effect=lambda ms, fn: fn()), \
-         patch('PySide6.QtWidgets.QInputDialog.getItem', return_value=('复制OCR内容', cancel_stage != 'choice')), \
+         patch('qt_compat.QtWidgets.QInputDialog.getItem', return_value=('复制OCR内容', cancel_stage != 'choice')), \
          patch.object(editor_type, 'exec', return_value=QDialog.DialogCode.Rejected):
         selector.return_value.exec.return_value = (QDialog.DialogCode.Rejected if cancel_stage == 'capture'
                                                   else QDialog.DialogCode.Accepted)

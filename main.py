@@ -2,6 +2,8 @@
 import json
 import os
 import sys
+import hashlib
+import tempfile
 from pathlib import Path
 
 # Workers must not enter Velopack lifecycle hooks, Qt or the app singleton.
@@ -20,10 +22,15 @@ from startup_environment import prepare_environment, record_startup_error
 STARTUP_DATA_FOLDER = prepare_environment()
 
 if sys.platform == "win32":
+    from windows_runtime import configure_dpi
+    DPI_POLICY = configure_dpi()
     os.environ.setdefault("QT_QPA_PLATFORM", "windows:darkmode=0")
+else:
+    DPI_POLICY = 'platform-default'
 
-from PySide6.QtCore import QLibraryInfo, QLocale, QSharedMemory, Qt, QTranslator, QTimer
-from PySide6.QtGui import (
+from qt_compat import BINDING, configure_application, apply_application_style
+from qt_compat.QtCore import QLibraryInfo, QLocale, QLockFile, Qt, QTranslator, QTimer, qVersion
+from qt_compat.QtGui import (
     QColor,
     QFont,
     QGuiApplication,
@@ -31,7 +38,7 @@ from PySide6.QtGui import (
     QPainterPath,
     QPixmap,
 )
-from PySide6.QtWidgets import QApplication, QSplashScreen
+from qt_compat.QtWidgets import QApplication, QSplashScreen
 
 from functions import RESOURCE_FOLDER, ensure_data_directories, show_window
 from info import APP_NAME, CURRENT_VERSION, WINDOW_TITLE, SINGLETON_ENV, SINGLETON_KEY_DEFAULT, update_source_config
@@ -120,7 +127,9 @@ def show_splash_screen(app, image_path):
 def main():
     """初始化并启动 Clicker。"""
     ensure_data_directories()
+    configure_application()
     app = QApplication(sys.argv)
+    apply_application_style(app)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(CURRENT_VERSION)
     try:
@@ -148,12 +157,12 @@ def main():
             (source.parent / 'migration-ready.json').write_text(json.dumps({'ready':True}), encoding='utf-8')
             QTimer.singleShot(100, app.quit)
         return app.exec()
-    shared_memory = QSharedMemory()
-    shared_memory.setKey(SINGLETON_KEY)
-    if shared_memory.attach():
-        show_window(WINDOW_TITLE)
-        return 0
-    if not shared_memory.create(1):
+    lock_name = hashlib.sha256(SINGLETON_KEY.encode('utf-8')).hexdigest()
+    instance_lock = QLockFile(str(Path(tempfile.gettempdir()) / f'AnClicker-{lock_name}.lock'))
+    if not instance_lock.tryLock(0):
+        if instance_lock.error() == QLockFile.LockFailedError:
+            show_window(WINDOW_TITLE)
+            return 0
         return 1
 
     flat_dir = os.path.join(RESOURCE_FOLDER, "flat")
@@ -206,6 +215,10 @@ def main():
                 "version": app.applicationVersion().removeprefix("v") if "--release-smoke" in sys.argv else app.applicationVersion(),
                 "title": main_window.windowTitle(),
                 "update_config": update_source_config(),
+                "runtime": {"python": sys.version.split()[0], "qt": qVersion(),
+                            "binding": BINDING, "dpi_policy": DPI_POLICY,
+                            "qt_platform": app.platformName(), "style": app.style().objectName(),
+                            "windows_build": sys.getwindowsversion().build if sys.platform == 'win32' else None},
                 "views": main_window.tabWidget.count(),
                 "database": main_window.db.db_path,
                 "editor_validation": editor_validation,
@@ -224,7 +237,7 @@ if __name__ == "__main__":
     except Exception as error:
         log_path = record_startup_error(STARTUP_DATA_FOLDER, error)
         if not any(flag in sys.argv for flag in ("--startup-smoke-test", "--release-smoke")):
-            from PySide6.QtWidgets import QMessageBox
+            from qt_compat.QtWidgets import QMessageBox
             app = QApplication.instance() or QApplication(sys.argv)
             QMessageBox.critical(None, "启动失败", f"无法完成启动：{error}\n\n详细日志：{log_path}\n请完整解压安装包后运行 AnClicker.exe。")
         raise

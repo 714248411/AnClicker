@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QPointF, QRectF, Signal, Qt
+from qt_compat.QtCore import QPoint, QPointF, QRectF, Signal, Qt
 import math
-from PySide6.QtGui import QContextMenuEvent, QKeySequence, QPainter
+from qt_compat.QtGui import QContextMenuEvent, QKeySequence, QPainter
 from time import monotonic
-from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
+from qt_compat.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
 from node_editor.items import NodeItem, EdgeItem
 from node_editor.palette import INSTRUCTION_MIME_TYPE

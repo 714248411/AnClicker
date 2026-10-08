@@ -1,7 +1,7 @@
 """Shared behavior; each jump instruction retains its own generated UI."""
 from pathlib import Path
-from PySide6.QtCore import QEvent
-from PySide6.QtWidgets import QFileDialog
+from qt_compat.QtCore import QEvent
+from qt_compat.QtWidgets import QFileDialog
 from instructions.common import SchemaInstructionEditor
 from flow_jumps import target_config
 

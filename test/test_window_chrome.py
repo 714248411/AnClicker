@@ -3,9 +3,9 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtCore import QPoint, Qt, QCoreApplication, QEvent
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMainWindow
+from qt_compat.QtCore import QPoint, Qt, QCoreApplication, QEvent
+from qt_compat.QtGui import QAction
+from qt_compat.QtWidgets import QApplication, QMainWindow
 from window_chrome import install_title_bar, FramelessMainWindow as QMainWindow
 from view_workspace import ViewWorkspace
 

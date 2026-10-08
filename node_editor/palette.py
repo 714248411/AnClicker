@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QMimeData, QPoint, Signal, Qt
-from PySide6.QtGui import QDrag
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QMimeData, QPoint, Signal, Qt
+from qt_compat.QtGui import QDrag
+from qt_compat.QtWidgets import (
     QAbstractItemView,
     QLineEdit,
     QTreeWidget,

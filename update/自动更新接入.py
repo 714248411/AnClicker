@@ -5,8 +5,8 @@ import random
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QObject, QTimer, Signal, Slot
-from PySide6.QtWidgets import QMessageBox
+from qt_compat.QtCore import QObject, QTimer, Signal, Slot
+from qt_compat.QtWidgets import QMessageBox
 
 from info import CURRENT_VERSION
 from update.自动更新 import (

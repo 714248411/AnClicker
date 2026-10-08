@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-from PySide6.QtCore import QObject, QPointF, Qt, QEvent, Signal
-from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QApplication, QGraphicsScene, QMainWindow, QTableWidget, QLabel, QPlainTextEdit
+from qt_compat.QtCore import QObject, QPointF, Qt, QEvent, Signal
+from qt_compat.QtGui import QMouseEvent
+from qt_compat.QtWidgets import QApplication, QGraphicsScene, QMainWindow, QTableWidget, QLabel, QPlainTextEdit
 from input_recording import InputEvent, events_to_drafts, recording_at_speed
 from recording_view import RecordingView
 from graph_repository import GraphRepository
@@ -141,6 +141,6 @@ class SpeedAndPanTests(unittest.TestCase):
         self.send(view,QEvent.Type.MouseButtonRelease,(pos.x(),pos.y()),Qt.MiddleButton,Qt.NoButton)
         self.send(view,QEvent.Type.MouseButtonPress,(30,30),Qt.MiddleButton,Qt.MiddleButton)
         self.assertTrue(view._panning)
-        from PySide6.QtGui import QFocusEvent
+        from qt_compat.QtGui import QFocusEvent
         view.focusOutEvent(QFocusEvent(QEvent.Type.FocusOut))
         self.assertFalse(view._panning)

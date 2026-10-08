@@ -1,6 +1,6 @@
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QAction, QColor, QKeySequence
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QPointF, Qt
+from qt_compat.QtGui import QAction, QColor, QKeySequence
+from qt_compat.QtWidgets import (
     QDockWidget,
     QLabel,
     QMainWindow,

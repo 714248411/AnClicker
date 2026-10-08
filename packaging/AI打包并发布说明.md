@@ -32,20 +32,20 @@
 
 ## 准备环境
 
-使用 Windows x64、项目 `.venv` 和已安装的 .NET SDK。当前项目要求 Python >= 3.10；已有可用环境无需重复重建。
+使用 Windows x64、Python 3.10.11、项目 `.venv` 和已安装的 .NET SDK。Windows 构建固定为 PySide2 5.15.2.1，不能复用此前 Python 3.12 / PySide6 环境。最低系统目标为 Windows 10 1607；支持声明仍须目标系统实测。
 
 ```powershell
 Set-Location D:\PycharmProjects\AnClicker
 git status --short
 uv lock --check
 dotnet --version
-.\.venv\Scripts\python.exe -c "import PySide6, PyInstaller, velopack"
+.\.venv\Scripts\python.exe -c "import qt_compat, PyInstaller, velopack; assert qt_compat.BINDING == 'PySide2'"
 ```
 
 仅在环境缺失或依赖不完整时执行：
 
 ```powershell
-uv sync --locked
+uv sync --locked --python 3.10.11 --group release
 dotnet tool restore
 ```
 
@@ -53,7 +53,7 @@ dotnet tool restore
 
 ## 构建与验证命令
 
-项目已移除 `test` 测试脚本；构建时仍须执行下述打包验收和本地升级验证。
+先执行 `python -m pytest test`。Windows Qt 5 的窗口交互回归须使用 `$env:QT_QPA_PLATFORM='windows'`（offscreen 插件不能替代原生窗口消息测试）。随后执行下述打包验收和本地升级验证。
 
 使用带版本和时间的全新输出目录，并保存日志：
 

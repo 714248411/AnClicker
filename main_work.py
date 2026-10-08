@@ -7,7 +7,7 @@ from threading import Event
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from PySide6.QtCore import QMutex, QThread, QWaitCondition, Signal
+from qt_compat.QtCore import QMutex, QThread, QWaitCondition, Signal
 
 from graph_repository import GraphRepository, GraphValidationError
 from instructions.models import CommandRecord, ExecutionContext

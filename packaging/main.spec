@@ -90,7 +90,9 @@ a = Analysis(
     runtime_hooks=[],
     # PyInstaller 6.12 appends __main__ to this list during analysis. Include it
     # up front so the persisted list matches and does not invalidate every run.
-    excludes=['qiniu', '发布Velopack', '__main__'],
+    excludes=['qiniu', '发布Velopack', '__main__', 'qt_compat.QtTest',
+              *(['PySide6', 'shiboken6', 'PyQt5', 'PyQt6'] if sys.platform == 'win32'
+                else ['PySide2', 'shiboken2', 'PyQt5', 'PyQt6'])],
     noarchive=False,
     optimize=0,
 )

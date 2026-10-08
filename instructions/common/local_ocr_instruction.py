@@ -133,7 +133,7 @@ class LocalOcrEditor(SchemaInstructionEditor):
                 getattr(self.ui, f'parameterLabel_{index}').setText('读取坐标变量 *' if variable_mode else '保存到变量 *')
 
     def _simplify_settings(self):
-        from PySide6.QtWidgets import QLabel, QPushButton, QFormLayout, QWidget
+        from qt_compat.QtWidgets import QLabel, QPushButton, QFormLayout, QWidget
         basic = {'引擎', '区域', '目标文字', '匹配方式', '第几个', '识别后',
                  '找到后', '等待超时', '内容来源', '粘贴前等待', '点击来源'}
         if self.TYPE_ID == 'OCR点击识别区域':
@@ -175,8 +175,13 @@ class LocalOcrEditor(SchemaInstructionEditor):
                 control.setPlaceholderText('例如：确定' if field.required else '留空选择范围内的文字框')
             if field.key not in basic:
                 container = getattr(self.ui, f'parameterContainer_{index}')
-                row = form.takeRow(container)
-                advanced.addRow(row.labelItem.widget(), row.fieldItem.widget())
+                # Remove the layout items before removing the empty row: Qt 5
+                # has no takeRow, and removeRow alone deletes the controls.
+                row_index = form.getWidgetPosition(container)[0]
+                form.removeWidget(label)
+                form.removeWidget(container)
+                form.removeRow(row_index)
+                advanced.addRow(label, container)
                 self._ocr_advanced_keys.add(field.key)
         position = self.ui.rootLayout.indexOf(self.ui.parameterGroupBox) + 1
         self.ui.rootLayout.insertWidget(position, self.ocr_advanced_button)
@@ -202,8 +207,8 @@ class LocalOcrEditor(SchemaInstructionEditor):
 
     def _run_auxiliary(self, key):
         if key == '区域':
-            from PySide6.QtCore import QTimer
-            from PySide6.QtWidgets import QDialog, QMessageBox
+            from qt_compat.QtCore import QTimer
+            from qt_compat.QtWidgets import QDialog, QMessageBox
             from smart_capture import SmartCaptureDialog
             owner = self.parentWidget().window() if self.parentWidget() else None
             visible = owner is not None and owner.isVisible()

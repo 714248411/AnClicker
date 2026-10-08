@@ -1,8 +1,8 @@
 """主窗口使用的快捷键说明对话框。"""
 
-from PySide6 import QtWidgets
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QHeaderView, QTableWidgetItem
+from qt_compat import QtWidgets
+from qt_compat.QtCore import Qt
+from qt_compat.QtWidgets import QDialog, QHeaderView, QTableWidgetItem
 
 
 class ShortcutTable(QDialog):

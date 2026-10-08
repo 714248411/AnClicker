@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import velopack
-from PySide6.QtCore import QCoreApplication, QThread, QTimer, Signal
+from qt_compat.QtCore import QCoreApplication, QThread, QTimer, Signal
 
 from update.config import update_url
 

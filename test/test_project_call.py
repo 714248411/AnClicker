@@ -9,9 +9,9 @@ import time
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from openpyxl import Workbook
-from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt, QUrl
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QMimeData, QPoint, QPointF, Qt, QUrl
+from qt_compat.QtGui import QDragEnterEvent, QDropEvent
+from qt_compat.QtWidgets import QApplication
 from graph_repository import GraphRepository
 from instructions.models import ExecutionContext, InstructionDraft
 from instructions.registry import get_instruction_spec

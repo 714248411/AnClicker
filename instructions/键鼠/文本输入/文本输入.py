@@ -19,7 +19,7 @@ class InstructionEditor(SchemaInstructionEditor):
 
     def __init__(self, parent=None, draft=None, context=None):
         super().__init__(parent, draft, context)
-        from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+        from qt_compat.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
         from instructions.common.input_controls import PasteTextEdit
         original = self._controls['内容']
         holder = QWidget(self)

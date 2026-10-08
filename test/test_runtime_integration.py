@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox
+from qt_compat.QtCore import Signal
+from qt_compat.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox
 
 from graph_repository import GraphRepository
 from instruction_workspace import InstructionWorkspace

@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QMimeData, QUrl, QEvent, QPointF, Qt
-from PySide6.QtGui import QDropEvent
-from PySide6.QtWidgets import QApplication, QMainWindow, QPlainTextEdit, QMessageBox
+from qt_compat.QtCore import QMimeData, QUrl, QEvent, QPointF, Qt
+from qt_compat.QtGui import QDropEvent
+from qt_compat.QtWidgets import QApplication, QMainWindow, QPlainTextEdit, QMessageBox
 from recent_projects import RecentProjectPicker, ProjectDropFilter, dropped_project, short_path
 
 
@@ -80,7 +80,7 @@ def test_guarded_project_switch(app, busy, answer, save_ok, expected):
 
 def test_outline_tracks_window_and_maximize(app):
     from window_chrome import FramelessMainWindow, install_title_bar
-    from PySide6.QtGui import QAction
+    from qt_compat.QtGui import QAction
     window = FramelessMainWindow()
     bar = install_title_bar(window, QAction('主题', window))
     window.resize(640,480)

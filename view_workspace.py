@@ -6,9 +6,9 @@ import hashlib
 import json
 import os
 
-from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
+from qt_compat.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
+from qt_compat.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QDialog,
@@ -876,7 +876,7 @@ class ViewWorkspace:
             QMessageBox.warning(self.window, '粘贴失败', str(error))
 
     def _select_table_ids(self, ids):
-        from PySide6.QtWidgets import QTableWidgetSelectionRange
+        from qt_compat.QtWidgets import QTableWidgetSelectionRange
         self.command_table.clearSelection()
         for row in range(self.command_table.rowCount()):
             if self.command_table.item(row, 0).data(Qt.ItemDataRole.UserRole) in ids:

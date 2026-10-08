@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import re
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QColorDialog
+from qt_compat.QtGui import QColor
+from qt_compat.QtWidgets import QColorDialog
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor, actions
 from instructions.models import CommandRecord, ExecutionContext
 from .颜色判断_ui import Ui_InstructionEditor

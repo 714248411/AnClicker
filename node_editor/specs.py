@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
-from PySide6.QtGui import QColor
+from qt_compat.QtGui import QColor
 
 from node_editor.style import DEFAULT_NODE_COLOR
 

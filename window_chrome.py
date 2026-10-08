@@ -1,12 +1,23 @@
-"""Main-window chrome backed by PySideSix-Frameless-Window."""
+"""Shared window chrome for the platform's selected Qt binding."""
 import math
-from PySide6.QtCore import QLineF, QRect, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QWidget
+import sys
+from qt_compat.QtCore import QLineF, QRect, QRectF, QSize, Qt
+from qt_compat.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from qt_compat.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QWidget
 from info import APP_NAME, CURRENT_VERSION
 from qframelesswindow import FramelessMainWindow, StandardTitleBar
 from qframelesswindow.titlebar import TitleBarButton
-from qframelesswindow.utils import toggleMaxState
+try:
+    from qframelesswindow.utils import toggleMaxState
+except ImportError:
+    def toggleMaxState(window):
+        if window.isMaximized():
+            window.showNormal()
+        else:
+            window.showMaximized()
+        if sys.platform == 'win32':
+            from qframelesswindow.utils.win32_utils import releaseMouseLeftButton
+            releaseMouseLeftButton(window.winId())
 
 
 def chrome_icon(kind, color):

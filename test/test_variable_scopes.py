@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from types import SimpleNamespace
-from PySide6.QtWidgets import QApplication, QComboBox, QDialog
+from qt_compat.QtWidgets import QApplication, QComboBox, QDialog
 from 数据库操作 import DatabaseOperation
 from instructions.models import ExecutionContext, CommandRecord
 from instructions.registry import get_instruction_spec

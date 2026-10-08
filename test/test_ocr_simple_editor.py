@@ -2,7 +2,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtWidgets import QApplication
 from instructions.registry import get_instruction_spec
 from instructions.common.local_ocr_instruction import OCR_TYPES, fields_for
 from instructions.models import InstructionDraft

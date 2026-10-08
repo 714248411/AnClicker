@@ -55,9 +55,9 @@ def test_overwriting_template_same_path_reads_new_pixels(targets):
 
 
 def test_second_quick_capture_updates_preview_test_and_saved_instruction(targets, tmp_path, monkeypatch):
-    from PySide6.QtCore import QRect, Qt
-    from PySide6.QtGui import QPixmap
-    from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
+    from qt_compat.QtCore import QRect, Qt
+    from qt_compat.QtGui import QPixmap
+    from qt_compat.QtWidgets import QApplication, QDialog, QMessageBox
     from graph_repository import GraphRepository
     from instructions.键鼠.图像点击.图像点击 import InstructionEditor
     from smart_capture import SmartCaptureDialog
@@ -126,8 +126,8 @@ def test_flat_template_reports_problem_instead_of_matching_everywhere(targets, t
 
 
 def test_visible_image_selection_overrides_stale_backing_parameter(targets, tmp_path):
-    from PySide6.QtCore import QSignalBlocker
-    from PySide6.QtWidgets import QApplication
+    from qt_compat.QtCore import QSignalBlocker
+    from qt_compat.QtWidgets import QApplication
     from instructions.键鼠.图像点击.图像点击 import InstructionEditor
     from 数据库操作 import DatabaseOperation
 
@@ -156,7 +156,7 @@ def test_visible_image_selection_overrides_stale_backing_parameter(targets, tmp_
 
 
 def test_existing_command_edit_saves_and_runs_second_image(targets, tmp_path):
-    from PySide6.QtWidgets import QApplication, QDialog, QWidget
+    from qt_compat.QtWidgets import QApplication, QDialog, QWidget
     from instruction_workspace import InstructionWorkspace
     from instructions.models import InstructionDraft
     from instructions.键鼠.图像点击.图像点击 import InstructionEditor

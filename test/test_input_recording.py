@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from openpyxl import Workbook
-from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QApplication, QMainWindow, QTableWidget, QLabel, QPlainTextEdit
+from qt_compat.QtCore import QObject, Signal
+from qt_compat.QtWidgets import QApplication, QMainWindow, QTableWidget, QLabel, QPlainTextEdit
 from graph_repository import GraphRepository
 from input_recording import RecordingBuffer, InputEvent, events_to_drafts, normalize_key, GlobalInputRecorder
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft

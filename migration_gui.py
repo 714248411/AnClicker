@@ -1,6 +1,6 @@
 """Standalone migration window; never imports into the user's live database."""
 from pathlib import Path
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
+from qt_compat.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
                               QFileDialog, QPlainTextEdit)
 from openpyxl import load_workbook
 from migration_tool import inspect_migration, write_migration_bundle

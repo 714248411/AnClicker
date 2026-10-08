@@ -288,7 +288,7 @@ def needs_batch_migration(source):
 
 def choose_migration(window, source, source_path):
     """Interactive batch migration; return chosen file, never import or execute."""
-    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    from qt_compat.QtWidgets import QInputDialog, QMessageBox
     from legacy_workbook import save_converted_copy
 
     plan = inspect_migration(source, Path(source_path).resolve().parent)

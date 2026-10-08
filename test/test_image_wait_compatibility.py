@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtWidgets import QApplication
 from openpyxl import Workbook
 from graph_repository import GraphRepository
 from legacy_workbook import LEGACY_HEADERS
@@ -107,7 +107,7 @@ def test_unlimited_editor_test_does_not_block_gui_thread():
     requested = []
     editor.test_requested.connect(requested.append)
     try:
-        with patch('PySide6.QtWidgets.QMessageBox.information') as message:
+        with patch('qt_compat.QtWidgets.QMessageBox.information') as message:
             editor._test_if_valid()
         message.assert_called_once()
         assert requested == []

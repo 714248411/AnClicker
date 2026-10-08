@@ -1,4 +1,4 @@
-from PySide6.QtGui import QColor
+from qt_compat.QtGui import QColor
 
 
 BACKGROUND_COLOR = QColor("#171a21")

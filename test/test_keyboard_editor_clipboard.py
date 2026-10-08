@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QMimeData, Qt, QTimer
-from PySide6.QtGui import QContextMenuEvent
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog
+from qt_compat.QtCore import QMimeData, Qt, QTimer
+from qt_compat.QtGui import QContextMenuEvent
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication, QDialog
 from instructions.common.input_controls import KeyCaptureDialog, PasteTextEdit, clipboard_text
 from instructions.models import InstructionDraft
 from test.test_hidden_stop import host

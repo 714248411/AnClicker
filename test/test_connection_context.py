@@ -1,8 +1,8 @@
 from test.test_connection_history import host, flow
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QContextMenuEvent
-from PySide6.QtWidgets import QApplication
-from PySide6.QtTest import QTest
+from qt_compat.QtCore import QTimer, Qt
+from qt_compat.QtGui import QContextMenuEvent
+from qt_compat.QtWidgets import QApplication
+from qt_compat.QtTest import QTest
 from instructions.models import InstructionDraft
 import pytest
 
@@ -115,7 +115,7 @@ def test_twenty_undo_redo_round_trip(flow):
     assert len(w._connection_history)==20 and not w._connection_redo
 
 def test_rubberband_edges_menu_in_selection_area(flow):
-    from PySide6.QtGui import QPainterPath
+    from qt_compat.QtGui import QPainterPath
     from node_editor.items import EdgeItem
     host,(a,b,c)=flow
     w,view=layout(host,(a,b,c))
@@ -130,7 +130,7 @@ def test_rubberband_edges_menu_in_selection_area(flow):
     pos=None
     for x in range(int(bounds.left())+20,int(bounds.right()),20):
         for y in range(int(bounds.top())+20,int(bounds.bottom()),20):
-            from PySide6.QtCore import QPointF
+            from qt_compat.QtCore import QPointF
             point=view.mapFromScene(QPointF(x,y))
             if view.viewport().rect().contains(point) and view.itemAt(point) is None:
                 pos=point;break

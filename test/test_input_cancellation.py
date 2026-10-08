@@ -180,7 +180,7 @@ def test_cancelled_context_sends_no_input(kind):
 @pytest.mark.parametrize('kind', ['鼠标点击', '按下键盘', '按键等待'])
 def test_editor_uses_cancellable_worker(kind):
     from instruction_workspace import InstructionWorkspace
-    from PySide6.QtWidgets import QApplication
+    from qt_compat.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
     spec = get_instruction_spec(kind)
     editor = spec.create_editor()

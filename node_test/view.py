@@ -1,6 +1,6 @@
-from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
-from PySide6.QtGui import QDrag, QPainter
-from PySide6.QtWidgets import QAbstractItemView, QGraphicsView, QTreeWidget
+from qt_compat.QtCore import QMimeData, QPoint, Qt, Signal
+from qt_compat.QtGui import QDrag, QPainter
+from qt_compat.QtWidgets import QAbstractItemView, QGraphicsView, QTreeWidget
 
 
 NODE_MIME_TYPE = "application/x-clicker-node-type"
