@@ -13,14 +13,14 @@ import uuid
 def main():
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root))
-    from info import CURRENT_VERSION, WINDOW_TITLE
+    from info import CURRENT_VERSION, WINDOW_TITLE, APP_ID, EXECUTABLE_NAME
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", type=Path, default=root / "dist")
     dist = parser.parse_args().dist.resolve()
     if sys.platform == "darwin":
-        executable = dist / "AnClicker.app/Contents/MacOS/AnClicker"
+        executable = dist / f"{APP_ID}.app/Contents/MacOS/{APP_ID}"
     else:
-        executable = dist / "AnClicker" / ("AnClicker.exe" if sys.platform == "win32" else "AnClicker")
+        executable = dist / APP_ID / (EXECUTABLE_NAME if sys.platform == "win32" else APP_ID)
     with tempfile.TemporaryDirectory(prefix="anclicker-startup-") as folder:
         env = dict(os.environ, ANCLICKER_DATA_DIR=folder,
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",

@@ -15,6 +15,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = PROJECT_ROOT / "dist"
 RELEASE_ROOT = PROJECT_ROOT / "release"
+sys.path.insert(0, str(PROJECT_ROOT))
+from info import APP_ID, APP_NAME, CURRENT_VERSION, EXECUTABLE_NAME
 
 
 def platform_label() -> str:
@@ -30,8 +32,8 @@ def platform_label() -> str:
 
 
 def build_root() -> Path:
-    app_bundle_ = DIST_ROOT / "AnClicker.app"
-    app_directory_ = DIST_ROOT / "AnClicker"
+    app_bundle_ = DIST_ROOT / f"{APP_ID}.app"
+    app_directory_ = DIST_ROOT / APP_ID
     if sys.platform == "darwin" and app_bundle_.exists():
         return app_bundle_
     if app_directory_.exists():
@@ -55,21 +57,21 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
 def main() -> int:
     global DIST_ROOT
     parser_ = argparse.ArgumentParser()
-    parser_.add_argument("--version", default="v1.3.0")
+    parser_.add_argument("--version", default=CURRENT_VERSION)
     parser_.add_argument("--dist", type=Path, default=DIST_ROOT)
     arguments_ = parser_.parse_args()
     DIST_ROOT = arguments_.dist.resolve()
     source_ = build_root()
     label_ = platform_label()
     RELEASE_ROOT.mkdir(exist_ok=True)
-    archive_path_ = RELEASE_ROOT / f"AnClicker-{arguments_.version}-{label_}.zip"
+    archive_path_ = RELEASE_ROOT / f"{APP_ID}-{arguments_.version}-{label_}.zip"
     manifest_ = {
-        "application": "An Clicker",
+        "application": APP_NAME,
         "package_type": "full-application",
         "version": arguments_.version,
         "platform": label_,
         "python": platform.python_version(),
-        "entry": "AnClicker.exe" if sys.platform == "win32" else "AnClicker",
+        "entry": EXECUTABLE_NAME if sys.platform == "win32" else APP_ID,
     }
     with zipfile.ZipFile(archive_path_, "w", allowZip64=True) as archive_:
         add_tree(archive_, source_, source_.name)
@@ -82,7 +84,7 @@ def main() -> int:
              '跨分支跳转及未知指令可能无法转换，以报告为准。\n').encode('utf-8'))
         if sys.platform == 'win32':
             archive_.writestr(tool_prefix + '启动迁移器.cmd',
-                '@echo off\r\nstart "" "%~dp0..\\AnClicker\\AnClicker.exe" --migration-tool\r\n')
+                f'@echo off\r\nstart "" "%~dp0..\\{APP_ID}\\{EXECUTABLE_NAME}" --migration-tool\r\n')
         else:
             entry = '../AnClicker.app/Contents/MacOS/AnClicker' if sys.platform == 'darwin' else '../AnClicker/AnClicker'
             info = zipfile.ZipInfo(tool_prefix + '启动迁移器.sh')

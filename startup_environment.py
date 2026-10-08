@@ -4,20 +4,29 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from info import APP_ID, DATA_DIR_ENV
+
+
+def storage_install_folder(install):
+    # Portable user data must live outside Velopack's replaceable current folder.
+    if (install.name.casefold() == "current" and (install / "sq.version").is_file()
+            and (install.parent / "Update.exe").is_file()):
+        return install.parent
+    return install
 
 
 def prepare_environment():
-    override = os.environ.get("ANCLICKER_DATA_DIR", "").strip()
+    override = os.environ.get(DATA_DIR_ENV, "").strip()
     frozen = getattr(sys, "frozen", False)
     install = Path(sys.executable).parent if frozen else Path(__file__).resolve().parent
     if override:
         target = Path(override).expanduser().resolve()
     elif not frozen or sys.platform == "win32":
-        target = install / "data"
+        target = storage_install_folder(install) / "data"
     elif sys.platform == "darwin":
-        target = Path.home() / "Library" / "Application Support" / "AnClicker"
+        target = Path.home() / "Library" / "Application Support" / APP_ID
     else:
-        target = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "AnClicker"
+        target = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / APP_ID
 
     def initialize(folder):
         folder.mkdir(parents=True, exist_ok=True)
@@ -31,9 +40,9 @@ def prepare_environment():
     except PermissionError:
         if override or not frozen or sys.platform != "win32":
             raise
-        target = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "AnClicker"
+        target = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / APP_ID
         initialize(target)
-    os.environ["ANCLICKER_DATA_DIR"] = str(target)
+    os.environ[DATA_DIR_ENV] = str(target)
     return target
 
 

@@ -85,7 +85,11 @@ Excel 导入导出采用节点协议，工作表固定为“命令、节点、�
 .\.venv\Scripts\pyside6-uic.exe Window\mainwindow.ui -o Window\mainwindow_ui.py
 ```
 
-PyInstaller 打包说明见 `packaging/打包文件说明.md`。
+应用名称、标题、版本及程序标识在 `info.py` 管理；所有更新和七牛发布配置统一放在该文件的 `UPDATE_CONFIG` 字典中；上传 AK/SK 仍从环境变量读取。根目录无需 `update-source.json`，构建时会自动生成包内校验快照。
+
+PyInstaller 打包说明见 `packaging/打包文件说明.md`。 AI 操作流程见 [AI打包并发布说明](packaging/AI打包并发布说明.md)。
+
+Windows Velopack 绿色便携版仅交付 ZIP，不生成安装包；完整解压后双击根目录 `An Clicker.exe`，不要单独移动程序文件。便携版支持后台检查、下载及帮助菜单中的“重启更新”；普通 ZIP 和源码不自动更新。托管版将用户数据保存在 `current` 外。交付 ZIP 自动带版本号，例如 `delivery/AnClicker-v1.3.2-Portable.zip`。本地构建命令为 `python packaging/build_velopack.py`，迁移与验证步骤见上述打包说明。七牛构建上传入口为 `packaging/发布Velopack.py`，配置和发布流程见 AI 打包说明；本次接入未执行线上发布。
 
 ## 跨平台发布
 

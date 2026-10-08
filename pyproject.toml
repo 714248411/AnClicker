@@ -1,6 +1,6 @@
 [project]
 name = "an-clicker"
-version = "1.0.0b1"
+dynamic = ["version"]
 description = "Cross-platform visual automation workspace for Windows, macOS, and Linux"
 requires-python = ">=3.10"
 dependencies = [
@@ -24,4 +24,21 @@ dependencies = [
     "pyinstaller",
     "python-dateutil",
     "psutil",
+    "velopack==1.2.0; sys_platform == 'win32'",
 ]
+
+[dependency-groups]
+release = ["qiniu==7.17.0", "pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["info"]
+
+[tool.setuptools.dynamic]
+version = {attr = "info.VERSION"}
+
+[tool.uv]
+package = false

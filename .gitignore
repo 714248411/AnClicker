@@ -57,3 +57,8 @@ dist-theme/
 build-input-full/
 build-variables/
 build-recording/
+
+# Writable application databases must never be committed.
+/data/*.db
+/data/*.db-*
+/.release-validation

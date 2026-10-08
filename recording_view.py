@@ -147,6 +147,9 @@ class RecordingView(QWidget):
         self.update_buttons()
 
     def begin(self):
+        if getattr(self.window, '_update_preparing', False):
+            self.status.setText('正在准备更新，暂时无法开始录制。')
+            return
         if self.busy:
             return
         if self.window.command_thread.isRunning():

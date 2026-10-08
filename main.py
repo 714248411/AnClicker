@@ -4,6 +4,11 @@ import os
 import sys
 from pathlib import Path
 
+# Handle lifecycle hooks before storage, Qt and singleton initialization.
+if __name__ == "__main__" and sys.platform == "win32" and getattr(sys, "frozen", False):
+    import velopack
+    velopack.App().set_auto_apply_on_startup(False).run()
+
 from startup_environment import prepare_environment, record_startup_error
 
 STARTUP_DATA_FOLDER = prepare_environment()
@@ -23,10 +28,10 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from functions import RESOURCE_FOLDER, ensure_data_directories, show_window
-from info import APP_NAME, CURRENT_VERSION, WINDOW_TITLE
+from info import APP_NAME, CURRENT_VERSION, WINDOW_TITLE, SINGLETON_ENV, SINGLETON_KEY_DEFAULT, update_source_config
 
 SINGLETON_KEY = os.environ.get(
-    "ANCLICKER_SINGLETON_KEY", f"FasterThanLight_{APP_NAME}_SingletonKey"
+    SINGLETON_ENV, SINGLETON_KEY_DEFAULT
 )
 
 
@@ -161,7 +166,16 @@ def main():
     splash.finish(main_window)
     splash.deleteLater()
     app.processEvents()
-    if "--startup-smoke-test" in sys.argv:
+    if '--velopack-local-smoke' in sys.argv:
+        from update.local_smoke import run
+        def upgrade_probe():
+            try:
+                run(app)
+            except Exception as error:
+                record_startup_error(STARTUP_DATA_FOLDER, error)
+                app.exit(1)
+        QTimer.singleShot(500, upgrade_probe)
+    if "--startup-smoke-test" in sys.argv or "--release-smoke" in sys.argv:
         from ui_validation import validate_instruction_editors, validate_legacy_migration
         editor_validation = validate_instruction_editors(main_window)
         migration_validation = validate_legacy_migration()
@@ -170,9 +184,13 @@ def main():
         def report_ready():
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
+                "ok": True,
+                "window_visible": main_window.isVisible(),
+                "data_root": os.environ["ANCLICKER_DATA_DIR"],
                 "ready": main_window.isVisible(),
-                "version": app.applicationVersion(),
+                "version": app.applicationVersion().removeprefix("v") if "--release-smoke" in sys.argv else app.applicationVersion(),
                 "title": main_window.windowTitle(),
+                "update_config": update_source_config(),
                 "views": main_window.tabWidget.count(),
                 "database": main_window.db.db_path,
                 "editor_validation": editor_validation,
@@ -189,7 +207,7 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except Exception as error:
         log_path = record_startup_error(STARTUP_DATA_FOLDER, error)
-        if "--startup-smoke-test" not in sys.argv:
+        if not any(flag in sys.argv for flag in ("--startup-smoke-test", "--release-smoke")):
             from PySide6.QtWidgets import QMessageBox
             app = QApplication.instance() or QApplication(sys.argv)
             QMessageBox.critical(None, "启动失败", f"无法完成启动：{error}\n\n详细日志：{log_path}\n请完整解压安装包后运行 AnClicker.exe。")

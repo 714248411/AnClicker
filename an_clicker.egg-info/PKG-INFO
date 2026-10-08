@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: an-clicker
+Version: 1.3.2
+Summary: Cross-platform visual automation workspace for Windows, macOS, and Linux
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: PySide6
+Requires-Dist: pyttsx4
+Requires-Dist: pymsgbox
+Requires-Dist: pyautogui
+Requires-Dist: PyWinCtl>=0.4.1
+Requires-Dist: mouse; sys_platform != "darwin"
+Requires-Dist: keyboard; sys_platform != "darwin"
+Requires-Dist: pynput; sys_platform == "darwin"
+Requires-Dist: pandas
+Requires-Dist: pillow
+Requires-Dist: openpyxl
+Requires-Dist: requests
+Requires-Dist: system_hotkey; sys_platform != "darwin"
+Requires-Dist: pygments
+Requires-Dist: opencv-python
+Requires-Dist: baidu-aip
+Requires-Dist: chardet
+Requires-Dist: pyinstaller
+Requires-Dist: python-dateutil
+Requires-Dist: psutil
+Requires-Dist: velopack==1.2.0; sys_platform == "win32"
+Dynamic: license-file

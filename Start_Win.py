@@ -192,6 +192,54 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.get_data()
         # 加载窗体初始值
         self.load_initialization()
+        self._install_updates()
+
+    def _install_updates(self):
+        if sys.platform != 'win32':
+            return
+        from update.自动更新接入 import AutoUpdateManager
+        self.auto_update = AutoUpdateManager(self)
+        # Use the existing help menu that contains About.
+        menu = next((m for m in self.menuBar().findChildren(__import__('PySide6.QtWidgets', fromlist=['QMenu']).QMenu)
+                     if self.actionabout in m.actions()), None) or self.menuBar().addMenu('帮助')
+        check = menu.addAction('检查更新')
+        check.triggered.connect(lambda: self.auto_update.check_for_updates(True))
+        self.restart_update_action = menu.addAction('重启更新')
+        self.restart_update_action.setEnabled(False)
+        self.restart_update_action.triggered.connect(self.auto_update.apply_ready_update)
+        self.auto_update.update_ready.connect(lambda version, notes: self._update_ready(version))
+        self.auto_update.update_progress.connect(lambda text, value: self.statusBar.showMessage(
+            f'{text} {value}%' if value >= 0 else text))
+        if not any(flag in sys.argv for flag in ('--startup-smoke-test', '--release-smoke', '--velopack-local-smoke')):
+            QTimer.singleShot(1500, self.auto_update.check_on_startup)
+
+    def _update_ready(self, version):
+        self.restart_update_action.setEnabled(True)
+        self.restart_update_action.setText(f'重启更新至 {version}')
+        self.statusBar.showMessage(f'新版本 {version} 已准备好，请在帮助菜单选择重启更新。')
+
+    def prepare_for_update(self):
+        if (self.command_thread.isRunning() or self.view_workspace.recording_page.busy
+                or getattr(self.workspace, '_instruction_test_active', False)
+                or (self.view_workspace.recording_page.drafts and not self.view_workspace.recording_page.written)
+                or QApplication.activeModalWidget() is not None):
+            return False, '请先结束运行、录制或指令测试并关闭编辑窗口。'
+        if not self.auto_update.shutdown():
+            return False, '正在检查或下载更新，请稍后重试。'
+        choice = QMessageBox.question(self, '重启更新', '是否保存当前项目并重启更新？',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes)
+        if choice == QMessageBox.StandardButton.Cancel:
+            return False, '已取消更新。'
+        if choice == QMessageBox.StandardButton.Yes and not self.save_data('自动保存'):
+            return False, '项目保存未完成，已取消更新。'
+        if (self.command_thread.isRunning() or self.view_workspace.recording_page.busy
+                or getattr(self.workspace, '_instruction_test_active', False)):
+            return False, '确认期间任务状态发生变化，请先结束任务。'
+        # Flush window preferences without clearing commands or terminating the GUI.
+        self.db.update_settings(显示工具栏=str(self.actiong.isChecked()),
+                                执行中隐藏主窗口=str(self.checkBox_2.isChecked()))
+        return True, ''
 
     def showEvent(self, event_) -> None:
         """首次真正显示并完成布局后再适应节点画布。"""
@@ -571,6 +619,10 @@ class Main_window(QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """关闭窗口事件"""
+        if hasattr(self, "auto_update") and not self.auto_update.shutdown():
+            QMessageBox.information(self, "正在更新", "正在检查或下载更新，请稍后退出。")
+            event.ignore()
+            return
         recording = self.view_workspace.recording_page
         if recording.busy or (recording.drafts and not recording.written):
             if QMessageBox.question(
@@ -710,6 +762,9 @@ class Main_window(QMainWindow, Ui_MainWindow):
             )
 
     def start(self, run_mode='全部指令', info=0) -> bool:
+        if getattr(self, '_update_preparing', False):
+            self.statusBar.showMessage('正在准备更新，暂时无法启动任务。', 3000)
+            return False
         """主窗体开始按钮
         :param run_mode: 运行模式（全部指令、单行指令、从当前行运行）
         :param info: 指令ID"""

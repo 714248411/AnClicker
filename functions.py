@@ -1,4 +1,5 @@
 import datetime
+from info import APP_ID, DATA_DIR_ENV
 import os
 import platform
 import re
@@ -125,22 +126,24 @@ RESOURCE_FOLDER = get_resource_folder()
 
 def get_platform_data_folder() -> str:
     """Return a writable per-user data directory on each supported desktop OS."""
-    override_ = os.environ.get("ANCLICKER_DATA_DIR", "").strip()
+    override_ = os.environ.get(DATA_DIR_ENV, "").strip()
     if override_:
         return os.path.abspath(os.path.expanduser(override_))
     if not getattr(sys, "frozen", False):
         return os.path.join(INSTALL_FOLDER, "data")
     if sys.platform == "win32":
         # Keep compatibility with existing portable Windows releases.
-        return os.path.join(INSTALL_FOLDER, "data")
+        from startup_environment import storage_install_folder
+        from pathlib import Path
+        return str(storage_install_folder(Path(INSTALL_FOLDER)) / "data")
     if sys.platform == "darwin":
         return os.path.join(
-            os.path.expanduser("~/Library/Application Support"), "AnClicker"
+            os.path.expanduser("~/Library/Application Support"), APP_ID
         )
     xdg_data_home_ = os.environ.get(
         "XDG_DATA_HOME", os.path.expanduser("~/.local/share")
     )
-    return os.path.join(xdg_data_home_, "AnClicker")
+    return os.path.join(xdg_data_home_, APP_ID)
 
 
 DATA_FOLDER = get_platform_data_folder()
@@ -161,7 +164,7 @@ def ensure_data_directories() -> None:
         TEMP_FOLDER,
     ):
         os.makedirs(folder, exist_ok=True)
-    seed_database_ = os.path.join(RESOURCE_FOLDER, "data", "命令集.db")
+    seed_database_ = os.path.join(RESOURCE_FOLDER, "defaults", "命令集.db")
     if not os.path.exists(DATABASE_PATH) and os.path.isfile(seed_database_):
         shutil.copy2(seed_database_, DATABASE_PATH)
 

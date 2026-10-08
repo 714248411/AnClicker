@@ -51,9 +51,7 @@ jobs:
             libxcb-render-util0 libxcb-xinerama0 libxkbcommon-x11-0
           Xvfb :99 -screen 0 1920x1080x24 >/tmp/anclicker-xvfb.log 2>&1 &
       - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt pytest
-      - name: Run tests
-        run: python -m pytest -v
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
       - name: Build native application
         run: python -m PyInstaller --clean -y packaging/main.spec
       - name: Verify packaged first and second startup

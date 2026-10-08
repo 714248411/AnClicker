@@ -1,0 +1,27 @@
+PySide6
+pyttsx4
+pymsgbox
+pyautogui
+PyWinCtl>=0.4.1
+pandas
+pillow
+openpyxl
+requests
+pygments
+opencv-python
+baidu-aip
+chardet
+pyinstaller
+python-dateutil
+psutil
+
+[:sys_platform != "darwin"]
+mouse
+keyboard
+system_hotkey
+
+[:sys_platform == "darwin"]
+pynput
+
+[:sys_platform == "win32"]
+velopack==1.2.0
