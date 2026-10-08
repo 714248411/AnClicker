@@ -177,6 +177,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.command_thread.send_message.connect(self.send_message)
         self.command_thread.finished_signal.connect(self.thread_finished)
         self.command_thread.finished.connect(self._runtime_finished)
+        self.command_thread.error_requested.connect(self._show_runtime_error, Qt.QueuedConnection)
+        self._runtime_error_box = None
         self.command_thread.send_type_and_id.connect(self._follow_running_command, Qt.QueuedConnection)
         self.shortcut_requested.connect(self.global_shortcut_key, Qt.QueuedConnection)
         self._escape_registered = False
@@ -660,13 +662,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                 event.ignore()
                 return
 
-        if self.command_thread.isRunning() and not self.command_thread.stop_and_wait():
-            QMessageBox.warning(
-                self,
-                "无法退出",
-                "执行线程尚未停止，已取消退出。",
-                QMessageBox.StandardButton.Ok,
-            )
+        if self.command_thread.isRunning():
+            self.global_shortcut_key('终止线程')
+            self.statusBar.showMessage('正在停止任务，请在停止后关闭窗口。', 5000)
             event.ignore()
             return
 
@@ -792,9 +790,10 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                 self.hide()
 
         if self.command_thread.isRunning():
-            if not self.command_thread.stop_and_wait():
-                self.statusBar.showMessage("原任务尚未停止，未启动新任务。", 5000)
-                return False
+            self.statusBar.showMessage("原任务尚未停止，未启动新任务。", 5000)
+            return False
+        if self._runtime_error_box is not None:
+            self._runtime_error_box.reject()
         self.command_thread.prepare_for_start()
         self._restore_main_after_run = self.checkBox_2.isChecked() or self.view_workspace.compact.active
         escape_available_ = self._arm_escape_stop()
@@ -828,6 +827,31 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         except Exception as error:
             self.statusBar.showMessage(f'{error}；本次不隐藏窗口，请使用结束任务按钮。', 6000)
             return False
+
+    def _show_runtime_error(self, request):
+        if self.command_thread._stop_requested:
+            request['event'].set()
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle('指令执行异常')
+        box.setText(request['text'])
+        box.setIcon(QMessageBox.Warning)
+        buttons = QMessageBox.Abort
+        if request['retry']:
+            buttons |= QMessageBox.Retry | QMessageBox.Ignore
+        box.setStandardButtons(buttons)
+        box.setWindowModality(Qt.NonModal)
+        def resolved(result):
+            request['action'] = {int(QMessageBox.Retry): 'retry',
+                                 int(QMessageBox.Ignore): 'continue'}.get(result, 'stop')
+            request['event'].set()
+            if self._runtime_error_box is box:
+                self._runtime_error_box = None
+            box.deleteLater()
+        box.finished.connect(resolved)
+        self._runtime_error_box = box
+        self.show()
+        box.show()
 
     def _runtime_finished(self):
         self._flush_runtime_messages(all_pending=True)
@@ -905,15 +929,16 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
         if i_str == "终止线程":
             if self.command_thread.isRunning():
-                stopped_ = self.command_thread.stop_and_wait()
-                # 获取当前时间
-                self.send_message("任务终止！" if stopped_ else "任务正在等待当前指令结束。")
-                if stopped_:
-                    self._runtime_finished()
-                if self.checkBox_2.isChecked():
+                self.command_thread.request_stop()
+                if self._runtime_error_box is not None:
+                    self._runtime_error_box.reject()
+                self.send_message("已请求停止，正在释放运行资源。")
+                if self.isMinimized():
+                    self.showNormal()
+                else:
                     self.show()
-                QApplication.processEvents()
-                self.db.show_normal_window_with_specified_title(self.windowTitle())  # 显示窗口
+                self.raise_()
+                self.activateWindow()
 
         elif i_str == "开始线程":
             if self.start('全部指令', 0):  # 开始线程

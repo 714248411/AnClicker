@@ -126,3 +126,67 @@ def test_worker_cache_cleanup_is_queued_to_gui_thread(host):
         QApplication.processEvents()
         assert len(observed) == 2
         assert all(thread == QApplication.instance().thread() for thread in observed)
+
+
+def pump_until(predicate):
+    deadline = time.monotonic() + 3
+    while not predicate() and time.monotonic() < deadline:
+        QApplication.processEvents()
+        time.sleep(.01)
+    assert predicate()
+
+
+def test_stop_does_not_block_gui_or_show_cancel_error(host):
+    from threading import Event
+    entered, release = Event(), Event()
+    def run(context, command):
+        entered.set()
+        release.wait(3)
+        raise RuntimeError('recognition cancelled')
+    host.execution_services = {'悬停后点击': run}
+    for _ in range(3):
+        entered.clear()
+        release.clear()
+        assert host.start()
+        pump_until(entered.is_set)
+        try:
+            with patch.object(host.command_thread, 'stop_and_wait', side_effect=AssertionError('GUI blocked')):
+                started = time.monotonic()
+                host.global_shortcut_key('终止线程')
+                assert time.monotonic() - started < .3
+                assert host.isVisible()
+                assert host.command_thread.isRunning()
+                assert not host.start()
+        finally:
+            release.set()
+        wait_for_finish(host)
+        assert host._runtime_error_box is None
+
+
+def test_error_dialog_is_nonmodal_and_stop_cancels_wait(host):
+    from PySide6.QtCore import Qt
+    def fail(context, command):
+        raise ValueError('test image not found')
+    host.execution_services = {'悬停后点击': fail}
+    assert host.start()
+    pump_until(lambda: host._runtime_error_box is not None)
+    assert host._runtime_error_box.windowModality() == Qt.NonModal
+    host.global_shortcut_key('终止线程')
+    wait_for_finish(host)
+    assert host._runtime_error_box is None
+
+
+@pytest.mark.parametrize('choice', ['Retry', 'Ignore', 'Abort'])
+def test_error_choices_still_work(host, choice):
+    from PySide6.QtWidgets import QMessageBox
+    calls = []
+    def run(context, command):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ValueError('first attempt')
+    host.execution_services = {'悬停后点击': run}
+    host.start()
+    pump_until(lambda: host._runtime_error_box is not None)
+    host._runtime_error_box.button(getattr(QMessageBox, choice)).click()
+    wait_for_finish(host)
+    assert len(calls) == (2 if choice == 'Retry' else 1)

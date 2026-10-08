@@ -108,6 +108,10 @@ def test_editor_test_keeps_event_loop_responsive_and_cancels(backend, cancel):
     heartbeat.timeout.connect(lambda: ticks.append(1))
     heartbeat.start(10)
     def stop():
+        # Cancel an established listener, not a scheduler-dependent startup.
+        if (not backend or not backend[0].alive) and time.monotonic() - started < 1:
+            QTimer.singleShot(10, stop)
+            return
         dialog = app.activeModalWidget()
         if isinstance(dialog, CancellableTestDialog):
             observed.append(dialog)

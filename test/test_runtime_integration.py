@@ -216,7 +216,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
         self.assertTrue(thread_.wait(2000))
         self.assertEqual(len(calls_), 2)
 
-    def test_stop_uses_bounded_terminate_fallback_for_blocked_executor(self):
+    def test_stop_timeout_never_terminates_lock_owning_executor(self):
         class MainWindowStub:
             execution_services = {}
 
@@ -227,10 +227,10 @@ class RuntimeIntegrationTests(unittest.TestCase):
             patch.object(thread_, "wait", side_effect=[False, True]) as wait_,
             patch.object(thread_, "terminate") as terminate_,
         ):
-            self.assertTrue(thread_.stop_and_wait(25, 50))
+            self.assertFalse(thread_.stop_and_wait(25, 50))
         self.assertEqual(wait_.call_args_list[0].args, (25,))
-        self.assertEqual(wait_.call_args_list[1].args, (50,))
-        terminate_.assert_called_once_with()
+        self.assertEqual(wait_.call_count, 1)
+        terminate_.assert_not_called()
         self.assertFalse(thread_.is_paused)
 
     def test_real_main_window_has_five_linked_views(self):

@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+import pytest
 
 from instructions.common import actions
 from instructions.models import ExecutionContext, CommandRecord
@@ -29,7 +30,8 @@ def test_long_image_search_can_stop_and_keeps_resolved_project_path():
     assert locator.call_args.kwargs['minSearchTime'] == 0
 
 
-def test_stop_during_image_capture_never_clicks_late_result():
+@pytest.mark.parametrize('policy', ['自动略过', '60'])
+def test_stop_during_image_capture_never_clicks_late_result(policy):
     context = ExecutionContext()
     def capture(*args, **kwargs):
         context.stop_requested = True
@@ -38,7 +40,7 @@ def test_stop_during_image_capture_never_clicks_late_result():
     with patch.object(actions, 'resolve_image_path', return_value='image.png'), \
          patch.object(actions, 'pyautogui_module', return_value=gui):
         assert get_instruction_spec('图像点击').create_executor().execute(context,
-            CommandRecord(1, '图像点击', {'图像路径': 'image.png'})) is False
+            CommandRecord(1, '图像点击', {'图像路径': 'image.png', '异常': policy})) is False
     gui.moveTo.assert_not_called()
     gui.click.assert_not_called()
 

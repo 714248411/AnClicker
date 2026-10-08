@@ -34,6 +34,8 @@ class InstructionExecutor(InstructionExecutorBase):
         if delegated_:
             return result_
         point_, skip_ = actions.locate_image_with_policy(command.parameters, context)
+        if context.stop_requested:
+            return False
         if point_ is None:
             if skip_:
                 return False
@@ -44,6 +46,8 @@ class InstructionExecutor(InstructionExecutorBase):
         else:
             offset_x_, offset_y_ = actions.point(offset_)
         x_, y_ = int(point_.x) + offset_x_, int(point_.y) + offset_y_
+        if context.stop_requested:
+            return False
         actions.mouse_action(str(actions.parameter(command.parameters, "动作", default="左键单击")), x_, y_)
         context.emit(f"图像点击：{x_},{y_}")
         return (x_, y_)

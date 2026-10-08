@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from threading import Event
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -21,6 +22,7 @@ class CommandThread(QThread):
     finished_signal = Signal(str, name="finished_signal")
     send_type_and_id = Signal(str, str, name="send_type_and_id")
     cache_cleanup_requested = Signal(int, name="cache_cleanup_requested")
+    error_requested = Signal(object)
 
     CACHE_CLEANUP_INTERVAL = 25
     CACHE_CLEANUP_SECONDS = 30.0
@@ -114,6 +116,7 @@ class CommandThread(QThread):
             self.mutex.lock()
             try:
                 self._active_context = context_
+                context_.stop_requested = self._stop_requested
             finally:
                 self.mutex.unlock()
             try:
@@ -196,32 +199,11 @@ class CommandThread(QThread):
     def stop_and_wait(
         self, timeout_ms: int = 5000, terminate_wait_ms: int = 2000
     ) -> bool:
-        """
-        先协作式停止并唤醒暂停等待，超时后再有界强制终止。
-
-        强制终止只作为长时间 sleep 或外部阻塞调用的最后兜底。
-        在进入该路径前，request_stop 已经清除暂停并唤醒条件变量。
-        """
-        context_to_release_ = self._active_context
+        """Bounded join for non-UI callers; never terminate a lock-owning worker."""
         self.request_stop()
         if not self.isRunning():
             return True
-        if self.wait(max(0, int(timeout_ms))):
-            return True
-        self.terminate()
-        stopped_ = bool(self.wait(max(0, int(terminate_wait_ms))))
-        if stopped_:
-            if context_to_release_ is not None:
-                from instructions.common.actions import release_recorded_inputs
-                release_recorded_inputs(context_to_release_)
-            # terminate() may interrupt code near a mutex operation.  The old
-            # worker has exited, so replace synchronization primitives before
-            # this QThread instance is reused.
-            self.mutex = QMutex()
-            self.condition = QWaitCondition()
-            self.is_paused = False
-            self._active_context = None
-        return stopped_
+        return bool(self.wait(max(0, int(timeout_ms))))
 
     def check_mutex(self) -> bool:
         self.mutex.lock()
@@ -532,6 +514,8 @@ class CommandThread(QThread):
     def _handle_command_error(
         self, command_: CommandRecord, error_: Exception
     ) -> str:
+        if self._stop_requested or not self.start_state:
+            return "stop"
         from instructions.common.actions import release_recorded_inputs
         if self._active_context is not None:
             release_recorded_inputs(self._active_context)
@@ -546,40 +530,24 @@ class CommandThread(QThread):
 
         self.db.system_prompt_tone("执行异常")
         if policy_ == "提示异常并暂停":
-            import pymsgbox
-
             self.send_message.emit(
                 f"ID为{command_id_}的指令执行异常，等待处理。"
             )
-            choice_ = pymsgbox.confirm(
-                text=(
-                    f"ID为{command_id_}的指令执行异常！\n是否重试？"
-                    f"\n\n错误类型：{error_text_}"
-                ),
-                title="提示",
-                buttons=[
-                    pymsgbox.ABORT_TEXT,
-                    pymsgbox.RETRY_TEXT,
-                    pymsgbox.IGNORE_TEXT,
-                ],
-            )
-            if choice_ == pymsgbox.RETRY_TEXT:
-                return "retry"
-            if choice_ == pymsgbox.IGNORE_TEXT:
-                return "continue"
-            return "stop"
+            request = dict(text=f"ID为{command_id_}的指令执行异常：\n{error_text_}",
+                           event=Event(), action="stop", retry=True)
+            self.error_requested.emit(request)
+            while self.start_state and not self._stop_requested:
+                if request['event'].wait(0.05):
+                    return request['action'] if not self._stop_requested else 'stop'
+            return 'stop'
 
         if policy_ == "提示异常并停止":
-            import pymsgbox
-
             self.send_message.emit(
                 f"ID为{command_id_}的指令执行异常，任务已停止。"
             )
-            pymsgbox.alert(
-                text=f"ID为{command_id_}的指令抛出异常！\n\n错误类型：{error_text_}",
-                title="提示",
-                icon=pymsgbox.STOP,
-            )
+            self.error_requested.emit(dict(
+                text=f"ID为{command_id_}的指令抛出异常：\n{error_text_}",
+                event=Event(), action='stop', retry=False))
             return "stop"
 
         self.send_message.emit(
