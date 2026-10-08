@@ -234,12 +234,12 @@ class InstructionFallbackTests(unittest.TestCase):
                 executor_.execute(self.context_, _command("信息录入", parameters_))
 
         with patch.object(actions, "workbook_cell", return_value=(self.workbook_, None, self.workbook_.cell)), \
-                patch.object(actions, "locate_image_with_policy", return_value=(_Point(), False)), \
+                patch.object(actions, "locate_image", return_value=_Point()), \
                 patch.object(actions, "mouse_action") as mouse_action_, \
                 patch.object(actions, "pyautogui_module", return_value=self.gui_), \
                 patch.dict(sys.modules, {"pyperclip": self.pyperclip_}):
             executor_.execute(self.context_, _command("信息录入", parameters_))
-        mouse_action_.assert_called_once_with("左键三击", 12, 34)
+        mouse_action_.assert_called_once_with("左键三击", 12, 34, move_first=False)
         self.pyperclip_.copy.assert_called_with("测试中文")
         self.gui_.hotkey.assert_called_with("ctrl", "v")
 
@@ -252,12 +252,12 @@ class InstructionFallbackTests(unittest.TestCase):
         image_context_.__enter__ = Mock(return_value=image_)
         image_context_.__exit__ = Mock(return_value=False)
         with patch.object(actions, "resolve_image_path", return_value="a.png"), \
-                patch.object(actions, "pyautogui_module", return_value=SimpleNamespace(locateCenterOnScreen=locator_)), \
+                patch.object(actions, "locate_image_on_screen", locator_), \
                 patch("PIL.Image.open", return_value=image_context_), \
                 patch.object(actions.random, "randint", side_effect=lambda low_, high_: high_):
             actions.locate_image({"图像路径": "a.png"}, min_search_time=2.5)
             offset_ = actions.image_random_offset({"图像路径": "a.png"})
-        self.assertEqual(locator_.call_args.kwargs["minSearchTime"], 2.5)
+        locator_.assert_called_once_with("a.png", confidence=0.8, grayscale=False, region=None)
         self.assertEqual(offset_, (39, 19))
 
     def test_countdown_fallback_creates_topmost_stoppable_window(self):

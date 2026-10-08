@@ -107,22 +107,15 @@ def locate_image(
     confidence_ = float(parameter(parameters, "精度", default=0.8))
     if confidence_ > 1:
         confidence_ /= 100
-    # The legacy executor initialized this patch as an import side effect.
-    # Current independent executors must initialize it on the actual search
-    # path too, including editor tests and child projects in a fresh process.
-    from functions import patch_pyautogui_unicode_cv2
-    patch_pyautogui_unicode_cv2()
     deadline = time.monotonic() + max(0.0, float(min_search_time))
     while True:
         if context is not None and not wait_interruptibly(context, 0):
             return None
         try:
-            found = pyautogui_module().locateCenterOnScreen(
+            found = locate_image_on_screen(
                 image_path_, confidence=confidence_,
                 grayscale=bool(parameter(parameters, "灰度", default=False)),
                 region=region(parameter(parameters, "区域", default=None)),
-                # The backend's timeout loop cannot observe stop/pause signals.
-                minSearchTime=0 if context is not None else max(0.0, float(min_search_time)),
             )
         except (FileNotFoundError, OSError) as error_:
             if context is not None:
@@ -132,15 +125,25 @@ def locate_image(
             if error_.__class__.__name__ != 'ImageNotFoundException':
                 raise
             found = None
-        if context is None:
-            return found
-        if context.stop_requested:
+        if context is not None and context.stop_requested:
             return None
         if found is not None:
             return found
         remaining = deadline - time.monotonic()
-        if remaining <= 0 or not wait_interruptibly(context, min(.05, remaining)):
+        if remaining <= 0:
             return None
+        if context is None:
+            time.sleep(min(.05, remaining))
+        elif not wait_interruptibly(context, min(.05, remaining)):
+            return None
+
+
+def locate_image_on_screen(image_path, **options):
+    from .image_match import best_image_match
+    # PyScreeze's locateCenterOnScreen returns the first above-threshold match,
+    # which may belong to a similar old template. Select the highest score from
+    # this new screenshot instead; do not retain a prior instruction's result.
+    return best_image_match(image_path, pyautogui_module().screenshot(), **options)
 
 
 def image_error_timeout(parameters: dict) -> tuple[bool, float]:
@@ -179,7 +182,58 @@ def image_random_offset(parameters: dict, context: ExecutionContext | None = Non
     )
 
 
-def mouse_action(action_: str, x_: int, y_: int, count_: int | None = None, interval_: float = 0.0):
+def click_image(parameters: dict, context: ExecutionContext, *, min_search_time: float = 0.0):
+    """Move, recapture, and click only a confirmed current image position.
+
+    A match belongs to a single screenshot, not to the lifetime of an instruction.
+    Recheck after moving (which can itself change the UI), and discard frames
+    across a pause. Bound corrections so animations cannot trap execution forever.
+    """
+    candidate = locate_image(parameters, context, min_search_time=min_search_time)
+    if candidate is None:
+        return None
+    offset = parameter(parameters, "点击位置", default="(0,0)")
+    if str(offset).replace(" ", "") in {"(随机,随机)", "随机,随机"}:
+        dx, dy = image_random_offset(parameters, context)
+    else:
+        dx, dy = point(offset)
+    for attempt in range(5):
+        if not wait_interruptibly(context, 0):
+            return None
+        if candidate is None:
+            candidate = locate_image(parameters, context)
+            if candidate is None:
+                return None
+        x, y = int(candidate.x) + dx, int(candidate.y) + dy
+        pyautogui_module().moveTo(x, y, _pause=False)
+        generation = context.metadata.get('visual_input_generation', 0)
+        current = locate_image(parameters, context)
+        if not wait_interruptibly(context, 0):
+            return None
+        if generation != context.metadata.get('visual_input_generation', 0):
+            # Even an apparently identical match was captured before resuming.
+            candidate = None
+            continue
+        if current is None:
+            context.emit("图像点击取消：目标在点击前消失或不再匹配")
+            return None
+        if (int(current.x), int(current.y)) == (int(candidate.x), int(candidate.y)):
+            # click() already moves instantly to its coordinates. A second
+            # moveTo() would introduce another default PAUSE after confirmation.
+            mouse_action(str(parameter(parameters, "动作", default="左键单击")),
+                         x, y, move_first=False)
+            if hasattr(current, 'image_path'):
+                context.emit(f"图像匹配：{current.image_path}；匹配度 {current.score:.1%}；位置 {x},{y}")
+            return x, y
+        if attempt == 0:
+            context.emit("图像位置发生变化，正在重新定位")
+        candidate = current
+    context.emit("图像点击取消：目标位置持续变化，未能确认稳定位置")
+    return None
+
+
+def mouse_action(action_: str, x_: int, y_: int, count_: int | None = None,
+                 interval_: float = 0.0, *, move_first: bool = True):
     gui_ = pyautogui_module()
     action_map_ = {
         "左键单击": ("left", 1), "左键双击": ("left", 2), "左键三击": ("left", 3),
@@ -188,7 +242,8 @@ def mouse_action(action_: str, x_: int, y_: int, count_: int | None = None, inte
     }
     is_standard_action_ = action_ in action_map_
     button_, default_count_ = action_map_.get(action_, ("left", 1))
-    gui_.moveTo(x_, y_)
+    if move_first:
+        gui_.moveTo(x_, y_)
     if button_ is not None:
         click_count_ = default_count_ if is_standard_action_ or count_ is None else int(count_)
         gui_.click(x_, y_, clicks=max(1, click_count_), interval=float(interval_), button=button_)

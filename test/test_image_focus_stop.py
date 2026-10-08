@@ -22,12 +22,12 @@ def test_long_image_search_can_stop_and_keeps_resolved_project_path():
     stop_on_wait(context)
     locator = Mock(return_value=None)
     with patch.object(actions, 'resolve_image_path', return_value='resolved/中文.png'), \
-         patch.object(actions, 'pyautogui_module', return_value=SimpleNamespace(locateCenterOnScreen=locator)):
+         patch.object(actions, 'locate_image_on_screen', locator):
         assert actions.locate_image({'图像路径': 'relative.png'}, context, min_search_time=60) is None
     assert context.stop_requested
     locator.assert_called_once()
     assert locator.call_args.args[0] == 'resolved/中文.png'
-    assert locator.call_args.kwargs['minSearchTime'] == 0
+    assert 'minSearchTime' not in locator.call_args.kwargs
 
 
 @pytest.mark.parametrize('policy', ['自动略过', '60'])
@@ -36,8 +36,9 @@ def test_stop_during_image_capture_never_clicks_late_result(policy):
     def capture(*args, **kwargs):
         context.stop_requested = True
         return SimpleNamespace(x=10, y=20)
-    gui = SimpleNamespace(locateCenterOnScreen=capture, moveTo=Mock(), click=Mock())
+    gui = SimpleNamespace(moveTo=Mock(), click=Mock())
     with patch.object(actions, 'resolve_image_path', return_value='image.png'), \
+         patch.object(actions, 'locate_image_on_screen', side_effect=capture), \
          patch.object(actions, 'pyautogui_module', return_value=gui):
         assert get_instruction_spec('图像点击').create_executor().execute(context,
             CommandRecord(1, '图像点击', {'图像路径': 'image.png', '异常': policy})) is False

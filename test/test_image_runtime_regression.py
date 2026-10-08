@@ -12,4 +12,4 @@ def test_image_execution_in_fresh_process():
                             cwd=root, env=env, text=True, encoding='utf-8',
                             capture_output=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '"count": 12' in result.stdout
+    assert '"count": 14' in result.stdout

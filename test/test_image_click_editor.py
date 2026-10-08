@@ -99,7 +99,7 @@ def test_cancel_file_picker_preserves_selection(editor):
 
 def test_invalid_file_prevents_accept_and_test(editor):
     widget, _ = editor
-    widget.ui.parameter_0.setText('missing-image.png')
+    widget._set_image_path('missing-image.png')
     with patch('instructions.common.image_click_editor.QMessageBox.warning') as warning:
         widget._accept_if_valid()
         widget._test_if_valid()

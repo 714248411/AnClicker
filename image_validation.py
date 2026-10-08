@@ -10,15 +10,12 @@ from unittest.mock import patch, Mock
 import numpy as np
 from PIL import Image
 import pyautogui
-import pyscreeze
 from instructions.common import actions
 from instructions.models import CommandRecord, ExecutionContext
 from instructions.registry import get_instruction_spec
 
 
 def validate_image_execution(require_fresh=False):
-    if require_fresh:
-        assert not getattr(pyscreeze, '_unicode_cv2_patched', False), 'Probe must start uninitialized'
     rng = np.random.default_rng(42)
     pixels = rng.integers(0, 256, (180, 240, 3), dtype=np.uint8)
     screen = Image.fromarray(pixels)
@@ -30,7 +27,7 @@ def validate_image_execution(require_fresh=False):
         image = directory / '目标按钮.png'
         screen.crop((91, 57, 119, 81)).save(image)
         move, click = Mock(), Mock()
-        with patch.object(pyscreeze, 'screenshot', side_effect=lambda **kwargs: screen.copy()), \
+        with patch.object(pyautogui, 'screenshot', side_effect=lambda **kwargs: screen.copy()), \
              patch.object(pyautogui, 'moveTo', move), patch.object(pyautogui, 'click', click):
             base = {'图像路径': str(image), '精度': .99, '灰度': False, '异常': '0', '动作': '左键单击'}
             context = ExecutionContext(output=messages.append, metadata={'project_path': str(directory/'project.xlsx')})
@@ -54,12 +51,31 @@ def validate_image_execution(require_fresh=False):
             checks.append('multiple-images')
             blank = Image.new('RGB', screen.size, 'black')
             click.reset_mock()
-            with patch.object(pyscreeze, 'screenshot', side_effect=lambda **kwargs: blank.copy()):
+            with patch.object(pyautogui, 'screenshot', side_effect=lambda **kwargs: blank.copy()):
                 assert actions.locate_image(base, context) is None
                 with patch.object(actions, 'image_error_timeout', return_value=(True,0)):
                     assert execute('图像点击', base) is False
                 click.assert_not_called()
             checks.append('not-found-no-click')
+            # A second quick capture can look very similar to the first one.
+            # The exact second image must win over an earlier .8+ screen match.
+            target = screen.crop((91, 57, 119, 81))
+            changed = np.array(target)
+            changed[8:12, 10:14] = 255 - changed[8:12, 10:14]
+            second = Image.fromarray(changed)
+            second_path = directory / '第二次截图.png'
+            second.save(second_path)
+            both = screen.copy()
+            both.paste(second, (170, 125))
+            with patch.object(pyautogui, 'screenshot', side_effect=lambda **kwargs: both.copy()):
+                assert execute('图像点击', dict(base, 精度=.8, 图像路径=str(second_path))) == (184, 137)
+                click.assert_called_with(184, 137, clicks=1, interval=0.0, button='left')
+            checks.append('second-capture-best-match')
+            moved = Image.new('RGB', screen.size, 'black')
+            moved.paste(target, (170, 125))
+            with patch.object(pyautogui, 'screenshot', side_effect=[screen.copy(), moved.copy(), moved.copy()]):
+                assert execute('图像点击', base) == (184, 137)
+            checks.append('moving-target-recheck')
     return {'checks': checks, 'count':len(checks), 'synthetic_screen':True}
 
 

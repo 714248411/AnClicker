@@ -35,10 +35,10 @@ class InstructionExecutor(InstructionExecutorBase):
         for path_ in (item_.strip() for item_ in paths_ if item_.strip()):
             parameters_ = dict(command.parameters)
             parameters_["图像路径"] = path_
-            point_ = actions.locate_image(parameters_, context)
-            if point_ is not None:
-                x_, y_ = int(point_.x), int(point_.y)
-                actions.mouse_action(str(actions.parameter(parameters_, "动作", default="左键单击")), x_, y_)
+            position_ = actions.click_image(parameters_, context)
+            if context.stop_requested:
+                return False
+            if position_ is not None:
                 context.emit(f"多图点击命中：{path_}")
                 return path_
         if actions.parameter(command.parameters, "异常", default="自动略过") in {"自动跳过", "自动略过"}:

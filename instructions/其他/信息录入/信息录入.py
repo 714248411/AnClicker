@@ -44,12 +44,14 @@ class InstructionExecutor(InstructionExecutorBase):
             if actions.parameter(p_, "空值处理", default="抛出异常") == "自动跳过":
                 return False
             raise ValueError(f"Excel 单元格 {cell_} 的值为空")
-        point_, skip_ = actions.locate_image_with_policy(p_, context)
-        if point_ is None:
+        skip_, timeout_ = actions.image_error_timeout(p_)
+        position_ = actions.click_image(dict(p_, 动作="左键三击"), context, min_search_time=timeout_)
+        if context.stop_requested:
+            return False
+        if position_ is None:
             if skip_:
                 return False
             raise FileNotFoundError("未找到信息录入位置图像")
-        actions.mouse_action("左键三击", int(point_.x), int(point_.y))
         gui_ = actions.pyautogui_module()
         if actions.parameter(p_, "模拟输入", default=False):
             gui_.write(str(value_), interval=0.03)

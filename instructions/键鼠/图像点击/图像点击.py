@@ -33,21 +33,14 @@ class InstructionExecutor(InstructionExecutorBase):
         delegated_, result_ = actions.delegated(context, self.TYPE_ID, command)
         if delegated_:
             return result_
-        point_, skip_ = actions.locate_image_with_policy(command.parameters, context)
+        skip_, timeout_ = actions.image_error_timeout(command.parameters)
+        position_ = actions.click_image(command.parameters, context, min_search_time=timeout_)
         if context.stop_requested:
             return False
-        if point_ is None:
+        if position_ is None:
             if skip_:
                 return False
             raise FileNotFoundError("未找到指定图像")
-        offset_ = actions.parameter(command.parameters, "点击位置", default="(0,0)")
-        if str(offset_).replace(" ", "") in {"(随机,随机)", "随机,随机"}:
-            offset_x_, offset_y_ = actions.image_random_offset(command.parameters, context)
-        else:
-            offset_x_, offset_y_ = actions.point(offset_)
-        x_, y_ = int(point_.x) + offset_x_, int(point_.y) + offset_y_
-        if context.stop_requested:
-            return False
-        actions.mouse_action(str(actions.parameter(command.parameters, "动作", default="左键单击")), x_, y_)
+        x_, y_ = position_
         context.emit(f"图像点击：{x_},{y_}")
         return (x_, y_)

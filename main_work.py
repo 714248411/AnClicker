@@ -172,6 +172,9 @@ class CommandThread(QThread):
         try:
             if self.start_state:
                 self.is_paused = True
+                if self._active_context is not None:
+                    metadata = self._active_context.metadata
+                    metadata['visual_input_generation'] = metadata.get('visual_input_generation', 0) + 1
         finally:
             self.mutex.unlock()
 

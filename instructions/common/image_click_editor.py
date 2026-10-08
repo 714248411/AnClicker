@@ -230,20 +230,37 @@ class ImageClickEditorMixin:
     def _refresh_image_names(self, folder, select=True):
         self.folder_label.setText(f'当前文件夹：\n{folder}')
         self.folder_label.setToolTip(folder)
-        self.image_combo.clear()
+        previous = self.image_combo.currentText()
         path = Path(folder)
         try:
             names = sorted(p.name for p in path.iterdir() if p.is_file() and p.suffix.lower() in {'.png', '.jpg', '.jpeg', '.bmp', '.webp'}) if folder and path.is_dir() else []
         except OSError:
             names = []
-        self.image_combo.addItems(names)
+        # Rebuilding the list must not publish its temporary first item as the
+        # active instruction image. Commit the final visible selection once.
+        with QSignalBlocker(self.image_combo):
+            self.image_combo.clear()
+            self.image_combo.addItems(names)
+            if previous in names:
+                self.image_combo.setCurrentText(previous)
         if select:
             self._select_image(self.image_combo.currentText())
 
     def _select_image(self, name):
         path = str(Path(self.folder_combo.currentText()) / name) if name else ''
+        self._apply_image_path(path)
+
+    def _apply_image_path(self, path):
+        """Publish one image to the stored parameter and the preview together."""
         self.ui.parameter_0.setText(path)
-        pixmap = QPixmap(path) if path else QPixmap()
+        pixmap = QPixmap()
+        if path:
+            try:
+                # QPixmap(filename) has an implicit filename cache. Reading
+                # bytes also refreshes previews when that file was replaced.
+                pixmap.loadFromData(Path(self._resolved_image_path(path)).read_bytes())
+            except OSError:
+                pass
         if pixmap.isNull():
             self.preview.setText('请选择有效图片')
         else:
@@ -258,9 +275,17 @@ class ImageClickEditorMixin:
             self.folder_combo.setCurrentText(str(path.parent))
             self._refresh_image_names(str(path.parent), select=False)
             self.image_combo.setCurrentText(path.name)
-        self._select_image(path.name)
-        # Preview can use an absolute path without destroying portable references.
-        self.ui.parameter_0.setText(original)
+        # Preserve portable references while publishing the new image only once.
+        self._apply_image_path(original)
+
+    def _sync_selected_image(self):
+        """The visible selection is authoritative at both test and save time."""
+        name = self.image_combo.currentText()
+        selected = str(Path(self.folder_combo.currentText()) / name) if name else ''
+        stored = self.ui.parameter_0.text()
+        resolved = self._resolved_image_path(stored)
+        if not selected or not resolved or Path(selected).resolve() != Path(resolved).resolve():
+            self._apply_image_path(selected)
 
     def _resolved_image_path(self, path=None):
         value = str(path if path is not None else self.ui.parameter_0.text())
@@ -376,6 +401,7 @@ class ImageClickEditorMixin:
         self._set_missing_policy()
 
     def get_draft(self):
+        self._sync_selected_image()
         # Disabled region retains its coordinates for toggling back, but is not executed.
         control = self.ui.parameter_3
         saved = control.text()
@@ -390,8 +416,15 @@ class ImageClickEditorMixin:
             control.setText(saved)
 
     def _valid_image(self):
+        self._sync_selected_image()
         path = self._resolved_image_path()
-        if not path or not Path(path).is_file() or QPixmap(path).isNull():
+        pixmap = QPixmap()
+        if path:
+            try:
+                pixmap.loadFromData(Path(path).read_bytes())
+            except OSError:
+                pass
+        if pixmap.isNull():
             QMessageBox.warning(self, '图像文件无效', '图像文件不存在或无法读取，请重新选择图片。')
             return False
         return True
