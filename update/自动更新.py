@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import velopack
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QCoreApplication, QThread, QTimer, Signal
 
 from update.config import update_url
 
@@ -143,8 +143,14 @@ def apply_update_and_restart(
     update_info_: Any,
     *,
     source_url: str | None = None,
+    restart_args: list[str] | None = None,
     manager_factory: UpdateManagerFactory = velopack.UpdateManager,
 ) -> None:
     """应用已下载更新并重启当前程序。"""
     manager_ = manager_factory(source_url if source_url is not None else update_url())
-    manager_.apply_updates_and_restart(update_info_)
+    app = QCoreApplication.instance()
+    if app is None:
+        raise RuntimeError('应用事件循环尚未初始化')
+    # Start the updater first. Only exit after the SDK has accepted the request.
+    manager_.wait_exit_then_apply_updates(update_info_, silent=True, restart=True, restart_args=restart_args)
+    QTimer.singleShot(0, app.quit)

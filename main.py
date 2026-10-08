@@ -170,17 +170,20 @@ def main():
         from update.local_smoke import run
         def upgrade_probe():
             try:
-                run(app)
+                run(app, main_window)
             except Exception as error:
                 record_startup_error(STARTUP_DATA_FOLDER, error)
                 app.exit(1)
         QTimer.singleShot(500, upgrade_probe)
     if "--startup-smoke-test" in sys.argv or "--release-smoke" in sys.argv:
-        from ui_validation import validate_instruction_editors, validate_legacy_migration
-        editor_validation = validate_instruction_editors(main_window)
-        migration_validation = validate_legacy_migration()
-        from image_validation import validate_image_execution
-        image_validation = validate_image_execution()
+        full_checks = not ('--release-smoke' in sys.argv and os.environ.get('ANCLICKER_SMOKE_LIGHTWEIGHT') == '1')
+        editor_validation = migration_validation = image_validation = {}
+        if full_checks:
+            from ui_validation import validate_instruction_editors, validate_legacy_migration
+            editor_validation = validate_instruction_editors(main_window)
+            migration_validation = validate_legacy_migration()
+            from image_validation import validate_image_execution
+            image_validation = validate_image_execution()
         def report_ready():
             from window_chrome import validate_window_chrome
             chrome_valid = validate_window_chrome(main_window)
@@ -189,6 +192,7 @@ def main():
                 "ok": True,
                 "window_visible": main_window.isVisible(),
                 "window_chrome_valid": chrome_valid,
+                "full_checks": full_checks,
                 "data_root": os.environ["ANCLICKER_DATA_DIR"],
                 "ready": main_window.isVisible(),
                 "version": app.applicationVersion().removeprefix("v") if "--release-smoke" in sys.argv else app.applicationVersion(),

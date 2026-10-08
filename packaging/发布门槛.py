@@ -108,13 +108,14 @@ def validate_windowed_executable(path: Path) -> None:
         raise RuntimeError(f"主程序必须使用 Windows GUI 子系统: {path}")
 
 
-def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, *, launcher: bool = False) -> None:
+def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, *, launcher: bool = False, full_checks: bool = False) -> None:
     sandbox.mkdir(parents=True, exist_ok=True)
     data_dir = sandbox / "data"
     report = data_dir / "startup-ready.json"
     environment = os.environ.copy()
     environment.update({
         "ANCLICKER_DATA_DIR": str(data_dir),
+        "ANCLICKER_SMOKE_LIGHTWEIGHT": "0" if full_checks else "1",
         "ANCLICKER_SINGLETON_KEY": "release-" + __import__("uuid").uuid4().hex,
         
         "QT_QPA_PLATFORM": "windows",
@@ -157,6 +158,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
             result.get("ok") is not True
             or result.get("window_visible") is not True
             or result.get("window_chrome_valid") is not True
+            or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and result.get("full_checks") is not True)
             or result.get("version") != context.version
             or result.get("update_config") != update_source_config()
             or Path(result.get("data_root", "")).resolve() != data_dir.resolve()
@@ -164,6 +166,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
             raise RuntimeError(f"实际 EXE 启动自检失败: {executable}: {result}")
 
     launch()
+    environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] = "1"
     import sqlite3
     with closing(sqlite3.connect(data_dir / '命令集.db')) as db:
         db.execute('CREATE TABLE release_retention (value TEXT)')
@@ -258,7 +261,7 @@ def _validate_release(context: ReleaseContext) -> None:
     validate_archive(context.portable_zip)
     with tempfile.TemporaryDirectory(prefix="velopack-release-gate-") as temporary:
         sandbox = Path(temporary)
-        _smoke_executable(executable, context, sandbox / "onedir")
+        _smoke_executable(executable, context, sandbox / "onedir", full_checks=True)
         portable_root = sandbox / "portable"
         with zipfile.ZipFile(context.portable_zip) as archive:
             archive.extractall(portable_root)

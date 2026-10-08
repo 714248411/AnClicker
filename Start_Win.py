@@ -236,19 +236,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return False, '请先结束运行、录制或指令测试并关闭编辑窗口。'
         if not self.auto_update.shutdown():
             return False, '正在检查或下载更新，请稍后重试。'
-        choice = QMessageBox.question(self, '重启更新', '是否保存当前项目并重启更新？',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Yes)
-        if choice == QMessageBox.StandardButton.Cancel:
-            return False, '已取消更新。'
-        if choice == QMessageBox.StandardButton.Yes and not self.save_data('自动保存'):
-            return False, '项目保存未完成，已取消更新。'
-        if (self.command_thread.isRunning() or self.view_workspace.recording_page.busy
-                or getattr(self.workspace, '_instruction_test_active', False)):
-            return False, '确认期间任务状态发生变化，请先结束任务。'
-        # Flush window preferences without clearing commands or terminating the GUI.
-        self.db.update_settings(显示工具栏=str(self.actiong.isChecked()),
-                                执行中隐藏主窗口=str(self.checkBox_2.isChecked()))
+        # Persist the debounced editor text only; updating never exports Excel or
+        # touches recent-file menus, dialogs, or the normal exit-clear workflow.
+        self.view_workspace._save_code()
         return True, ''
 
     def showEvent(self, event_) -> None:
@@ -629,6 +619,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
         """关闭窗口事件"""
+        if getattr(self, "_update_exit_requested", False):
+            event.accept()
+            return
         if hasattr(self, "auto_update") and not self.auto_update.shutdown():
             QMessageBox.information(self, "正在更新", "正在检查或下载更新，请稍后退出。")
             event.ignore()

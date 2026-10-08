@@ -162,7 +162,7 @@ class WindowTitleBar(StandardTitleBar):
 
     def show_update(self, version, notes=''):
         self._ready_version, self._ready_notes = str(version), str(notes)
-        self.updateButton.setToolTip(f'新版本 {version} 已准备完成，点击保存项目并重启更新。\n\n{notes}')
+        self.updateButton.setToolTip(f'新版本 {version} 已准备完成，点击后直接重启更新。\n\n{notes}')
         self.set_update_applying(False)
         self.updateButton.show()
 

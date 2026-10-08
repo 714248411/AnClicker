@@ -3,6 +3,7 @@
 import os
 import sys
 import tempfile
+from pathlib import Path
 
 
 project_root = os.path.dirname(os.path.abspath(SPECPATH))
@@ -18,8 +19,18 @@ from 数据库操作 import DatabaseOperation
 # Never bundle a developer's live commands or recording data in a release.
 # Keep the temporary directory alive until Analysis/COLLECT finish.
 seed_directory = tempfile.TemporaryDirectory(prefix='anclicker-release-seed-')
-seed_database = os.path.join(seed_directory.name, '命令集.db')
-DatabaseOperation(seed_database)
+fresh_seed = Path(seed_directory.name) / '命令集.db'
+DatabaseOperation(str(fresh_seed))
+# Stable input paths allow Analysis caching. Always regenerate and compare the
+# blank seed so a stale or modified cached database is never silently bundled.
+seed_cache = Path(project_root) / 'build' / 'release-seed'
+seed_cache.mkdir(parents=True, exist_ok=True)
+def stable_seed(name, content):
+    target = seed_cache / name
+    if not target.is_file() or target.read_bytes() != content:
+        target.write_bytes(content)
+    return str(target)
+seed_database = stable_seed('命令集.db', fresh_seed.read_bytes())
 
 
 def collect_instruction_datas():
@@ -44,9 +55,8 @@ def collect_instruction_datas():
 instruction_datas = collect_instruction_datas()
 if sys.platform == 'win32':
     import json
-    source_snapshot = os.path.join(seed_directory.name, UPDATE_CONFIG['snapshot_name'])
-    with open(source_snapshot, 'w', encoding='utf-8') as stream:
-        json.dump(update_source_config(), stream)
+    source_snapshot = stable_seed(UPDATE_CONFIG['snapshot_name'],
+                                  json.dumps(update_source_config(), sort_keys=True).encode('utf-8'))
     instruction_datas.append((source_snapshot, '.'))
 dynamic_instruction_imports = list(instruction_hidden_imports())
 icon_path = os.path.join(project_root, 'clicker.ico') if sys.platform == 'win32' else None
@@ -69,7 +79,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['qiniu', '发布Velopack'],
+    # PyInstaller 6.12 appends __main__ to this list during analysis. Include it
+    # up front so the persisted list matches and does not invalidate every run.
+    excludes=['qiniu', '发布Velopack', '__main__'],
     noarchive=False,
     optimize=0,
 )

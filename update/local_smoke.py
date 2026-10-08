@@ -6,7 +6,7 @@ import sqlite3
 import velopack
 
 
-def run(app):
+def run(app, window):
     feed = Path(os.environ['ANCLICKER_SMOKE_FEED'])
     if not feed.is_absolute() or not feed.is_dir():
         raise ValueError('Smoke feed must be an existing absolute local directory')
@@ -25,9 +25,16 @@ def run(app):
             raise RuntimeError('Local feed has no newer release')
         manager.download_updates(update)
         marker.write_text(json.dumps({'from': version, 'downloaded': True}), encoding='utf-8')
-        manager.wait_exit_then_apply_updates(update, silent=True, restart=True,
-                                            restart_args=['--velopack-local-smoke'])
-        app.exit(0)
+        # Exercise the actual title-button preparation path, including silent
+        # editor persistence and the production updater exit logic.
+        from functools import partial
+        from update.自动更新 import apply_update_and_restart
+        window.auto_update.apply_update = partial(apply_update_and_restart,
+            source_url=str(feed), restart_args=['--velopack-local-smoke'])
+        window.auto_update.mark_update_ready(update)
+        window.view_workspace.title_bar.updateButton.click()
+        if not getattr(window, '_update_exit_requested', False):
+            raise RuntimeError('Title-bar update did not schedule a restart')
     else:
         state = json.loads(marker.read_text(encoding='utf-8'))
         if version == state['from']:

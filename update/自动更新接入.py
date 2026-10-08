@@ -116,6 +116,12 @@ class AutoUpdateManager(QObject):
         self.check_for_updates(show_message=False)
 
     def check_for_updates(self, show_message: bool = False) -> None:
+        if getattr(self.main_window, '_update_preparing', False):
+            return
+        if self._ready_update_info is not None:
+            if show_message:
+                self.show_manual_update_message(self._ready_update_info, ready=True)
+            return
         if self.download_thread is not None and self.download_thread.isRunning():
             if show_message:
                 self.download_was_manual = True
@@ -323,8 +329,10 @@ class AutoUpdateManager(QObject):
         try:
             self.update_progress.emit("正在启动安装并重启…", -1)
             self.apply_update(update_info_)
+            self.main_window._update_exit_requested = True
         except Exception as exc:
             self.main_window._update_preparing = False
+            self.main_window._update_exit_requested = False
             LOGGER.exception("Velopack 更新应用失败")
             self.update_progress.emit("", -2)
             QMessageBox.warning(

@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from info import (CURRENT_VERSION, APP_ID, EXECUTABLE_NAME, UPDATE_CONFIG, update_source_config)
 from 发布门槛 import ReleaseContext, validate_release
+from release_timing import stage, run_stage
 DEFAULT_APP = ROOT / 'dist/velopack' / APP_ID
 
 
@@ -135,6 +136,38 @@ def check_source(config, path=None):
         raise ReleaseError('客户端更新源与上传目标不一致，停止操作')
 
 
+def acquire_baseline(config, asset):
+    """Reuse only a Full whose content matches the freshly fetched public index."""
+    name = safe_filename(asset['FileName'])
+    def valid(path):
+        return path.is_file() and path.stat().st_size == asset['Size'] and digest(path) == asset['SHA256'].upper()
+    cache = ROOT / 'build' / 'release-cache' / asset['SHA256'].lower()
+    target = cache / name
+    if valid(target):
+        print('复用已校验基线缓存:', name, flush=True)
+        return target
+    # A previous local release usually already contains the exact online Full.
+    for candidate in (ROOT / 'release').glob('*/' + name):
+        if valid(candidate):
+            print('复用已校验本地 Full:', name, flush=True)
+            return candidate
+    cache.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=cache, suffix='.partial', delete=False) as stream:
+        partial = Path(stream.name)
+    try:
+        with requests.get(config.url(name), stream=True, timeout=(15, 120)) as response:
+            response.raise_for_status()
+            with partial.open('wb') as stream:
+                for chunk in response.iter_content(1024 * 1024):
+                    stream.write(chunk)
+        if not valid(partial):
+            raise ReleaseError('远程 Full 基线大小或哈希不匹配')
+        partial.replace(target)
+    finally:
+        partial.unlink(missing_ok=True)
+    return target
+
+
 def build(config, output):
     check_source(config)
     if output.exists() and any(output.iterdir()):
@@ -142,27 +175,19 @@ def build(config, output):
     version = CURRENT_VERSION.removeprefix('v')
     remote = get_feed(config)
     assert_newer(version, remote)
-    with tempfile.TemporaryDirectory(prefix='anclicker-baseline-') as folder:
-        command = [sys.executable, str(ROOT / 'packaging/build_velopack.py'), '--output', str(output)]
-        full = [a for a in current_assets(remote) if a['Type'] == 'Full']
-        if full:
-            base = max(full, key=lambda a: version_tuple(a['Version']))
-            target = Path(folder) / safe_filename(base['FileName'])
-            with requests.get(config.url(target.name), stream=True, timeout=(15, 120)) as response:
-                response.raise_for_status()
-                with target.open('wb') as stream:
-                    for chunk in response.iter_content(1024 * 1024):
-                        stream.write(chunk)
-            if target.stat().st_size != base['Size'] or digest(target) != base['SHA256'].upper():
-                raise ReleaseError('远程 Full 基线大小或哈希不匹配')
-            command.extend(['--base', str(target)])
-        subprocess.run(command, cwd=ROOT, check=True)
+    command = [sys.executable, str(ROOT / 'packaging/build_velopack.py'), '--output', str(output)]
+    full = [a for a in current_assets(remote) if a['Type'] == 'Full']
+    if full:
+        base = max(full, key=lambda a: version_tuple(a['Version']))
+        target = run_stage('获取并验证增量基线', acquire_baseline, config, base)
+        command.extend(['--base', str(target)])
+    run_stage('构建与启动验收', subprocess.run, command, cwd=ROOT, check=True)
     # Publish only this release's assets; preserve the baseline nupkg for delta checks.
     path = output / UPDATE_CONFIG['feed_name']
     feed = json.loads(path.read_text(encoding='utf-8-sig'))
     feed['Assets'] = current_assets(feed, version)
     path.write_text(json.dumps(feed, ensure_ascii=False, indent=2), encoding='utf-8')
-    validate_local(config, output, DEFAULT_APP)
+    run_stage('发布内容核对', validate_local, config, output, DEFAULT_APP)
     print('本地发布准备完成:', output)
 
 
@@ -276,18 +301,22 @@ class QiniuUploader:
 
 
 def publish(config, release, app):
-    feed, assets = validate_local(config, release, app)
+    feed, assets = run_stage('发布前哈希检查', validate_local, config, release, app)
     assert_newer(CURRENT_VERSION.removeprefix('v'), get_feed(config))
     uploader = QiniuUploader(config)
     for asset in assets:
         path = release / asset['FileName']
         print('上传更新包:', path.name, flush=True)
-        uploader.upload(path)
+        run_stage('上传 ' + path.name, uploader.upload, path)
         print('公网下载校验:', path.name, flush=True)
-        verify_public(config, path.name, asset['Size'], asset['SHA256'])
+        run_stage('公网校验 ' + path.name, verify_public, config, path.name, asset['Size'], asset['SHA256'])
     # Recheck before the only mutable public object is replaced.
     assert_newer(CURRENT_VERSION.removeprefix('v'), get_feed(config))
     path = release / UPDATE_CONFIG['feed_name']
+    for asset in assets:
+        package = release / asset['FileName']
+        if package.stat().st_size != asset['Size'] or digest(package) != asset['SHA256'].upper():
+            raise ReleaseError('上传期间更新包发生变化，停止发布索引')
     if json.loads(path.read_text(encoding='utf-8-sig')) != feed:
         raise ReleaseError('发布过程中 feed 被修改，停止发布')
     try:
@@ -295,14 +324,18 @@ def publish(config, release, app):
         uploader.upload(path, overwrite=True)
         uploader.refresh_feed()
         for attempt in range(6):
-            if get_feed(config) == feed:
-                # Also verify the exact URL used by clients, without a cache-busting parameter.
-                response = requests.get(config.url(UPDATE_CONFIG['feed_name']), timeout=(15, 60))
-                response.raise_for_status()
-                if response.json() == feed:
-                    print('七牛直连发布完成:', config.url(UPDATE_CONFIG['feed_name']))
-                    return
-            time.sleep(5)
+            try:
+                if get_feed(config) == feed:
+                    # Verify the exact client URL too; transient CDN errors may recover.
+                    response = requests.get(config.url(UPDATE_CONFIG['feed_name']), timeout=(15, 60))
+                    response.raise_for_status()
+                    if response.json() == feed:
+                        print('七牛直连发布完成:', config.url(UPDATE_CONFIG['feed_name']))
+                        return
+            except (requests.RequestException, ValueError):
+                pass
+            if attempt < 5:
+                time.sleep(5)
         raise RuntimeError('feed 公网验证未完成，可能已写入；不得重复覆盖，请检查 CDN 与远程版本')
 
 
@@ -324,9 +357,9 @@ def main():
         parser.error('--app-dir 仅适用于发布已有构建')
     config = PublishConfig.from_environment()
     if args.command == 'build':
-        build(config, args.output.resolve())
+        run_stage('构建准备总计', build, config, args.output.resolve())
     if args.command == 'publish' or args.publish:
-        publish(config, args.output.resolve(), args.app_dir.resolve())
+        run_stage('发布总计', publish, config, args.output.resolve(), args.app_dir.resolve())
 
 
 if __name__ == '__main__':

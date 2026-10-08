@@ -5,6 +5,7 @@ Summary: Cross-platform visual automation workspace for Windows, macOS, and Linu
 Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: PySide6
+Requires-Dist: pysidesix-frameless-window==0.8.1
 Requires-Dist: pyttsx4
 Requires-Dist: pymsgbox
 Requires-Dist: pyautogui

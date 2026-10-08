@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from info import CURRENT_VERSION, APP_ID, APP_NAME, EXECUTABLE_NAME, UPDATE_CONFIG
 from 发布门槛 import ReleaseContext, validate_release
+from release_timing import run_stage
 
 
 def build_environment():
@@ -54,6 +55,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'release/velopack')
     parser.add_argument('--base', type=Path, help='Optional previous matching full.nupkg')
+    parser.add_argument('--clean', action='store_true', help='Discard PyInstaller cache for troubleshooting')
     args = parser.parse_args()
     if sys.platform != 'win32':
         parser.error('Build Windows releases on Windows.')
@@ -69,18 +71,18 @@ def main():
         shutil.copy2(base, output / base.name)
     subprocess.run(['dotnet', 'tool', 'restore'], cwd=ROOT, check=True)
     dist = ROOT / 'dist/velopack'
-    subprocess.run([sys.executable, '-m', 'PyInstaller', '--clean', '-y',
+    run_stage('PyInstaller 增量构建' if not args.clean else 'PyInstaller 清理构建', subprocess.run, [sys.executable, '-m', 'PyInstaller', *(['--clean'] if args.clean else []), '-y',
         '--distpath', str(dist), '--workpath', str(ROOT / 'build/velopack'),
         str(ROOT / 'packaging/main.spec')], cwd=ROOT, env=build_environment(), check=True)
     app = dist / APP_ID
-    subprocess.run(['dotnet', 'tool', 'run', 'vpk', 'pack', '--packId', UPDATE_CONFIG['pack_id'],
+    run_stage('Velopack 打包', subprocess.run, ['dotnet', 'tool', 'run', 'vpk', 'pack', '--packId', UPDATE_CONFIG['pack_id'],
         '--packVersion', version, '--packDir', str(app), '--mainExe', EXECUTABLE_NAME,
         '--channel', UPDATE_CONFIG['runtime'], '--runtime', UPDATE_CONFIG['runtime'], '--packTitle', APP_NAME, '--noInst',
         '--icon', str(ROOT / 'clicker.ico'), '--releaseNotes', str(ROOT / 'packaging/RELEASE_NOTES.md'),
         '--outputDir', str(output)], cwd=ROOT, check=True)
     context = ReleaseContext(ROOT, app, output, output / UPDATE_CONFIG['portable_name'],
         APP_ID, UPDATE_CONFIG['pack_id'], version, UPDATE_CONFIG['runtime'])
-    validate_release(context)
+    run_stage('产物与启动验收', validate_release, context)
     for name in (UPDATE_CONFIG['portable_name'], UPDATE_CONFIG['feed_name']):
         if not (output / name).is_file():
             raise RuntimeError(f'Missing release artifact: {name}')

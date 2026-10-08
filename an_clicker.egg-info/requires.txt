@@ -1,4 +1,5 @@
 PySide6
+pysidesix-frameless-window==0.8.1
 pyttsx4
 pymsgbox
 pyautogui
