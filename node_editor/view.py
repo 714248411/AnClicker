@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QPointF, Signal, Qt
+from PySide6.QtCore import QPoint, QPointF, QRectF, Signal, Qt
+import math
 from PySide6.QtGui import QContextMenuEvent, QKeySequence, QPainter
 from time import monotonic
 from PySide6.QtWidgets import QGraphicsView, QInputDialog, QMenu
@@ -14,7 +15,7 @@ from node_editor.cutting import ConnectionCutter
 
 
 class NodeView(QGraphicsView):
-    zoomChanged = Signal(int)
+    zoomChanged = Signal(float)
     instructionDropped = Signal(str, float, float)
     instructionCreateRequested = Signal(str, float, float)
     copyRequested = Signal(object)
@@ -68,12 +69,10 @@ class NodeView(QGraphicsView):
         if self._panning or self.cutter.active:
             event_.accept()
             return
-        factor_ = 1.15 if event_.angleDelta().y() > 0 else 1.0 / 1.15
-        new_zoom_ = max(MIN_ZOOM, min(self._zoom * factor_, MAX_ZOOM))
-        if new_zoom_ != self._zoom:
-            self.scale(new_zoom_ / self._zoom, new_zoom_ / self._zoom)
-            self._zoom = new_zoom_
-            self.zoomChanged.emit(round(self._zoom * 100))
+        delta = event_.angleDelta().y() or event_.pixelDelta().y()
+        if delta:
+            factor = 1.15 ** max(-10, min(10, delta / 120.0))
+            self._set_zoom(self._zoom * factor, event_.position())
         event_.accept()
 
     def mousePressEvent(self, event_):
@@ -120,6 +119,8 @@ class NodeView(QGraphicsView):
             return
         if self._panning:
             delta_ = event_.position() - self._pan_origin
+            center = self.mapToScene(self.viewport().rect().center())
+            self._expand_canvas(center - delta_ / self._zoom, self._zoom)
             if abs(delta_.x()) + abs(delta_.y()) > 2:
                 self._pan_moved = True
             self.horizontalScrollBar().setValue(
@@ -148,7 +149,7 @@ class NodeView(QGraphicsView):
                     self.setTransform(transform)
                     self._zoom = transform.m11()
                     self.centerOn(center)
-                    self.zoomChanged.emit(round(self._zoom*100))
+                    self.zoomChanged.emit(self._zoom*100)
             else:
                 self.contextMenuEvent(QContextMenuEvent(
                     QContextMenuEvent.Reason.Mouse, event_.position().toPoint(),
@@ -429,12 +430,15 @@ class NodeView(QGraphicsView):
         if self.cutter.active:
             self.cutter.cancel()
         fitted_rect_ = self.scene().graph_items_rect()
+        self.scene().setSceneRect(self.scene().sceneRect().united(fitted_rect_))
         self.fitInView(fitted_rect_, Qt.AspectRatioMode.KeepAspectRatio)
         fitted_zoom_ = self.transform().m11()
         self._zoom = max(MIN_ZOOM, min(fitted_zoom_, MAX_ZOOM))
         if fitted_zoom_ and fitted_zoom_ != self._zoom:
             self.scale(self._zoom / fitted_zoom_, self._zoom / fitted_zoom_)
-        self.zoomChanged.emit(round(self._zoom * 100))
+        self._expand_canvas(fitted_rect_.center(), self._zoom)
+        self.centerOn(fitted_rect_.center())
+        self.zoomChanged.emit(self._zoom * 100)
 
     def zoom_in(self):
         self._set_zoom(min(MAX_ZOOM, self._zoom * 1.2))
@@ -442,15 +446,31 @@ class NodeView(QGraphicsView):
     def zoom_out(self):
         self._set_zoom(max(MIN_ZOOM, self._zoom / 1.2))
 
-    def _set_zoom(self, zoom_: float):
+    def _expand_canvas(self, center, zoom, reset=False):
+        width = max(1000.0, self.viewport().width() / zoom * 4)
+        height = max(1000.0, self.viewport().height() / zoom * 4)
+        needed = QRectF(center.x()-width/2, center.y()-height/2, width, height)
+        current = self.scene().itemsBoundingRect() if reset else self.scene().sceneRect()
+        if reset or not current.contains(needed):
+            self.scene().setSceneRect(current.united(needed))
+
+    def _set_zoom(self, zoom_: float, anchor=None):
         if self.cutter.active:
             self.cutter.cancel()
+        if not math.isfinite(float(zoom_)):
+            return
         zoom_ = max(MIN_ZOOM, min(float(zoom_), MAX_ZOOM))
         if zoom_ == self._zoom:
             return
+        anchor = QPointF(self.viewport().rect().center()) if anchor is None else anchor
+        target = self.mapToScene(anchor.toPoint())
+        self._expand_canvas(target, zoom_, reset=True)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.NoAnchor)
         self.scale(zoom_ / self._zoom, zoom_ / self._zoom)
+        self.centerOn(target + (QPointF(self.viewport().rect().center()) - anchor) / zoom_)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self._zoom = zoom_
-        self.zoomChanged.emit(round(self._zoom * 100))
+        self.zoomChanged.emit(self._zoom * 100)
 
     def resizeEvent(self, event_):
         if hasattr(self, 'cutter') and self.cutter.active:

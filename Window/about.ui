@@ -514,7 +514,7 @@ QPushButton:pressed {
       </font>
      </property>
      <property name="text">
-      <string>&lt;b&gt;贡献者：&lt;/b&gt;YanYi　　FasterThanLight&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;714248411　　2309636438&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;714248411@qq.com　　federalsadler@sohu.com&lt;br&gt;&lt;br&gt;&lt;b&gt;开源致敬：&lt;/b&gt;感谢 &lt;a href=&quot;https://github.com/graphif/project-graph&quot;&gt;Project Graph&lt;/a&gt; 开源作者与全体贡献者。&lt;br&gt;流程图切线交互与视觉反馈参考其优秀设计。&lt;br&gt;&lt;br&gt;Copyright © 2022–2026</string>
+      <string>&lt;b&gt;贡献者：&lt;/b&gt;YanYi　　FasterThanLight&lt;br&gt;&lt;b&gt;QQ：&lt;/b&gt;714248411　　2309636438&lt;br&gt;&lt;b&gt;邮箱：&lt;/b&gt;714248411@qq.com　　federalsadler@sohu.com&lt;br&gt;&lt;br&gt;Copyright © 2022–2026</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

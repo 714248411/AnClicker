@@ -2,7 +2,7 @@
 from pathlib import Path
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QRectF, Signal, QTimer, QUrl
+from PySide6.QtCore import Qt, QRectF, Signal, QTimer, QUrl, QSignalBlocker
 from PySide6.QtGui import QPixmap, QPainter, QPen, QDesktopServices
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
@@ -222,7 +222,7 @@ class ImageClickEditorMixin:
         self.timeout_spin.setEnabled(not self.skip_check.isChecked())
         self.ui.parameter_2.setText('自动略过' if self.skip_check.isChecked() else str(self.timeout_spin.value()))
 
-    def _refresh_image_names(self, folder):
+    def _refresh_image_names(self, folder, select=True):
         self.folder_label.setText(f'当前文件夹：\n{folder}')
         self.folder_label.setToolTip(folder)
         self.image_combo.clear()
@@ -232,7 +232,8 @@ class ImageClickEditorMixin:
         except OSError:
             names = []
         self.image_combo.addItems(names)
-        self._select_image(self.image_combo.currentText())
+        if select:
+            self._select_image(self.image_combo.currentText())
 
     def _select_image(self, name):
         path = str(Path(self.folder_combo.currentText()) / name) if name else ''
@@ -246,8 +247,13 @@ class ImageClickEditorMixin:
     def _set_image_path(self, path):
         original = str(path)
         path = Path(self._resolved_image_path(original))
-        self.folder_combo.setCurrentText(str(path.parent))
-        self.image_combo.setCurrentText(path.name)
+        # Refresh even in the same folder (e.g. consecutive captures). Do not
+        # temporarily select the first file while rebuilding the resource list.
+        with QSignalBlocker(self.folder_combo), QSignalBlocker(self.image_combo):
+            self.folder_combo.setCurrentText(str(path.parent))
+            self._refresh_image_names(str(path.parent), select=False)
+            self.image_combo.setCurrentText(path.name)
+        self._select_image(path.name)
         # Preview can use an absolute path without destroying portable references.
         self.ui.parameter_0.setText(original)
 
@@ -321,7 +327,6 @@ class ImageClickEditorMixin:
                     if region and capture:
                         path = Path(self.folder_combo.currentText()) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
                         actions.pyautogui_module().screenshot(region=region).save(str(path))
-                        self._refresh_image_names(str(path.parent))
                         self._set_image_path(path)
                     elif region:
                         self.ui.parameter_3.setText(str(region))

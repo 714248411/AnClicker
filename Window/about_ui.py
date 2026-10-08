@@ -303,6 +303,6 @@ class Ui_About(object):
         self.gitee_3.setText(QCoreApplication.translate("About", u"Gitee 2", None))
         self.gitee_2.setText(QCoreApplication.translate("About", u"GitHub 1", None))
         self.gitee_4.setText(QCoreApplication.translate("About", u"GitHub 2", None))
-        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>YanYi\u3000\u3000FasterThanLight<br><b>QQ\uff1a</b>714248411\u3000\u30002309636438<br><b>\u90ae\u7bb1\uff1a</b>714248411@qq.com\u3000\u3000federalsadler@sohu.com<br><br><b>\u5f00\u6e90\u81f4\u656c\uff1a</b>\u611f\u8c22 <a href=\"https://github.com/graphif/project-graph\">Project Graph</a> \u5f00\u6e90\u4f5c\u8005\u4e0e\u5168\u4f53\u8d21\u732e\u8005\u3002<br>\u6d41\u7a0b\u56fe\u5207\u7ebf\u4ea4\u4e92\u4e0e\u89c6\u89c9\u53cd\u9988\u53c2\u8003\u5176\u4f18\u79c0\u8bbe\u8ba1\u3002<br><br>Copyright \u00a9 2022\u20132026", None))
+        self.label_4.setText(QCoreApplication.translate("About", u"<b>\u8d21\u732e\u8005\uff1a</b>YanYi\u3000\u3000FasterThanLight<br><b>QQ\uff1a</b>714248411\u3000\u30002309636438<br><b>\u90ae\u7bb1\uff1a</b>714248411@qq.com\u3000\u3000federalsadler@sohu.com<br><br>Copyright \u00a9 2022\u20132026", None))
     # retranslateUi
 

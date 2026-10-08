@@ -134,7 +134,7 @@ class NodeEditorWidget(QWidget):
         )
 
     def _update_zoom(self, percent_) -> None:
-        self.zoom_label.setText(f"缩放：{percent_}%")
+        self.zoom_label.setText(f"缩放：{percent_:.4g}%")
 
     def set_theme(self, mode: str) -> None:
         from node_editor.style import BACKGROUND_COLOR, apply_theme

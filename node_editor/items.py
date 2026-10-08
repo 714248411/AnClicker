@@ -184,7 +184,7 @@ class NodeItem(QGraphicsObject):
             | QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
             | QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
-        self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
+        self.setCacheMode(QGraphicsItem.CacheMode.NoCache)
         self.setAcceptHoverEvents(True)
         self.setZValue(1.0)
 

@@ -127,6 +127,11 @@ def test_screen_selection_and_cancel(editor, capture):
             gui.return_value.screenshot.assert_called_once_with(region=(10, 20, 100, 80))
             assert Path(widget.ui.parameter_0.text()).is_file()
             assert Path(widget.ui.parameter_0.text()).name.startswith('截图_')
+            selected = Path(widget.ui.parameter_0.text())
+            assert widget.image_combo.currentText() == selected.name
+            assert widget.image_combo.findText(selected.name) >= 0
+            assert widget.get_draft().parameters['图像路径'] == str(selected)
+            assert not widget.preview.pixmap().isNull()
         else:
             assert widget.region_group.isChecked()
             assert widget.get_draft().parameters['区域'] == '(10, 20, 100, 80)'
@@ -137,3 +142,28 @@ def test_random_offset_stays_inside_image(editor):
     _, path = editor
     with patch('instructions.common.actions.random.randint', side_effect=lambda low, high: high):
         assert image_random_offset({'图像路径': str(path)}) == (49, 39)
+
+
+def test_consecutive_capture_selects_latest_and_failure_preserves_it(editor):
+    widget, original = editor
+    with patch('instructions.common.image_click_editor.QTimer.singleShot', side_effect=lambda delay, callback: callback()), \
+         patch('instructions.common.image_click_editor._RegionSelectionDialog') as selector, \
+         patch('instructions.common.image_click_editor.actions.pyautogui_module') as gui, \
+         patch('instructions.common.image_click_editor.QMessageBox.warning') as warning:
+        selector.return_value.selected_region.return_value = (10, 20, 100, 80)
+        gui.return_value.screenshot.return_value.save.side_effect = lambda target: QPixmap(str(original)).save(target)
+        previous = str(original)
+        for _ in range(2):
+            widget.capture_button.click()
+            selected = widget.get_draft().parameters['图像路径']
+            assert selected != previous
+            assert widget.image_combo.currentText() == Path(selected).name
+            assert widget.image_combo.findText(Path(selected).name) >= 0
+            assert not widget.preview.pixmap().isNull()
+            previous = selected
+        gui.return_value.screenshot.return_value.save.side_effect = OSError('disk full')
+        widget.capture_button.click()
+        warning.assert_called_once()
+        assert widget.get_draft().parameters['图像路径'] == previous
+        assert widget.image_combo.currentText() == Path(previous).name
+        assert widget.isVisible()

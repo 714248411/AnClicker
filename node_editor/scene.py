@@ -681,16 +681,21 @@ class NodeScene(QGraphicsScene):
         rect_ = nodes_[0].sceneBoundingRect()
         for node_ in nodes_[1:]:
             rect_ = rect_.united(node_.sceneBoundingRect())
+        for edge in self.edges:
+            rect_ = rect_.united(edge.sceneBoundingRect())
         return rect_.adjusted(-80.0, -80.0, 80.0, 80.0)
 
     def emit_graph_changed(self):
+        self.setSceneRect(self.sceneRect().united(self.graph_items_rect()))
         self.graphChanged.emit(len(self.nodes_by_id), len(self.edges))
 
     def drawBackground(self, painter_, rect_):
         self.setBackgroundBrush(QBrush(BACKGROUND_COLOR))
         painter_.fillRect(rect_, BACKGROUND_COLOR)
-        small_grid_ = 20
-        large_grid_ = 100
+        # Keep grid density bounded even when viewing a very large project.
+        scale = max(abs(painter_.worldTransform().m11()), 1e-12)
+        small_grid_ = 20 * (10 ** math.ceil(math.log10(1 / scale)))
+        large_grid_ = small_grid_ * 5
         left_ = int(math.floor(rect_.left() / small_grid_) * small_grid_)
         top_ = int(math.floor(rect_.top() / small_grid_) * small_grid_)
         small_lines_ = []
@@ -708,7 +713,11 @@ class NodeScene(QGraphicsScene):
             (large_lines_ if y_ % large_grid_ == 0 else small_lines_).append(line_)
             y_ += small_grid_
 
-        painter_.setPen(QPen(GRID_SMALL_COLOR, 1.0))
+        pen = QPen(GRID_SMALL_COLOR, 1.0)
+        pen.setCosmetic(True)
+        painter_.setPen(pen)
         painter_.drawLines(small_lines_)
-        painter_.setPen(QPen(GRID_LARGE_COLOR, 1.0))
+        pen = QPen(GRID_LARGE_COLOR, 1.0)
+        pen.setCosmetic(True)
+        painter_.setPen(pen)
         painter_.drawLines(large_lines_)
