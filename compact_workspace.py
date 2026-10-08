@@ -90,11 +90,14 @@ class CompactWorkspace(QObject):
             w.restoreGeometry(self.geometry)
             if not self.was_maximized:
                 w.setGeometry(self.normal_rect)
-            view.title_bar.setFixedHeight(44)
+            view.title_bar.setFixedHeight(48)
+            view.title_bar.hBoxLayout.setSpacing(4)
+            view.title_bar.updateButton.setFixedHeight(32)
+            w.setContentsMargins(0, 48, 0, 0)
             for item in (view.title_bar.compact_button, view.title_bar.theme_button,
-                         view.title_bar.minimize_button, view.title_bar.maximize_button, view.title_bar.close_button):
+                         view.title_bar.minBtn, view.title_bar.maxBtn, view.title_bar.closeBtn):
                 item.setFixedSize(32, 32)
-            view.title_bar.title.setStyleSheet('')
+            view.title_bar.apply_theme(view.theme_mode, view.THEMES[view.theme_mode])
 
     def scale_controls(self):
         if not self.active:
@@ -111,8 +114,11 @@ class CompactWorkspace(QObject):
         ''')
         bar = self.workspace.title_bar
         bar.setFixedHeight(34 if w.width() < 400 else 40)
-        bar.title.setStyleSheet(f'font-size: {size}px;')
-        for item in (bar.compact_button, bar.theme_button, bar.minimize_button, bar.maximize_button, bar.close_button):
+        bar.hBoxLayout.setSpacing(2 if w.width() < 400 else 4)
+        bar.updateButton.setFixedHeight(24 if w.width() < 400 else 32)
+        w.setContentsMargins(0, bar.height(), 0, 0)
+        bar.titleLabel.setStyleSheet(f'font-size: {size}px;')
+        for item in (bar.compact_button, bar.theme_button, bar.minBtn, bar.maxBtn, bar.closeBtn):
             item.setFixedSize(24 if w.width() < 400 else 30, 24 if w.width() < 400 else 30)
 
     def eventFilter(self, watched, event):

@@ -105,7 +105,7 @@ if ($LASTEXITCODE -ne 0) { throw '本地升级验证失败，不得声称升级�
 Get-FileHash -Algorithm SHA256 -LiteralPath "$releaseOutput/delivery/AnClicker-v$releaseVersion-Portable.zip"
 ```
 
-`validation.json` 不是当前构建脚本自动生成的文件；若另行生成，只记录本次实际执行结果，不复制旧报告中的成功结论。
+构建生成 `validation-startup.json`，发布准备生成 `validation-publish.json`，记录实际验收所对应的文件清单、大小、SHA-256、版本、路径、更新源和验证代码。它们是本地验收缓存，不是签名证明，不得手工编造或从其他产物复制；不会上传到七牛。
 
 ### 七牛发布环境
 
@@ -137,11 +137,11 @@ Get-FileHash -Algorithm SHA256 -LiteralPath "$releaseOutput/delivery/AnClicker-v
 .\.venv\Scripts\python.exe packaging/发布Velopack.py build --output $releaseOutput --publish --yes
 ```
 
-上述流程与前面的离线构建二选一，不向已完成构建的目录再次运行 build。发布已有产物时默认对应 `dist/velopack/AnClicker`，可用 `--app-dir <对应程序目录>` 指定保留的构建。Full、Portable 与程序目录会逐文件比对，任一不一致就停止。产物路径不能代替验证。
+推荐使用上述两阶段流程：联网 build → 本地升级验证 → publish。已完成构建后直接 publish，不再重新 build。上述流程与前面的离线构建二选一，不向已完成构建的目录再次运行 build。发布已有产物时默认对应 `dist/velopack/AnClicker`，可用 `--app-dir <对应程序目录>` 指定保留的构建。首次准备会逐文件比对 Full、Portable 与程序目录；发布时重新计算哈希，记录完全匹配则复用结果，不重复解压和打开窗口。记录缺失、损坏，或文件集合、内容、验证代码、配置变化时重新执行完整验收，检查失败即停止。产物路径不能代替验证。
 
 ### 上传顺序与恢复
 
-发布版本必须严格高于线上版本。上传前重新验证产物、公开更新源、桶、区域及公开访问属性。仅上传当前 Full 和可选 Delta；逐包通过公网大小和 SHA-256 校验后，再检查一次远程版本，最后写入 feed、刷新 CDN，并同时验证缓存规避 URL 和客户端原始 URL。
+发布版本必须严格高于线上版本。上传前重新核对产物哈希、公开更新源、桶、区域及公开访问属性；线上检查不使用本地缓存。仅上传当前 Full 和可选 Delta；逐包通过公网大小和 SHA-256 校验后，再检查一次远程版本，最后写入 feed、刷新 CDN，并同时验证缓存规避 URL 和客户端原始 URL。
 
 Portable、delivery、assets、RELEASES 和本地测试包不上传；历史远端包不自动删除。禁止多人同时发布同一前缀，本流程没有跨机器事务锁。
 
@@ -150,3 +150,7 @@ Portable、delivery、assets、RELEASES 和本地测试包不上传；历史远�
 “接入上传功能”不等于授权执行生产发布。2026-10-08 的索引 404 是历史检查结果，不代表当前状态。
 
 本地构建成功不等于线上发布，测试源升级成功也不等于生产客户端升级成功。未来上线后还需独立检查公网索引和下载包，并验证实际客户端升级。
+
+### 避免重复验收
+
+同一批未变化产物仅运行一次完整启动门槛：onedir、便携版 current 程序和根启动器各启动两次，共 6 次，用于确认入口可用及重复启动的数据保留。后续发布准备和上传复用匹配的记录，不再各打开 6 次窗口。本地双版本升级验证仍独立运行一次；它会打开真实窗口以确认下载、重启和数据保留。上传后的公网包哈希、原始索引地址及缓存规避索引校验始终执行。

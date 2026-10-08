@@ -41,6 +41,7 @@ dependencies = [
     { name = "pymsgbox" },
     { name = "pynput", marker = "sys_platform == 'darwin'" },
     { name = "pyside6" },
+    { name = "pysidesix-frameless-window" },
     { name = "python-dateutil" },
     { name = "pyttsx4" },
     { name = "pywinctl" },
@@ -72,6 +73,7 @@ requires-dist = [
     { name = "pymsgbox" },
     { name = "pynput", marker = "sys_platform == 'darwin'" },
     { name = "pyside6" },
+    { name = "pysidesix-frameless-window", specifier = "==0.8.1" },
     { name = "python-dateutil" },
     { name = "pyttsx4" },
     { name = "pywinctl", specifier = ">=0.4.1" },
@@ -567,6 +569,15 @@ dependencies = [
     { name = "pytweening" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/65/ff/cdae0a8c2118a0de74b6cf4cbcdcaf8fd25857e6c3f205ce4b1794b27814/PyAutoGUI-0.9.54.tar.gz", hash = "sha256:dd1d29e8fd118941cb193f74df57e5c6ff8e9253b99c7b04f39cfc69f3ae04b2", size = 61236, upload-time = "2023-05-24T20:11:32.972Z" }
+
+[[package]]
+name = "pycocoa"
+version = "25.12.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/f7/4d61927a6be0ce33129b35221751c844e925619f199567517dbf10377ba1/pycocoa-25.12.4.tar.gz", hash = "sha256:6b174e972da63657ddf1095e6504e4cad63e143046752b71aa496e14e8f27722", size = 558218, upload-time = "2025-12-03T21:11:24.551Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/f6/0b1b50967c878eae9c84b68dc098ee004cabf57d0d7a449001ddf04b8aaf/pycocoa-25.12.4-py2.py3-none-any.whl", hash = "sha256:189f08be6f3b479bad53711776eec5687a9eddc30e88c1ac24ed458e6053ba1b", size = 227487, upload-time = "2025-12-03T21:11:26.182Z" },
+]
 
 [[package]]
 name = "pygetwindow"
@@ -3416,6 +3427,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/f9/aa4ff511ff1f3dd177f7e8f5a635e03fe578fa2045c8d6be4577e7db3b28/PySide6_Essentials-6.8.2.1-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:5ab31e5395a4724102edd6e8ff980fa3f7cde2aa79050763a1dcc30bb914195a", size = 95331575, upload-time = "2025-02-06T13:53:26.04Z" },
     { url = "https://files.pythonhosted.org/packages/fd/69/595002d860ee58431fe7add081d6f54fff94ae9680f2eb8cd355c1649bb6/PySide6_Essentials-6.8.2.1-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:7aed46f91d44399b4c713cf7387f5fb6f0114413fbcdbde493a528fb8e19f6ed", size = 93200219, upload-time = "2025-02-06T13:53:41.404Z" },
     { url = "https://files.pythonhosted.org/packages/5b/54/28a8b03f327e2c1d27d4a1ccf1a44997afc73c00ad07125d889640367194/PySide6_Essentials-6.8.2.1-cp39-abi3-win_amd64.whl", hash = "sha256:18de224f09108998d194e60f2fb8a1e86367dd525dd8a6192598e80e6ada649e", size = 72502927, upload-time = "2025-02-06T13:53:53.124Z" },
+]
+
+[[package]]
+name = "pysidesix-frameless-window"
+version = "0.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pycocoa", marker = "sys_platform == 'darwin'" },
+    { name = "pyobjc", marker = "sys_platform == 'darwin'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/44/ee4b9ead46ec5fcc4d9a303f6ac82cb17b0e188bfe629ef962c4046cded5/pysidesix_frameless_window-0.8.1.tar.gz", hash = "sha256:95eefa64abdaca9d730bc097fd39e2cd07d3443a47a1645cc936a0076996d7cd", size = 23378, upload-time = "2026-03-21T02:04:36.72Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/02/13dc76880e9f54102b8d4859a1a14061c6914c12d8c8554dc49ef55ab209/pysidesix_frameless_window-0.8.1-py3-none-any.whl", hash = "sha256:0445e7ce095c3631893ec54edb470a47c2bb05ea64db736f446211550b7c2237", size = 31181, upload-time = "2026-03-21T02:04:35.829Z" },
 ]
 
 [[package]]

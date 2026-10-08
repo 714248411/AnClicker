@@ -276,10 +276,10 @@ class AutoUpdateManager(QObject):
         version_, notes_ = update_target_details(update_info_)
         if ready:
             message_ = f"新版本 {version_ or '未知版本'} 的更新包已准备完成。"
-            message_ += "\n\n请点击帮助菜单中的“重启更新”安装并重启。"
+            message_ += "\n\n请点击标题栏中的“新版本”安装并重启。"
         else:
             message_ = f"发现新版本 {version_ or '未知版本'}。"
-            message_ += "\n\n更新包将在后台下载，状态栏会显示进度；准备完成后帮助菜单中的“重启更新”将可用。"
+            message_ += "\n\n更新包将在后台下载，状态栏会显示进度；准备完成后标题栏中的“新版本”将可用。"
         if notes_:
             message_ += f"\n\n更新内容：\n{notes_}"
         QMessageBox.information(self.main_window, "检查更新", message_)

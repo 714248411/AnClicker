@@ -167,6 +167,16 @@ def build(config, output):
 
 
 def validate_local(config, release, app):
+    from validation_cache import verify_once
+    check_source(config)
+    context = ReleaseContext(ROOT, app, release, release / UPDATE_CONFIG['portable_name'],
+                             APP_ID, UPDATE_CONFIG['pack_id'], CURRENT_VERSION.removeprefix('v'), UPDATE_CONFIG['runtime'])
+    verify_once(context, 'publish', lambda: _validate_local(config, release, app))
+    feed = json.loads((release / UPDATE_CONFIG['feed_name']).read_text(encoding='utf-8-sig'))
+    return feed, current_assets(feed, context.version)
+
+
+def _validate_local(config, release, app):
     check_source(config)
     version = CURRENT_VERSION.removeprefix('v')
     version_tuple(version)
@@ -271,7 +281,9 @@ def publish(config, release, app):
     uploader = QiniuUploader(config)
     for asset in assets:
         path = release / asset['FileName']
+        print('上传更新包:', path.name, flush=True)
         uploader.upload(path)
+        print('公网下载校验:', path.name, flush=True)
         verify_public(config, path.name, asset['Size'], asset['SHA256'])
     # Recheck before the only mutable public object is replaced.
     assert_newer(CURRENT_VERSION.removeprefix('v'), get_feed(config))
@@ -279,6 +291,7 @@ def publish(config, release, app):
     if json.loads(path.read_text(encoding='utf-8-sig')) != feed:
         raise ReleaseError('发布过程中 feed 被修改，停止发布')
     try:
+        print('发布更新索引并刷新 CDN。', flush=True)
         uploader.upload(path, overwrite=True)
         uploader.refresh_feed()
         for attempt in range(6):

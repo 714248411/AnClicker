@@ -156,6 +156,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
         if (
             result.get("ok") is not True
             or result.get("window_visible") is not True
+            or result.get("window_chrome_valid") is not True
             or result.get("version") != context.version
             or result.get("update_config") != update_source_config()
             or Path(result.get("data_root", "")).resolve() != data_dir.resolve()
@@ -236,6 +237,11 @@ def validate_portable_release(context: ReleaseContext) -> None:
 
 
 def validate_release(context: ReleaseContext) -> None:
+    from validation_cache import verify_once
+    verify_once(context, 'startup', lambda: _validate_release(context))
+
+
+def _validate_release(context: ReleaseContext) -> None:
     """在构建后和发布前调用；任何失败均阻止上传。"""
     executable = context.app_dir / f"{context.program_title}.exe"
     if not executable.is_file():

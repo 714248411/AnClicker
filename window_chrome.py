@@ -1,35 +1,12 @@
-"""Compact title bar with a theme control beside the window controls."""
+"""Main-window chrome backed by PySideSix-Frameless-Window."""
 import math
-import sys
-from PySide6.QtCore import QEvent, QLineF, QRectF, Qt
+from PySide6.QtCore import QLineF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton, QVBoxLayout, QWidget
-
-
-def apply_native_shadow(window):
-    """Ask Windows DWM for the compositor's external shadow, not a painted fake.
-
-    Non-Windows desktops retain their compositor's window shadow. Failure is
-    harmless: the explicit grey outline remains available on every platform.
-    """
-    if sys.platform != 'win32' or QApplication.platformName() != 'windows':
-        return False
-    try:
-        import ctypes
-        from ctypes import wintypes
-        class Margins(ctypes.Structure):
-            _fields_ = [(name, ctypes.c_int) for name in ('left','right','top','bottom')]
-        dwm = ctypes.WinDLL('dwmapi')
-        dwm.DwmSetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
-        dwm.DwmExtendFrameIntoClientArea.argtypes = [wintypes.HWND, ctypes.POINTER(Margins)]
-        hwnd = int(window.winId())
-        policy = ctypes.c_int(2)  # DWMNCRP_ENABLED: render irrespective of style.
-        result = dwm.DwmSetWindowAttribute(hwnd, 2, ctypes.byref(policy), ctypes.sizeof(policy))
-        edge = 0 if window.isMaximized() or window.isFullScreen() else 1
-        margins = Margins(edge, edge, edge, edge)
-        return result == 0 and dwm.DwmExtendFrameIntoClientArea(hwnd, ctypes.byref(margins)) == 0
-    except (OSError, AttributeError):
-        return False
+from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QWidget
+from info import APP_NAME, CURRENT_VERSION
+from qframelesswindow import FramelessMainWindow, StandardTitleBar
+from qframelesswindow.titlebar import TitleBarButton
+from qframelesswindow.utils import toggleMaxState
 
 
 def chrome_icon(kind, color):
@@ -50,6 +27,11 @@ def chrome_icon(kind, color):
         outer.addEllipse(QRectF(3, 3, 14, 14))
         cutout.addEllipse(QRectF(8, 0, 13, 13))
         painter.drawPath(outer.subtracted(cutout))
+    elif kind == "update":
+        painter.drawEllipse(QRectF(2, 2, 16, 16))
+        painter.drawLine(10, 14, 10, 6)
+        painter.drawLine(10, 6, 6, 10)
+        painter.drawLine(10, 6, 14, 10)
     elif kind == "minimize":
         painter.drawLine(5, 10, 15, 10)
     elif kind == "maximize":
@@ -72,210 +54,171 @@ def chrome_icon(kind, color):
     return QIcon(pixmap)
 
 
-class WindowOutline(QWidget):
-    """Thin outline plus inset edge shadow, independent of the OS compositor."""
-    def __init__(self, host):
-        super().__init__(host)
-        self.host = host
-        self.dark = False
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.setAttribute(Qt.WA_NoSystemBackground)
-        host.installEventFilter(self)
-        self.sync()
+class ChromeControlButton(TitleBarButton):
+    """Use a centered square icon instead of the library's fixed 46x32 artwork."""
+    def __init__(self, kind, parent):
+        super().__init__(parent)
+        self.kind = kind
 
-    def sync(self):
-        margin = 1 if self.host.isMaximized() or self.host.isFullScreen() else 4
-        self.host.setContentsMargins(margin, margin, margin, margin)
-        self.setGeometry(self.host.rect())
-        self.raise_()
+    def setMaxState(self, maximized):
+        self.kind = 'restore' if maximized else 'maximize'
         self.update()
 
-    def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Resize, QEvent.Show, QEvent.WindowStateChange):
-            self.sync()
-        if event.type() in (QEvent.Show, QEvent.WindowStateChange):
-            self.host.native_shadow_enabled = apply_native_shadow(self.host)
-        return False
-
     def paintEvent(self, event):
+        color, background = self._getColors()
         painter = QPainter(self)
-        painter.setPen(QPen(QColor('#747983' if self.dark else '#bfc3cc'), 1))
-        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
-        if not self.host.isMaximized() and not self.host.isFullScreen():
-            for inset, alpha in ((1, 35), (2, 20), (3, 9)):
-                painter.setPen(QPen(QColor(0, 0, 0, alpha), 1))
-                painter.drawRect(self.rect().adjusted(inset, inset, -inset-1, -inset-1))
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(background)
+        painter.drawRoundedRect(QRectF(self.rect()), 6, 6)
+        chrome_icon(self.kind, color).paint(painter, QRect((self.width()-18)//2, (self.height()-18)//2, 18, 18))
 
 
-class WindowTitleBar(QFrame):
+class UpdateNoticeButton(QPushButton):
+    def __init__(self, parent):
+        super().__init__('新版本', parent)
+        self.setObjectName('updateNotice')
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(32)
+        self.setIconSize(QSize(18, 18))
+        self.badge = QWidget(self)
+        self.badge.setFixedSize(8, 8)
+        self.badge.setStyleSheet('background: #ef4444; border-radius: 4px;')
+        self.badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.hide()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.badge.move(self.width() - 9, 1)
+        self.badge.raise_()
+
+
+class WindowTitleBar(StandardTitleBar):
     def __init__(self, window, theme_action):
         super().__init__(window)
-        self.host = window
-        self.setObjectName("windowTitleBar")
-        self.setFixedHeight(44)
-        self._drag_offset = None
-        self._resize_origin = None
-        self._resize_edges = Qt.Edge(0)
-        self._color = "#eeeeef"
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 5, 10, 5)
-        layout.setSpacing(6)
-        logo = QLabel()
-        logo.setPixmap(window.windowIcon().pixmap(22, 22))
-        logo.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        layout.addWidget(logo)
-        self.title = QLabel(window.windowTitle())
-        self.title.setObjectName("windowCaption")
-        self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        window.windowTitleChanged.connect(self.title.setText)
-        layout.addWidget(self.title, 1)
-        self.compact_button = self._button("windowCompact", "小化：仅显示控制与操作")
+        self.setFixedHeight(48)
+        self.setObjectName('windowTitleBar')
+        # Keep the library's native window behavior; replace only button artwork.
+        for name, kind in (('minBtn', 'minimize'), ('maxBtn', 'maximize'), ('closeBtn', 'close')):
+            old = getattr(self, name)
+            index = self.hBoxLayout.indexOf(old)
+            self.hBoxLayout.removeWidget(old)
+            old.hide()
+            old.deleteLater()
+            button = ChromeControlButton(kind, self)
+            self.hBoxLayout.insertWidget(index, button, 0, Qt.AlignmentFlag.AlignVCenter)
+            setattr(self, name, button)
+        self.minBtn.clicked.connect(window.showMinimized)
+        self.maxBtn.clicked.connect(lambda: toggleMaxState(window))
+        self.closeBtn.clicked.connect(window.close)
+        self.hBoxLayout.setContentsMargins(0, 0, 8, 0)
+        self.hBoxLayout.setSpacing(4)
+        self._ready_version = ''
+        self._ready_notes = ''
+        self.titleLabel.setMinimumWidth(0)
+        self.titleLabel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        title_index = self.hBoxLayout.indexOf(self.titleLabel)
+        self.hBoxLayout.removeWidget(self.titleLabel)
+        identity = QWidget(self)
+        identity_layout = QHBoxLayout(identity)
+        identity_layout.setContentsMargins(0, 0, 0, 0)
+        identity_layout.setSpacing(8)
+        identity_layout.addWidget(self.titleLabel)
+        self.versionLabel = QLabel(CURRENT_VERSION, identity)
+        identity_layout.addWidget(self.versionLabel)
+        self.hBoxLayout.insertWidget(title_index, identity)
+        for label in (self.titleLabel, self.versionLabel):
+            label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setTitle(window.windowTitle())
+        self.setIcon(window.windowIcon())
+        self.updateButton = UpdateNoticeButton(self)
+        self.hBoxLayout.insertWidget(self.hBoxLayout.indexOf(self.minBtn), self.updateButton)
+        self.compact_button = QToolButton(self)
         self.compact_button.setCheckable(True)
-        self.theme_button = self._button("themeToggle", "切换主题")
+        self.compact_button.setToolTip('小化：仅显示控制与操作')
+        self.theme_button = QToolButton(self)
         self.theme_button.setDefaultAction(theme_action)
         self.theme_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.minimize_button = self._button("windowMinimize", "最小化")
-        self.minimize_button.clicked.connect(window.showMinimized)
-        self.maximize_button = self._button("windowMaximize", "最大化")
-        self.maximize_button.clicked.connect(self.toggle_maximized)
-        self.close_button = self._button("windowClose", "关闭")
-        self.close_button.clicked.connect(window.close)
-        for button in (self.compact_button, self.theme_button, self.minimize_button, self.maximize_button, self.close_button):
-            layout.addWidget(button)
-        QApplication.instance().installEventFilter(self)
+        for button in (self.compact_button, self.theme_button):
+            button.setFixedSize(32, 32)
+            button.setIconSize(QSize(18, 18))
+            self.hBoxLayout.insertWidget(self.hBoxLayout.indexOf(self.minBtn), button)
+        for button, label in ((self.minBtn, '最小化'), (self.maxBtn, '最大化/还原'), (self.closeBtn, '关闭')):
+            button.setFixedSize(32, 32)
+            button.setToolTip(label)
+            button.setAccessibleName(label)
 
-    def _button(self, name, label):
-        button = QToolButton(self)
-        button.setObjectName(name)
-        button.setAccessibleName(label)
-        button.setToolTip(label)
-        button.setFixedSize(32, 32)
-        return button
+    def setTitle(self, title):
+        # Keep the OS window title unchanged; render identity and version separately.
+        self.titleLabel.setText(APP_NAME)
+
+    def canDrag(self, pos):
+        child = self.childAt(pos)
+        while child is not None and child is not self:
+            if isinstance(child, QAbstractButton):
+                return False
+            child = child.parentWidget()
+        return super().canDrag(pos)
+
+    def show_update(self, version, notes=''):
+        self._ready_version, self._ready_notes = str(version), str(notes)
+        self.updateButton.setToolTip(f'新版本 {version} 已准备完成，点击保存项目并重启更新。\n\n{notes}')
+        self.set_update_applying(False)
+        self.updateButton.show()
+
+    def set_update_applying(self, applying):
+        self.updateButton.setText('正在更新…' if applying else '新版本')
+        self.updateButton.setEnabled(not applying)
+        self.updateButton.badge.setVisible(not applying)
 
     def apply_theme(self, mode, colors):
-        if hasattr(self.host, 'window_outline'):
-            self.host.window_outline.dark = mode == 'dark'
-            self.host.window_outline.update()
-        self._color = colors['text']
-        self.compact_button.setIcon(chrome_icon("compact", self._color))
-        label = "切换浅色主题" if mode == "dark" else "切换深色主题"
-        self.theme_button.defaultAction().setIcon(chrome_icon("sun" if mode == "dark" else "moon", self._color))
-        self.theme_button.setAccessibleName(label)
-        self.theme_button.setToolTip(label)
-        self.minimize_button.setIcon(chrome_icon("minimize", self._color))
-        self.close_button.setIcon(chrome_icon("close", "#ffffff"))
-        self._update_maximize()
+        color = QColor(colors['text'])
+        self.titleLabel.setStyleSheet(f"color: {colors['text']}; background: transparent; padding: 0; font-family: 'Microsoft YaHei UI'; font-size: 16px; font-weight: 700;")
+        version_color = '#94a3b8' if mode == 'dark' else '#475569'
+        self.versionLabel.setStyleSheet(f"color: {version_color}; background: transparent; padding: 0; font-family: 'Microsoft YaHei UI'; font-size: 13px; font-weight: 400;")
         self.setStyleSheet(f"""
-            QFrame#windowTitleBar {{ background: {colors['surface']}; border-bottom: 1px solid {colors['line']}; }}
-            QLabel#windowCaption {{ color: {colors['text']}; font-weight: 600; background: transparent; }}
-            QToolButton {{ background: transparent; border: none; border-radius: 16px; padding: 0; }}
-            QToolButton:hover, QToolButton:focus {{ background: {colors['surface3']}; }}
-            QToolButton#windowClose {{ background: #dc3545; }}
-            QToolButton#windowClose:hover {{ background: #ef4657; }}
+            WindowTitleBar {{ background: {colors['surface']}; }}
+            QToolButton, QPushButton#updateNotice {{ color: {colors['text']}; background: transparent;
+                border: none; border-radius: 6px; padding: 0; }}
+            QPushButton#updateNotice {{ padding: 0 10px; }}
+            QToolButton:hover, QPushButton#updateNotice:hover {{ background: {colors['surface3']}; }}
+            QToolButton:pressed, QToolButton:checked, QPushButton#updateNotice:pressed {{ background: {colors['line']}; }}
         """)
-
-    def _update_maximize(self):
-        maximized = self.host.isMaximized()
-        self.maximize_button.setIcon(chrome_icon("restore" if maximized else "maximize", self._color))
-        label = "还原窗口" if maximized else "最大化"
-        self.maximize_button.setToolTip(label)
-        self.maximize_button.setAccessibleName(label)
-
-    def toggle_maximized(self):
-        self.host.showNormal() if self.host.isMaximized() else self.host.showMaximized()
-        self._update_maximize()
-
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.toggle_maximized()
-            event.accept()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            handle = self.host.windowHandle()
-            if handle and handle.startSystemMove():
-                event.accept()
-                return
-            if not self.host.isMaximized():
-                self._drag_offset = event.globalPosition().toPoint() - self.host.pos()
-
-    def mouseMoveEvent(self, event):
-        if self._drag_offset is not None and event.buttons() & Qt.MouseButton.LeftButton:
-            self.host.move(event.globalPosition().toPoint() - self._drag_offset)
-
-    def mouseReleaseEvent(self, event):
-        self._drag_offset = None
-
-    def edges_at(self, position):
-        edges = Qt.Edge(0)
-        if self.host.isMaximized() or self.host.isFullScreen():
-            return edges
-        if position.x() < 5:
-            edges |= Qt.Edge.LeftEdge
-        elif position.x() >= self.host.width() - 5:
-            edges |= Qt.Edge.RightEdge
-        if position.y() < 5:
-            edges |= Qt.Edge.TopEdge
-        elif position.y() >= self.host.height() - 5:
-            edges |= Qt.Edge.BottomEdge
-        return edges
-
-    def eventFilter(self, watched, event):
-        # During Qt teardown many unrelated QObject events pass this global
-        # filter; never dereference widget/window wrappers for those events.
-        kind = event.type()
-        if kind not in (QEvent.Type.WindowStateChange, QEvent.Type.MouseButtonPress,
-                        QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease):
-            return False
-        from shiboken6 import isValid
-        if not isValid(self.host) or not isValid(watched):
-            return False
-        if watched is self.host and event.type() == QEvent.Type.WindowStateChange:
-            self._update_maximize()
-        if not isinstance(watched, QWidget) or watched.window() is not self.host:
-            return False
-        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
-            edges = self.edges_at(self.host.mapFromGlobal(event.globalPosition().toPoint()))
-            if edges:
-                handle = self.host.windowHandle()
-                if handle and handle.startSystemResize(edges):
-                    return True
-                self._resize_edges = edges
-                self._resize_origin = (event.globalPosition().toPoint(), self.host.geometry())
-                return True
-        elif event.type() == QEvent.Type.MouseMove and self._resize_origin is not None:
-            start, rect = self._resize_origin
-            delta = event.globalPosition().toPoint() - start
-            updated = type(rect)(rect)
-            if self._resize_edges & Qt.Edge.LeftEdge:
-                updated.setLeft(min(rect.left() + delta.x(), rect.right() - self.host.minimumWidth() + 1))
-            if self._resize_edges & Qt.Edge.RightEdge:
-                updated.setRight(max(rect.right() + delta.x(), rect.left() + self.host.minimumWidth() - 1))
-            if self._resize_edges & Qt.Edge.TopEdge:
-                updated.setTop(min(rect.top() + delta.y(), rect.bottom() - self.host.minimumHeight() + 1))
-            if self._resize_edges & Qt.Edge.BottomEdge:
-                updated.setBottom(max(rect.bottom() + delta.y(), rect.top() + self.host.minimumHeight() - 1))
-            self.host.setGeometry(updated)
-            return True
-        elif event.type() == QEvent.Type.MouseButtonRelease:
-            self._resize_origin = None
-        return False
+        for button in (self.minBtn, self.maxBtn, self.closeBtn):
+            button.setNormalColor(color)
+            button.setHoverColor(color)
+            button.setPressedColor(color)
+            button.setHoverBackgroundColor(QColor(colors['surface3']))
+            button.setPressedBackgroundColor(QColor(colors['line']))
+        self.closeBtn.setHoverColor(QColor('white'))
+        self.closeBtn.setPressedColor(QColor('white'))
+        self.closeBtn.setHoverBackgroundColor(QColor('#dc3545'))
+        self.closeBtn.setPressedBackgroundColor(QColor('#b42332'))
+        self.compact_button.setIcon(chrome_icon('compact', colors['text']))
+        self.theme_button.defaultAction().setIcon(chrome_icon('sun' if mode == 'dark' else 'moon', colors['text']))
+        self.theme_button.setToolTip('切换浅色主题' if mode == 'dark' else '切换深色主题')
+        self.updateButton.setIcon(chrome_icon('update', colors['text']))
 
 
 def install_title_bar(window, theme_action):
-    window.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
-    menu = window.menuBar()
-    # Reparent before replacing QMainWindow's menu widget to preserve all menus.
-    menu.setParent(None)
-    host = QWidget(window)
-    host.setObjectName("windowHeader")
-    layout = QVBoxLayout(host)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
     bar = WindowTitleBar(window, theme_action)
-    layout.addWidget(bar)
-    layout.addWidget(menu)
-    window.setMenuWidget(host)
-    window.window_outline = WindowOutline(window)
+    window.setTitleBar(bar)
+    # Reserve space for the floating library title bar above the entire main layout.
+    window.setContentsMargins(0, bar.height(), 0, 0)
+    bar.resize(window.width(), bar.height())
+    bar.show()
+    bar.raise_()
     return bar
+
+
+def validate_window_chrome(window):
+    """Require usable title controls, not merely a visible top-level window."""
+    bar = window.view_workspace.title_bar
+    controls = (bar.minBtn, bar.maxBtn, bar.closeBtn)
+    visible = (bar is window.titleBar and bar.isVisibleTo(window)
+               and all(button.isVisibleTo(window) and button.isEnabled()
+                       and bar.rect().contains(button.geometry()) for button in controls))
+    menu_below = window.menubar.mapTo(window, window.menubar.rect().topLeft()).y() >= bar.height()
+    if not visible or not menu_below:
+        raise RuntimeError('标题栏、窗口按钮或菜单布局验收失败')
+    return True

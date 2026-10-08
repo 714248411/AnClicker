@@ -5,6 +5,7 @@ description = "Cross-platform visual automation workspace for Windows, macOS, an
 requires-python = ">=3.10"
 dependencies = [
     "PySide6",
+    "pysidesix-frameless-window==0.8.1",
     "pyttsx4",
     "pymsgbox",
     "pyautogui",

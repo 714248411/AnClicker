@@ -86,7 +86,10 @@ SystemHotkey = create_system_hotkey
 # 指令由 instructions.registry 统一注册，主窗口与执行线程按需惰性加载。
 
 
-class Main_window(QMainWindow, Ui_MainWindow):
+from window_chrome import FramelessMainWindow
+
+
+class Main_window(FramelessMainWindow, Ui_MainWindow):
     """主窗口"""
     clear_signal = Signal()  # 自定义信号，textEdit清空信息，防止在全局快捷键调用时程序崩溃
     shortcut_requested = Signal(str)
@@ -200,23 +203,30 @@ class Main_window(QMainWindow, Ui_MainWindow):
         from update.自动更新接入 import AutoUpdateManager
         self.auto_update = AutoUpdateManager(self)
         # Use the existing help menu that contains About.
-        menu = next((m for m in self.menuBar().findChildren(__import__('PySide6.QtWidgets', fromlist=['QMenu']).QMenu)
-                     if self.actionabout in m.actions()), None) or self.menuBar().addMenu('帮助')
+        menu = next((action.menu() for action in self.menubar.actions()
+                     if action.menu() and self.actionabout in action.menu().actions()), None)
+        if menu is None:
+            menu = self.menubar.addMenu('帮助')
         check = menu.addAction('检查更新')
         check.triggered.connect(lambda: self.auto_update.check_for_updates(True))
-        self.restart_update_action = menu.addAction('重启更新')
-        self.restart_update_action.setEnabled(False)
-        self.restart_update_action.triggered.connect(self.auto_update.apply_ready_update)
-        self.auto_update.update_ready.connect(lambda version, notes: self._update_ready(version))
-        self.auto_update.update_progress.connect(lambda text, value: self.statusBar.showMessage(
-            f'{text} {value}%' if value >= 0 else text))
+        self.auto_update.update_ready.connect(self.view_workspace.title_bar.show_update)
+        self.auto_update.update_progress.connect(self._update_progress)
+        self.view_workspace.title_bar.updateButton.clicked.connect(self._apply_ready_update)
         if not any(flag in sys.argv for flag in ('--startup-smoke-test', '--release-smoke', '--velopack-local-smoke')):
             QTimer.singleShot(1500, self.auto_update.check_on_startup)
 
-    def _update_ready(self, version):
-        self.restart_update_action.setEnabled(True)
-        self.restart_update_action.setText(f'重启更新至 {version}')
-        self.statusBar.showMessage(f'新版本 {version} 已准备好，请在帮助菜单选择重启更新。')
+    def _update_progress(self, text, value):
+        self.statusBar.showMessage(f'{text} {value}%' if value >= 0 else text)
+        if value == -2 and self.auto_update.ready_update_info is not None:
+            self.view_workspace.title_bar.set_update_applying(False)
+
+    def _apply_ready_update(self):
+        if getattr(self, '_update_preparing', False):
+            return
+        bar = self.view_workspace.title_bar
+        bar.set_update_applying(True)
+        if not self.auto_update.apply_ready_update():
+            bar.set_update_applying(False)
 
     def prepare_for_update(self):
         if (self.command_thread.isRunning() or self.view_workspace.recording_page.busy

@@ -182,10 +182,13 @@ def main():
         from image_validation import validate_image_execution
         image_validation = validate_image_execution()
         def report_ready():
+            from window_chrome import validate_window_chrome
+            chrome_valid = validate_window_chrome(main_window)
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
                 "ok": True,
                 "window_visible": main_window.isVisible(),
+                "window_chrome_valid": chrome_valid,
                 "data_root": os.environ["ANCLICKER_DATA_DIR"],
                 "ready": main_window.isVisible(),
                 "version": app.applicationVersion().removeprefix("v") if "--release-smoke" in sys.argv else app.applicationVersion(),
