@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import json
 import math
+import re
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -38,6 +39,7 @@ SUPPORTED_TYPES = set(PAYLOAD_FIELDS) | {
     "鼠标拖拽", "时间等待", "按键等待", "窗口焦点等待",
     "获取时间", "获取鼠标位置", "获取剪切板", "获取对话框",
     "数字验证码", "OCR识别", "窗口控制",
+    "发送消息",
 }
 POLICIES = {"自动跳过", "提示异常并暂停", "提示异常并停止"}
 
@@ -58,7 +60,7 @@ def _integer(value, label, minimum=1):
 
 
 def _parameters(raw):
-    if raw is None or raw == "":
+    if raw is None or raw in ("", "None", "null"):
         return {}
     if not isinstance(raw, str) or len(raw) > 1_000_000:
         raise ValueError("旧版参数必须是长度合理的字典文本")
@@ -89,6 +91,9 @@ def _convert_parameters(type_id, payload, raw, base_directory):
         raise ValueError("该指令包含尚未识别的图像名称/内容字段")
     if type_id == "多图点击" and "图像路径" in parameters:
         parameters["图像路径"] = parameters["图像路径"].replace("、", "\n")
+    if type_id == '坐标点击' and parameters.get('自定义次数') == 0 and parameters.get('动作') != '左键（自定义次数）':
+        # Old UI stored zero even for single/double/move actions; it was unused.
+        parameters['自定义次数'] = 1
     if type_id == "图像等待":
         from instructions.common.image_wait import normalize_image_wait
         parameters = normalize_image_wait(parameters)
@@ -105,6 +110,9 @@ def _convert_parameters(type_id, payload, raw, base_directory):
         parameters["移动速度"] = float(parameters["移动速度"]) / 1000
     if type_id == "窗口焦点等待" and "检测频率" in parameters:
         parameters["检测频率"] = float(parameters["检测频率"]) / 1000
+    if type_id == "窗口焦点等待":
+        parameters['等待类型'] = {'等待窗口获取焦点': '获得焦点', '等待窗口失去焦点': '失去焦点'}.get(
+            parameters.get('等待类型'), parameters.get('等待类型', '获得焦点'))
     if str(parameters.get("区域", "")).replace(" ", "") in {"(0,0,0,0)", "[0,0,0,0]"}:
         parameters["区域"] = ""
 
@@ -156,7 +164,7 @@ def _convert_parameters(type_id, payload, raw, base_directory):
     return parameters
 
 
-def convert_legacy_workbook(source, base_directory=None, *, branch=None):
+def convert_legacy_workbook(source, base_directory=None, *, branch=None, branch_targets=None):
     """Return a new four-sheet workbook, or the unchanged current workbook.
 
     Fail closed for unknown sheets, auxiliary parameters and branch semantics.
@@ -172,6 +180,7 @@ def convert_legacy_workbook(source, base_directory=None, *, branch=None):
         target.create_sheet(name).append(headers)
     active_sheets = []
     records = []
+    jumps = []
     for sheet in source.worksheets:
         if sheet.title == "设置":
             continue
@@ -194,7 +203,21 @@ def convert_legacy_workbook(source, base_directory=None, *, branch=None):
                     raise ValueError("隶属分支与工作表名称不一致")
                 policy = policy or "提示异常并暂停"
                 if policy not in POLICIES:
-                    raise ValueError(f"异常处理“{policy}”可能包含旧分支跳转，不能改为顺序执行")
+                    match = re.fullmatch(r'(.+)-([1-9][0-9]*)', str(policy))
+                    if not match:
+                        raise ValueError(f"异常处理“{policy}”不是可识别的分支名-行号")
+                    destination, target_row = match[1], int(match[2])
+                    target_sheet = source[destination] if destination in source.sheetnames else None
+                    target_count = sum(any(v is not None for v in r) for r in
+                                       target_sheet.iter_rows(min_row=2, values_only=True)) if target_sheet else 0
+                    if destination != sheet.title and branch_targets is not None:
+                        target_count = branch_targets.get(destination, ('', 0))[1]
+                    if not 1 <= target_row <= target_count:
+                        raise ValueError(f'跳转目标“{policy}”不存在或行号越界')
+                    if destination != sheet.title and (branch_targets is None or destination not in branch_targets):
+                        raise ValueError('跨分支跳转必须使用完整迁移器生成关联项目，不能改为顺序执行')
+                    jumps.append((len(records), destination, target_row))
+                    policy = '提示异常并停止'
                 parameters = _convert_parameters(str(type_id), payload, raw, base_directory)
                 records.append([
                     _integer(command_id, "ID"), str(type_id),
@@ -234,6 +257,23 @@ def convert_legacy_workbook(source, base_directory=None, *, branch=None):
         previous = node_id
     target["节点"].append([END_NODE_ID, None, "end", 80, 240 + len(records) * 160])
     target["连线"].append([previous, END_NODE_ID, 0])
+    # Helpers are appended after original commands so legacy row numbers stay stable.
+    helper_id = max(record[0] for record in records) + 1
+    for offset, (source_index, destination, target_row) in enumerate(jumps):
+        command_id = helper_id + offset
+        node_id = f'legacy-error-{command_id}'
+        same_branch = destination == active_sheets[0]
+        parameters = {'跳转方式': '连线节点' if same_branch else '其他项目行',
+                      '目标行': target_row,
+                      '项目路径': '' if same_branch else branch_targets[destination][0]}
+        if not same_branch:
+            parameters['旧版转移后结束'] = True
+        target['命令'].append([command_id, '报错跳转', json.dumps(parameters, ensure_ascii=False),
+                               1, '提示异常并停止', f'旧版异常跳转：{destination}-{target_row}', len(records)+offset])
+        target['节点'].append([node_id, command_id, 'instruction', 440, 240+source_index*160])
+        target['连线'].append([f'legacy-{records[source_index][0]}', node_id, 5])
+        if same_branch:
+            target['连线'].append([node_id, f'legacy-{records[target_row-1][0]}', 6])
     return target
 
 

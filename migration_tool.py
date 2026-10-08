@@ -19,7 +19,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
-from graph_repository import GraphRepository, SETTINGS_SHEET_HEADERS, WorkbookValidationError
+from graph_repository import GraphRepository, SETTINGS_SHEET_HEADERS, WorkbookValidationError, GraphValidationError
 from legacy_workbook import (
     LEGACY_HEADERS, DATABASE_HEADERS, convert_legacy_workbook, is_current_workbook,
 )
@@ -37,7 +37,8 @@ class MigrationPlan:
 
     @property
     def converted_commands(self):
-        return sum(book['命令'].max_row - 1 for book in self.workbooks.values())
+        return sum(row[1] != '报错跳转' for book in self.workbooks.values()
+                   for row in book['命令'].iter_rows(min_row=2, values_only=True))
 
     def close(self):
         for book in self.workbooks.values():
@@ -120,6 +121,9 @@ def inspect_migration(source, base_directory=None):
     elif any(branch['shortcut'] for branch in plan.branches.values()):
         plan.warnings.append('旧分支快捷键已归档，不注册为新版全局快捷键。')
     resources = [row[1] for row in settings_rows if row[0] == '资源文件夹']
+    branch_targets = {sheet.title: (_branch_filename(index, sheet.title),
+                      sum(any(v is not None for v in row) for row in sheet.iter_rows(min_row=2, values_only=True)))
+                      for index, sheet in enumerate((s for s in source if s.title != '设置'), 1)}
     # A private scratch repository validates the real protocol and graph invariants.
     with tempfile.TemporaryDirectory(prefix='anclicker-migrate-check-') as temporary:
         from 数据库操作 import DatabaseOperation
@@ -164,7 +168,7 @@ def inspect_migration(source, base_directory=None):
             settings.append(['设置', '旧版迁移配置归档', json.dumps(
                 {'sections': sections, 'branch': branch}, ensure_ascii=False), None, None])
             try:
-                converted = convert_legacy_workbook(split, base_directory)
+                converted = convert_legacy_workbook(split, base_directory, branch_targets=branch_targets)
                 confidence = float(config.get('图像匹配精度', '0.8'))
                 if not 0.01 <= confidence <= 1:
                     raise WorkbookValidationError('旧全局图像匹配精度无效')
@@ -189,15 +193,22 @@ def inspect_migration(source, base_directory=None):
                     row[2].value = json.dumps(parameters, ensure_ascii=False, allow_nan=False)
                 repository.validate_workbook(converted)
                 repository.import_from_workbook(converted)
-                repository.validate_graph()
+                repository.execution_snapshot()
                 plan.workbooks[sheet.title] = converted
-            except (ValueError, TypeError, WorkbookValidationError) as error:
+                if any(row[1] == '发送消息' for row in converted['命令'].iter_rows(min_row=2, values_only=True)):
+                    plan.warnings.append(f'分支“{sheet.title}”包含微信消息：已保留联系人及内容，执行需 Windows、受支持的微信客户端和 wxauto；迁移不发送消息。')
+            except (ValueError, TypeError, WorkbookValidationError, GraphValidationError) as error:
                 plan.errors.append({'sheet': sheet.title, 'error': str(error)})
             finally:
                 split.close()
     if plan.default_branch not in plan.workbooks:
         plan.default_branch = next(iter(plan.workbooks), '')
     return plan
+
+
+def _branch_filename(index, branch):
+    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', branch).strip(' .')[:60] or '分支'
+    return f'{index:02d}-{safe}-新版.xlsx'
 
 
 def write_migration_bundle(plan, source_path, output_parent=None):
@@ -208,10 +219,41 @@ def write_migration_bundle(plan, source_path, output_parent=None):
     folder = Path(tempfile.mkdtemp(prefix=f'{source.stem}-迁移-', dir=parent))
     shutil.copy2(source, folder / '原始备份.xlsx')
     outputs = {}
-    for index, (branch, book) in enumerate(plan.workbooks.items(), 1):
-        safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', branch).strip(' .')[:60] or '分支'
-        path = folder / f'{index:02d}-{safe}-新版.xlsx'
-        book.save(path)
+    original = load_workbook(source, read_only=True)
+    try:
+        branch_names = [sheet.title for sheet in original if sheet.title != '设置']
+    finally:
+        original.close()
+    for branch, book in plan.workbooks.items():
+        path = folder / _branch_filename(branch_names.index(branch)+1, branch)
+        # Keep explicitly referenced images portable; never scan unrelated drives.
+        assets = folder / 'images'
+        rewritten = []
+        for row in book['命令'].iter_rows(min_row=2):
+            parameters = json.loads(row[2].value)
+            if '图像路径' not in parameters:
+                continue
+            paths = []
+            for value in str(parameters['图像路径']).splitlines():
+                original_image = Path(value)
+                if original_image.is_file():
+                    assets.mkdir(exist_ok=True)
+                    digest = hashlib.sha256(original_image.read_bytes()).hexdigest()[:16]
+                    image_name = digest + original_image.suffix.lower()
+                    destination = assets / image_name
+                    if not destination.exists():
+                        shutil.copy2(original_image, destination)
+                    paths.append('images/' + image_name)
+                else:
+                    paths.append(value)
+            parameters['图像路径'] = '\n'.join(paths)
+            rewritten.append((row[2], row[2].value))
+            row[2].value = json.dumps(parameters, ensure_ascii=False, allow_nan=False)
+        try:
+            book.save(path)
+        finally:
+            for cell, value in rewritten:
+                cell.value = value
         outputs[branch] = str(path)
     report = {
         'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
@@ -223,7 +265,8 @@ def write_migration_bundle(plan, source_path, output_parent=None):
     }
     (folder / '迁移报告.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     lines = ['An Clicker 旧版迁移报告', f'原指令：{plan.source_commands}；已转换：{plan.converted_commands}',
-             f'原当前分支：{plan.default_branch}', '各分支是独立任务，不会串联运行。',
+             f'原当前分支：{plan.default_branch}', '各分支独立；仅原有异常跳转会转到关联分支，不会顺序串联运行。',
+             '请整体保留迁移目录：关联项目与 images 图片目录使用相对路径，不能只移动一个 Excel。',
              '使用：在 v1.1.5 或更新版本中导入对应的“新版.xlsx”。',
              '原始文件完整备份为“原始备份.xlsx”。', '', '生成文件：']
     lines.extend(f'{branch}：{Path(path).name}' for branch, path in outputs.items())

@@ -244,9 +244,21 @@ class ImageClickEditorMixin:
             self.preview.setPixmap(pixmap.scaled(560, 160, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
     def _set_image_path(self, path):
-        path = Path(path)
+        original = str(path)
+        path = Path(self._resolved_image_path(original))
         self.folder_combo.setCurrentText(str(path.parent))
         self.image_combo.setCurrentText(path.name)
+        # Preview can use an absolute path without destroying portable references.
+        self.ui.parameter_0.setText(original)
+
+    def _resolved_image_path(self, path=None):
+        value = str(path if path is not None else self.ui.parameter_0.text())
+        project = getattr(self.context, 'metadata', {}).get('project_path') or self.db.get_setting_value('当前文件路径')
+        if value and not Path(value).is_absolute() and project:
+            candidate = Path(str(project)).parent / value
+            if candidate.is_file():
+                return str(candidate)
+        return value
 
     def _add_folder(self):
         folder = QFileDialog.getExistingDirectory(self, '添加资源文件夹', self.folder_combo.currentText())
@@ -276,7 +288,7 @@ class ImageClickEditorMixin:
                 self._set_image_path(path)
         elif key == '点击位置':
             try:
-                dialog = ImagePositionDialog(self.ui.parameter_0.text(), self.ui.parameter_6.text(), self)
+                dialog = ImagePositionDialog(self._resolved_image_path(), self.ui.parameter_6.text(), self)
                 if dialog.exec() == QDialog.DialogCode.Accepted:
                     self.ui.parameter_6.setText(dialog.value())
             except ValueError as error:
@@ -356,7 +368,7 @@ class ImageClickEditorMixin:
             control.setText(saved)
 
     def _valid_image(self):
-        path = self.ui.parameter_0.text()
+        path = self._resolved_image_path()
         if not path or not Path(path).is_file() or QPixmap(path).isNull():
             QMessageBox.warning(self, '图像文件无效', '图像文件不存在或无法读取，请重新选择图片。')
             return False

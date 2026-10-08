@@ -167,6 +167,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         self.command_thread.send_message.connect(self.send_message)
         self.command_thread.finished_signal.connect(self.thread_finished)
         self.command_thread.finished.connect(self._runtime_finished)
+        self.command_thread.send_type_and_id.connect(self._follow_running_command, Qt.QueuedConnection)
         self.shortcut_requested.connect(self.global_shortcut_key, Qt.QueuedConnection)
         self._escape_registered = False
         self._escape_previous_action = None
@@ -720,6 +721,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
         def operation_before_execution():
             """执行前的操作"""
             self.clear_signal.emit()  # 清空日志
+            self.view_workspace.highlight_running_command(None)
             self.view_workspace.show_table()  # 切换到保留日志的表格视图
             if self.checkBox_2.isChecked() and escape_available_:  # Keep stop controls visible if global Esc is unavailable.
                 self.hide()
@@ -729,6 +731,7 @@ class Main_window(QMainWindow, Ui_MainWindow):
                 self.statusBar.showMessage("原任务尚未停止，未启动新任务。", 5000)
                 return False
         self.command_thread.prepare_for_start()
+        self._restore_main_after_run = self.checkBox_2.isChecked() or self.view_workspace.compact.active
         escape_available_ = self._arm_escape_stop()
         operation_before_execution()  # 执行前的操作
         self.command_thread.set_run_mode(run_mode, info)
@@ -782,9 +785,14 @@ class Main_window(QMainWindow, Ui_MainWindow):
             self.showNormal()
         else:
             self.show()
-        self.view_workspace.show_main()
+        if getattr(self, '_restore_main_after_run', False):
+            self.view_workspace.show_main()
         self.raise_()
         self.activateWindow()
+
+    @Slot(str, str)
+    def _follow_running_command(self, _type_id: str, command_id: str) -> None:
+        self.view_workspace.highlight_running_command(command_id)
 
     def clear_textEdit(self):
         """清空日志，主要用于在全局快捷键线程中调用，避免线程阻塞引发的程序闪退"""

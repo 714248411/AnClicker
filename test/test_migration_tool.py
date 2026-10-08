@@ -107,8 +107,16 @@ def test_cross_branch_jump_not_flattened(tmp_path):
     book = old_export()
     book['分支乙'].cell(2, 9).value = '主流程-1'
     plan = inspect_migration(book, tmp_path)
-    assert '分支乙' not in plan.workbooks
-    assert plan.errors
+    assert not plan.errors
+    book = plan.workbooks['分支乙']
+    handler = list(book['命令'].values)[-1]
+    assert handler[1] == '报错跳转'
+    parameters = json.loads(handler[2])
+    assert parameters['跳转方式'] == '其他项目行'
+    assert parameters['项目路径'] == '01-主流程-新版.xlsx'
+    assert parameters['旧版转移后结束'] is True
+    assert [134, handler[0]] not in list(book['连线'].values)
+    assert any(row[2] == 5 for row in list(book['连线'].values)[1:])
     plan.close()
 
 

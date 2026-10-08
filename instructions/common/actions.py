@@ -63,7 +63,8 @@ def region(value_: Any):
     if value_ in (None, "", [], ()):
         return None
     if isinstance(value_, (list, tuple)) and len(value_) == 4:
-        return tuple(int(v_) for v_ in value_)
+        values_ = tuple(int(v_) for v_ in value_)
+        return None if all(v_ == 0 for v_ in values_) else values_
     text_ = str(value_).strip().strip("()[]")
     values_ = [int(float(item_)) for item_ in text_.replace("，", ",").split(",")]
     if len(values_) != 4:
@@ -78,6 +79,9 @@ def resolve_image_path(parameters: dict, context: ExecutionContext | None = None
     image_path_ = substitute_variables(context, str(image_)) if context is not None else str(image_)
     if context is not None and not os.path.isabs(image_path_):
         project_ = context.metadata.get('project_path')
+        if not project_:
+            getter = getattr(context.metadata.get('database'), 'get_setting_value', None)
+            project_ = getter('当前文件路径') if callable(getter) else None
         if project_:
             candidate_ = os.path.join(os.path.dirname(project_), image_path_)
             if os.path.isfile(candidate_):
@@ -103,20 +107,40 @@ def locate_image(
     confidence_ = float(parameter(parameters, "精度", default=0.8))
     if confidence_ > 1:
         confidence_ /= 100
-    try:
-        return pyautogui_module().locateCenterOnScreen(
-            image_path_,
-            confidence=confidence_,
-            grayscale=bool(parameter(parameters, "灰度", default=False)),
-            region=region(parameter(parameters, "区域", default=None)),
-            minSearchTime=max(0.0, float(min_search_time)),
-        )
-    except (FileNotFoundError, OSError):
-        return None
-    except Exception as error_:
-        if error_.__class__.__name__ == "ImageNotFoundException":
+    # The legacy executor initialized this patch as an import side effect.
+    # Current independent executors must initialize it on the actual search
+    # path too, including editor tests and child projects in a fresh process.
+    from functions import patch_pyautogui_unicode_cv2
+    patch_pyautogui_unicode_cv2()
+    deadline = time.monotonic() + max(0.0, float(min_search_time))
+    while True:
+        if context is not None and not wait_interruptibly(context, 0):
             return None
-        raise
+        try:
+            found = pyautogui_module().locateCenterOnScreen(
+                image_path_, confidence=confidence_,
+                grayscale=bool(parameter(parameters, "灰度", default=False)),
+                region=region(parameter(parameters, "区域", default=None)),
+                # The backend's timeout loop cannot observe stop/pause signals.
+                minSearchTime=0 if context is not None else max(0.0, float(min_search_time)),
+            )
+        except (FileNotFoundError, OSError) as error_:
+            if context is not None:
+                context.emit(f"图像识别失败：{image_path_}；请检查文件是否存在、可读取及截图权限。详情：{error_}")
+            return None
+        except Exception as error_:
+            if error_.__class__.__name__ != 'ImageNotFoundException':
+                raise
+            found = None
+        if context is None:
+            return found
+        if context.stop_requested:
+            return None
+        if found is not None:
+            return found
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or not wait_interruptibly(context, min(.05, remaining)):
+            return None
 
 
 def image_error_timeout(parameters: dict) -> tuple[bool, float]:
@@ -172,6 +196,19 @@ def mouse_action(action_: str, x_: int, y_: int, count_: int | None = None, inte
 
 def wait_seconds(seconds_: float) -> None:
     time.sleep(max(0.0, float(seconds_)))
+
+
+def wait_interruptibly(context: ExecutionContext, seconds: float) -> bool:
+    wait = context.metadata.get('wait_interruptibly')
+    if wait is not None:
+        return bool(wait(seconds, context)) and not context.stop_requested
+    deadline = time.monotonic() + max(0.0, seconds)
+    while not context.stop_requested:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return True
+        time.sleep(min(.05, remaining))
+    return False
 
 
 def recording_options(command):

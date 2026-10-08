@@ -105,6 +105,7 @@ class InstructionFallbackTests(unittest.TestCase):
             "屏幕截图": {"截图类型": "全屏截图", "保存路径": "shot.png", "截图后": "保存到路径"},
             "提示音": {"类型": "系统提示音", "提示类型": "系统警告", "次数": 1},
             "提示窗口": {"标题": "标题", "内容": "内容", "图标": "警告"},
+            "发送消息": {"联系人": "fixture", "消息内容": "message"},
             "终止流程": {"终止类型": "终止所有任务"},
             "循环": {"方式": "次数", "条件": "True", "次数": 3},
             "条件判断": {"条件": "True"},
@@ -117,6 +118,7 @@ class InstructionFallbackTests(unittest.TestCase):
         parameters_ = self._parameters()
         self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS})
         self.context_.variables["值"] = 2
+        self.context_.metadata['run_project'] = Mock(return_value=True)
         process_result_ = SimpleNamespace(stdout="ok\n", returncode=0)
 
         with ExitStack() as stack_:
@@ -138,10 +140,15 @@ class InstructionFallbackTests(unittest.TestCase):
             stack_.enter_context(patch.dict(sys.modules, {
                 "pyperclip": self.pyperclip_, "keyboard": self.keyboard_, "mouse": self.mouse_,
                 "pymsgbox": self.pymsgbox_, "pygetwindow": self.pygetwindow_, "winsound": self.winsound_,
+                "wxauto": SimpleNamespace(WeChat=lambda: SimpleNamespace(
+                    ChatWith=lambda who: who, SendMsg=Mock(return_value=True))),
             }))
 
             for spec_ in INSTRUCTION_SPECS:
                 with self.subTest(type_id=spec_.type_id):
+                    # Every fallback is an independent invocation; 终止流程
+                    # must not suppress all the later subtests.
+                    self.context_.stop_requested = False
                     executor_ = spec_.create_executor()
                     if spec_.type_id == "报错跳转":
                         # This routing module is only executed by the graph's exception path.

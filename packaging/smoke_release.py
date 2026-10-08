@@ -54,6 +54,10 @@ def main():
                 raise RuntimeError(f"Packaged legacy migration checks missing: {ready}")
             print(f"Startup {attempt + 1}: ready; scale={env['QT_SCALE_FACTOR']}; editor checks={checks}")
             print(f"Legacy migration: {migration}")
+            image_checks = ready.get('image_validation', {})
+            if image_checks.get('count') != 12 or not image_checks.get('synthetic_screen'):
+                raise RuntimeError(f"Packaged image execution checks missing: {ready}")
+            print(f"Image execution: {image_checks['count']} real OpenCV checks; synthetic screen, no native input")
         result = subprocess.run([str(executable), '--migration-tool', '--startup-smoke-test'],
                                 env=env, cwd=folder, timeout=90)
         if result.returncode or not (Path(folder) / 'migration-ready.json').is_file():

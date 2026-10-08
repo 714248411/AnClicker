@@ -36,6 +36,7 @@ class ViewLinkageTests(unittest.TestCase):
         self.view.code_status = QLabel()
         self.view._loading_code = False
         self.view._code_dirty = False
+        self.view.running_command_id = None
 
     def tearDown(self):
         self.directory.cleanup()

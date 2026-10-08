@@ -124,6 +124,9 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
                     if changed:
                         current = transfer(target)
                         jumped = True
+                    elif handler.parameters.get('旧版转移后结束') is True:
+                        # Legacy cross-branch errors transfer, rather than call-and-return.
+                        return
                     break
                 action = worker._handle_command_error(command,error)
                 if action == 'retry': continue

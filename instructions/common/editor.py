@@ -552,7 +552,7 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         if draft_.type_id != self.TYPE_ID:
             raise ValueError(f"不能用 {draft_.type_id} 初始化 {self.TYPE_ID} 编辑器")
         self._recording_parameters = {key_: value_ for key_, value_ in draft_.parameters.items()
-                                      if key_.startswith("录制")}
+                                      if key_.startswith(("录制", "旧版"))}
         for key_, value_ in draft_.parameters.items():
             control_ = self._controls.get(key_)
             if control_ is not None:

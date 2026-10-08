@@ -12,6 +12,8 @@ class InstructionExecutorBase(InstructionExecutorInterface):
     def execute(self, context: ExecutionContext, command: CommandRecord):
         result_ = None
         for _ in range(command.repeat_count):
+            if context.stop_requested:
+                break
             result_ = self.execute_once(context, command)
             if context.stop_requested:
                 break

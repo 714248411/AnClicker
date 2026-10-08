@@ -37,9 +37,12 @@ class InstructionExecutor(InstructionExecutorBase):
         wait_lost_ = actions.parameter(p_, "等待类型", default="获得焦点") == "失去焦点"
         gui_ = actions.pyautogui_module()
         while time.monotonic() <= deadline_:
+            if not actions.wait_interruptibly(context, 0):
+                return None
             active_ = title_ in str(gui_.getActiveWindowTitle() or "")
             if active_ != wait_lost_:
                 context.emit(f"窗口焦点等待完成：{title_}")
                 return True
-            actions.wait_seconds(interval_)
+            if not actions.wait_interruptibly(context, min(interval_, max(0, deadline_-time.monotonic()))):
+                return None
         raise TimeoutError(f"等待窗口焦点超时：{title_}")

@@ -58,7 +58,7 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
     _spec("写入单元格", "Excel", "#5b6fdc"),
     *(_spec(name_, "其他", "#8e44ad") for name_ in (
         "运行Python", "运行cmd", "运行外部文件", "窗口控制", "信息录入",
-        "屏幕截图", "提示音", "提示窗口",
+        "屏幕截图", "提示音", "提示窗口", "发送消息",
     )),
     _spec("终止流程", "流程", "#eb5757"),
     _spec("运行项目", "流程", "#5b6fdc"),
@@ -76,8 +76,8 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
 )
 
 _SPEC_BY_ID = {spec_.type_id: spec_ for spec_ in INSTRUCTION_SPECS}
-if len(INSTRUCTION_SPECS) != 40 or len(_SPEC_BY_ID) != 40:
-    raise RuntimeError("指令注册表必须包含 40 个唯一 type_id")
+if len(INSTRUCTION_SPECS) != 41 or len(_SPEC_BY_ID) != 41:
+    raise RuntimeError("指令注册表必须包含 41 个唯一 type_id")
 
 
 def get_instruction_spec(type_id: str) -> InstructionSpec:

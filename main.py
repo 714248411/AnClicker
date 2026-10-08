@@ -165,6 +165,8 @@ def main():
         from ui_validation import validate_instruction_editors, validate_legacy_migration
         editor_validation = validate_instruction_editors(main_window)
         migration_validation = validate_legacy_migration()
+        from image_validation import validate_image_execution
+        image_validation = validate_image_execution()
         def report_ready():
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"
             report.write_text(json.dumps({
@@ -175,6 +177,7 @@ def main():
                 "database": main_window.db.db_path,
                 "editor_validation": editor_validation,
                 "migration_validation": migration_validation,
+                "image_validation": image_validation,
             }), encoding="utf-8")
             app.exit(0)
         QTimer.singleShot(500, report_ready)

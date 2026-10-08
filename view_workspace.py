@@ -7,7 +7,7 @@ import json
 import os
 
 from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -65,10 +65,30 @@ class InstructionTableWidget(QTableWidget):
         super().__init__(*args, **kwargs)
         self.setAcceptDrops(True)
         self._row_press = None
+        self.runtime_row = -1
         self._drop_line = QFrame(self.viewport())
         self._drop_line.setStyleSheet('background: #5b6fdc;')
         self._drop_line.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._drop_line.hide()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not 0 <= self.runtime_row < self.rowCount():
+            return
+        rect = self.visualRect(self.model().index(self.runtime_row, 0))
+        rect.setLeft(0)
+        rect.setRight(self.viewport().width() - 1)
+        if not rect.intersects(self.viewport().rect()):
+            return
+        painter = QPainter(self.viewport())
+        accent = self.palette().color(QPalette.ColorRole.Highlight)
+        tint = QColor(accent)
+        tint.setAlpha(32)
+        painter.fillRect(rect, tint)
+        painter.setPen(QPen(accent, 2))
+        painter.drawRect(rect.adjusted(1, 1, -1, -1))
+        painter.fillRect(rect.left(), rect.top(), 4, rect.height(), accent)
+        painter.end()
 
     def selected_command_ids(self):
         rows = sorted({index.row() for index in self.selectedIndexes()})
@@ -215,6 +235,7 @@ class ViewWorkspace:
         self.tabs = window.tabWidget
         self._loading_code = False
         self._code_dirty = False
+        self.running_command_id = None
         self.theme_mode = str(window.db.get_setting_value(THEME_SETTING) or "light")
         if self.theme_mode not in self.THEMES:
             self.theme_mode = "light"
@@ -765,6 +786,21 @@ class ViewWorkspace:
                 item.setData(Qt.ItemDataRole.UserRole, command.id)
                 item.setToolTip(value)
                 self.command_table.setItem(row, column, item)
+        self.highlight_running_command(self.running_command_id)
+
+    def highlight_running_command(self, command_id) -> None:
+        """Follow stable command IDs, including backwards/branch jumps, without changing selection."""
+        try:
+            self.running_command_id = int(command_id) if command_id is not None else None
+        except (TypeError, ValueError):
+            self.running_command_id = None
+        table = self.command_table
+        table.runtime_row = next((row for row in range(table.rowCount())
+            if table.item(row, 0) is not None
+            and table.item(row, 0).data(Qt.ItemDataRole.UserRole) == self.running_command_id), -1)
+        if table.runtime_row >= 0 and self.tabs.currentIndex() == TABLE_VIEW:
+            table.scrollToItem(table.item(table.runtime_row, 0), QAbstractItemView.ScrollHint.EnsureVisible)
+        table.viewport().update()
 
     def _add_table_command(self, type_id: str) -> None:
         self.window.workspace.add_command(type_id)
