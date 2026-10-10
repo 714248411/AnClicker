@@ -24,7 +24,13 @@ def main():
     with tempfile.TemporaryDirectory(prefix="anclicker-startup-") as folder:
         env = dict(os.environ, ANCLICKER_DATA_DIR=folder,
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",
-                   QT_QPA_PLATFORM="offscreen")
+                   QT_QPA_PLATFORM="cocoa" if sys.platform == "darwin" else "offscreen")
+        if (sys.platform.startswith('linux') and os.environ.get('GITHUB_ACTIONS') == 'true'
+                and not os.environ.get('XAUTHORITY') and not (Path.home() / '.Xauthority').exists()):
+            # The CI Xvfb has no cookie; python-xlib still requires a readable file.
+            authority = Path(folder) / 'Xauthority'
+            authority.touch()
+            env['XAUTHORITY'] = str(authority)
         for attempt in range(2):
             env['QT_SCALE_FACTOR'] = '1' if attempt == 0 else '2'
             report = Path(folder) / "startup-ready.json"
