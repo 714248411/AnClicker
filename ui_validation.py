@@ -40,7 +40,8 @@ def validate_instruction_editors(window):
     finally:
         view.theme_mode = original_theme
         view._apply_theme()
-    return {'spinboxes_checked': checked, 'image_click_layout': image_layout}
+    return {'spinboxes_checked': checked, 'image_click_layout': image_layout,
+            'image_click_modal_add': validate_image_click_modal_add(window)}
 
 
 def validate_legacy_migration():
@@ -94,3 +95,60 @@ def validate_legacy_migration():
         source.close()
         converted.close()
     return {'commands_checked': 2, 'round_trip': True, 'rollback': True}
+
+
+def validate_image_click_modal_add(window):
+    """Exercise real modal confirmation and table insertion in the packaged app."""
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import patch
+    from qt_compat.QtCore import QTimer, Qt
+    from qt_compat.QtGui import QPixmap
+    from qt_compat.QtWidgets import QDialog, QDialogButtonBox
+    from instructions.registry import get_instruction_spec
+    workspace = window.workspace
+    spec = get_instruction_spec('图像点击')
+    original_ids = {c.id for c in workspace.repository.list_commands()}
+    with tempfile.TemporaryDirectory(prefix='anclicker-image-add-') as folder:
+        image = Path(folder) / 'original.png'
+        pixmap = QPixmap(40, 30)
+        pixmap.fill(Qt.GlobalColor.red)
+        if not pixmap.save(str(image)):
+            raise RuntimeError('Cannot prepare image-add validation')
+        editor = spec.create_editor(parent=window, context=workspace._editor_context())
+        editor._set_image_path(image)
+        class Picker(QDialog):
+            def exec(self):
+                QTimer.singleShot(250, lambda: editor.ui.buttonBox.button(QDialogButtonBox.StandardButton.Ok).click())
+                return QDialog.DialogCode.Accepted
+            def selected_region(self):
+                return (0, 0, 40, 30)
+            def save_selection(self, target):
+                if not pixmap.save(str(target)):
+                    raise RuntimeError('Cannot save validation capture')
+        watchdog = QTimer()
+        watchdog.setSingleShot(True)
+        watchdog.timeout.connect(editor.reject)
+        watchdog.start(5000)
+        QTimer.singleShot(0, editor.capture_button.click)
+        try:
+            with patch.object(type(spec), 'create_editor', return_value=editor), \
+                 patch('instructions.common.image_click_editor.SmartCaptureDialog', Picker):
+                command_id = workspace.add_command('图像点击')
+            if command_id is None:
+                raise RuntimeError('Screenshot confirmation did not add command')
+            window.view_workspace.refresh_table()
+            table = window.view_workspace.command_table
+            if not any(table.item(row, 0).data(Qt.ItemDataRole.UserRole) == command_id
+                       for row in range(table.rowCount())):
+                raise RuntimeError('Confirmed image command missing from table')
+            command = workspace.repository.get_command(command_id)
+            if command.parameters['图像路径'] == str(image):
+                raise RuntimeError('Screenshot was not selected for new command')
+        finally:
+            watchdog.stop()
+            created = [c.id for c in workspace.repository.list_commands() if c.id not in original_ids]
+            if created:
+                workspace.remove_commands(created, confirm=False)
+            editor.deleteLater()
+    return True

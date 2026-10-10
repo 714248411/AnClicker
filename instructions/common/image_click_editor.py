@@ -346,19 +346,27 @@ class ImageClickEditorMixin:
             return
         host = self.parentWidget().window() if self.parentWidget() else None
         host_visible = host is not None and host.isVisible()
-        self.hide()
+        # Hiding a modal QDialog ends exec() and cancels the workspace add.
+        # Preserve that event loop while removing the windows from the screenshot.
+        opacity = self.windowOpacity()
+        host_opacity = host.windowOpacity() if host_visible else None
+        self.setWindowOpacity(0.0)
         if host_visible:
-            host.hide()
+            host.setWindowOpacity(0.0)
         def restore():
             if host_visible:
-                host.show()
+                host.setWindowOpacity(host_opacity)
+            self.setWindowOpacity(opacity)
             self.show(); self.raise_(); self.activateWindow()
         def choose():
+            selector = None
             try:
                 selector = SmartCaptureDialog() if capture else _RegionSelectionDialog()
                 selector.exec()
                 region = selector.selected_region()
             except Exception as error:
+                if selector is not None:
+                    selector.deleteLater()
                 restore()
                 QMessageBox.warning(self, '截图失败', str(error))
                 return
