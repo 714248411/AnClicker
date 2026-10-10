@@ -6,6 +6,9 @@ import argparse
 import json
 import os
 import platform
+import re
+import subprocess
+import tempfile
 import stat
 import sys
 import zipfile
@@ -45,6 +48,13 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
     for path_ in sorted(source_.rglob("*")):
         relative_ = path_.relative_to(source_)
         archive_name_ = Path(prefix_) / relative_
+        if path_.is_symlink():
+            # Preserve PyInstaller framework and onedir links, including directory links.
+            info_ = zipfile.ZipInfo(archive_name_.as_posix())
+            info_.create_system = 3
+            info_.external_attr = (stat.S_IFLNK | 0o777) << 16
+            archive_.writestr(info_, os.readlink(path_).encode("utf-8"))
+            continue
         if path_.is_dir():
             continue
         info_ = zipfile.ZipInfo.from_file(path_, archive_name_.as_posix())
@@ -60,6 +70,12 @@ def main() -> int:
     parser_.add_argument("--version", default=CURRENT_VERSION)
     parser_.add_argument("--dist", type=Path, default=DIST_ROOT)
     arguments_ = parser_.parse_args()
+    # A manually dispatched workflow passes its branch name as the build ref.
+    # The package version must always match the embedded application version.
+    if re.fullmatch(r"v?\d+\.\d+\.\d+", arguments_.version):
+        if arguments_.version.removeprefix("v") != CURRENT_VERSION.removeprefix("v"):
+            parser_.error("Package version must match info.CURRENT_VERSION")
+    arguments_.version = CURRENT_VERSION
     DIST_ROOT = arguments_.dist.resolve()
     source_ = build_root()
     label_ = platform_label()
@@ -94,6 +110,12 @@ def main() -> int:
             "BUILD-MANIFEST.json",
             json.dumps(manifest_, ensure_ascii=False, indent=2).encode("utf-8"),
         )
+    if sys.platform != 'win32':
+        # Validate what users actually extract, including framework symlinks and modes.
+        with tempfile.TemporaryDirectory(prefix='anclicker-delivery-') as folder:
+            subprocess.run(['unzip', '-q', str(archive_path_), '-d', folder], check=True)
+            subprocess.run([sys.executable, str(PROJECT_ROOT / 'packaging/smoke_release.py'),
+                            '--dist', folder], check=True)
     print(archive_path_)
     return 0
 
