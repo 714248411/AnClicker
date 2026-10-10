@@ -70,10 +70,28 @@ dynamic_instruction_imports = list(instruction_hidden_imports())
 icon_path = os.path.join(project_root, 'clicker.ico') if sys.platform == 'win32' else None
 
 
+windows_runtime_binaries = []
+if sys.platform == 'win32':
+    # Resolve from pinned wheels/CPython, never from the build host's System32.
+    import PySide2
+    from importlib.metadata import version as package_version
+    if sys.version_info[:3] != (3, 10, 11) or package_version('PySide2') != '5.15.2.1':
+        raise RuntimeError('Windows compatibility builds require Python 3.10.11 / PySide2 5.15.2.1')
+    qt_root = Path(PySide2.__file__).parent
+    runtime_sources = {name: qt_root / name for name in (
+        'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll',
+        'msvcp140_codecvt_ids.dll', 'concrt140.dll')}
+    runtime_sources.update({name: Path(sys.base_prefix) / name for name in (
+        'vcruntime140.dll', 'vcruntime140_1.dll')})
+    for name, path in runtime_sources.items():
+        if not path.is_file():
+            raise RuntimeError(f'Missing redistributable runtime: {path}')
+        windows_runtime_binaries.append((str(path), '.'))
+
 a = Analysis(
     [os.path.join(project_root, 'main.py')],
     pathex=[project_root],
-    binaries=collect_dynamic_libs('onnxruntime'),
+    binaries=collect_dynamic_libs('onnxruntime') + windows_runtime_binaries,
     datas=[
         (seed_database, 'defaults'),
         (os.path.join(project_root, 'flat', 'Combinear.qss'), 'flat'),
@@ -132,6 +150,7 @@ exe = EXE(
     uac_admin=False,
     icon=icon_path,
     version=windows_version,
+    manifest=str(Path(project_root) / 'packaging/windows.manifest') if sys.platform == 'win32' else None,
 )
 coll = COLLECT(
     exe,

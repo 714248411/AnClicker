@@ -1,3 +1,9 @@
+## v1.4.5 (2026-10-10)
+
+- Bundle app-local MSVC runtime dependencies and validate imported symbols, including delay imports.
+- Embed PerMonitorV2 / PerMonitor DPI fallback for Windows 10 1607+.
+- Based on v1.4.4; target-OS validation remains required.
+
 ## v1.4.4（2026-10-10）
 
 - 修复图像点击编辑器快捷截图或设置区域后，点击确定无法将指令加入表格的问题。

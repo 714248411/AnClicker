@@ -1,7 +1,7 @@
 """Application-wide public configuration. Never load publishing credentials here."""
 
 APP_NAME = "An Clicker"
-CURRENT_VERSION = "v1.4.4"
+CURRENT_VERSION = "v1.4.5"
 WINDOW_TITLE = f"{APP_NAME}    [{CURRENT_VERSION}]"
 # Stable application identity: changing these can break data/update compatibility.
 APP_ID = "AnClicker"

@@ -40,6 +40,8 @@ def allow_project_artifact(relative_path: PurePosixPath) -> bool:
 
 def validate_project_release(context: ReleaseContext) -> None:
     """业务项目在此增加数据库迁移、插件或业务协议等专属检查。"""
+    from windows_compatibility import validate_native_runtime
+    validate_native_runtime(context.app_dir)
     # The sole database exception is a generated, empty seed, never user storage.
     import sqlite3
     database = context.app_dir / 'defaults' / '命令集.db'

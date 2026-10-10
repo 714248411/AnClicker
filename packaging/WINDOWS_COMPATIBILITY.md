@@ -31,3 +31,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\check_windows_compatib
 仍需手工检查跨显示器拖动、系统实际缩放切换、截图后替换图像、真实目标点击、快捷键、录制回放、窗口最大化/还原及数据迁移。旧系统实测通过并关联到同一 EXE 哈希后，才能把候选包提升为正式兼容下载。
 
 参考：[Qt 6.8 Windows 范围](https://doc.qt.io/qt-6.8/windows.html)、[Python 3.10 Windows 范围](https://docs.python.org/3.10/using/windows.html)、[微软 DPI 回退规则](https://learn.microsoft.com/en-us/windows/win32/hidpi/setting-the-default-dpi-awareness-for-a-process)。
+
+## v1.4.5 构建加固
+
+C++ 标准库和并发运行库来自固定 PySide2 wheel，VCRUNTIME 来自固定 CPython 3.10.11，显式放在程序根目录。构建不从 System32 提取这些文件；发布门槛检查所有 PE 的架构及 C++ 普通/延迟导入符号。此检查不能替代目标系统验证。
+
+DPI 清单使用微软规定的 `PerMonitorV2, PerMonitor` 顺序，在 Qt、输入库及应用窗口创建前选定策略。参考：https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests
