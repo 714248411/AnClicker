@@ -26,6 +26,21 @@ from startup_environment import prepare_environment, record_startup_error
 
 STARTUP_DATA_FOLDER = prepare_environment()
 
+# Keep a diagnostic trace for isolated release checks, including native crashes.
+_SMOKE_TRACE = None
+if '--release-smoke' in sys.argv:
+    import faulthandler
+    _SMOKE_TRACE = (Path(STARTUP_DATA_FOLDER) / 'startup-trace.log').open('a', encoding='utf-8')
+    faulthandler.enable(file=_SMOKE_TRACE)
+    faulthandler.dump_traceback_later(35, repeat=True, file=_SMOKE_TRACE)
+
+
+def smoke_stage(stage):
+    if _SMOKE_TRACE is not None:
+        _SMOKE_TRACE.write(stage + '\n')
+        _SMOKE_TRACE.flush()
+
+
 if sys.platform == "win32":
     from windows_runtime import configure_dpi
     DPI_POLICY = configure_dpi()
@@ -177,7 +192,9 @@ def main():
     # PyInstaller so the main window and its dependency tree are bundled.
     from Start_Win import Main_window
 
+    smoke_stage('create-main-window')
     main_window = Main_window()
+    smoke_stage('main-window-created')
     # Main_window installs the active dark/light theme itself.  Reapplying the
     # legacy Combinear.qss here used to overwrite it after construction and
     # left native-white table viewports and corners in the dark theme.
@@ -200,15 +217,22 @@ def main():
         editor_validation = migration_validation = image_validation = ocr_validation = rpa_validation = {}
         if full_checks:
             from ui_validation import validate_instruction_editors, validate_legacy_migration
+            smoke_stage('editors')
             editor_validation = validate_instruction_editors(main_window)
+            smoke_stage('migration')
             migration_validation = validate_legacy_migration()
             from image_validation import validate_image_execution
+            smoke_stage('images')
             image_validation = validate_image_execution()
             from ocr_validation import validate_offline_ocr
+            smoke_stage('ocr')
             ocr_validation = validate_offline_ocr()
             from rpa_validation import validate_rpa
+            smoke_stage('rpa')
             rpa_validation = validate_rpa()
+        smoke_stage('waiting-report-timer')
         def report_ready():
+            smoke_stage('report-ready')
             from window_chrome import validate_window_chrome
             chrome_valid = validate_window_chrome(main_window)
             report = Path(os.environ["ANCLICKER_DATA_DIR"]) / "startup-ready.json"

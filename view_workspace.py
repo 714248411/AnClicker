@@ -328,6 +328,9 @@ class ViewWorkspace:
         self._sync_code_if_needed()
         self.show_main()
         self._view_changed(self.tabs.currentIndex())
+        from dock_workspace import DockWorkspace
+        self.docking = DockWorkspace(self)
+        self.docking.sync_visibility()
 
     def _normalize_existing_controls(self) -> None:
         """Remove legacy hard-coded colors so both themes stay coherent."""
@@ -755,6 +758,8 @@ class ViewWorkspace:
         self.window.actiong.setText('显示工具栏')
         menu.addAction(self.window.actiong)
         menu.addAction(self.controls_action)
+        self.restore_view_action = menu.addAction('恢复默认视图')
+        self.restore_view_action.triggered.connect(lambda: self.docking.reset_layout())
         view_actions['显示工具栏'] = self.window.actiong
         guidance_action = QAction('中文编程提示', self.window)
         guidance_action.setCheckable(True)
@@ -772,16 +777,20 @@ class ViewWorkspace:
     def toggle_primary(self) -> None:
         self.show_main() if self.tabs.currentIndex() == FLOW_VIEW else self.show_flow()
 
-    def show_main(self): self.tabs.setCurrentIndex(MAIN_VIEW)
-    def show_table(self): self.tabs.setCurrentIndex(TABLE_VIEW)
-    def show_flow(self): self.tabs.setCurrentIndex(FLOW_VIEW)
+    def _show_workspace(self, index):
+        self.tabs.setCurrentIndex(index)
+        if hasattr(self, 'docking'): self.docking.sync_visibility()
+
+    def show_main(self): self._show_workspace(MAIN_VIEW)
+    def show_table(self): self._show_workspace(TABLE_VIEW)
+    def show_flow(self): self._show_workspace(FLOW_VIEW)
     def show_code(self):
         self._load_code()
-        self.tabs.setCurrentIndex(CODE_VIEW)
+        self._show_workspace(CODE_VIEW)
     def show_navigation(self): self.show_main()
-    def show_recording(self): self.tabs.setCurrentIndex(RECORDING_VIEW)
+    def show_recording(self): self._show_workspace(RECORDING_VIEW)
 
-    def show_web_recording(self): self.tabs.setCurrentIndex(WEB_RECORDING_VIEW)
+    def show_web_recording(self): self._show_workspace(WEB_RECORDING_VIEW)
 
     # Backward-compatible aliases for integrations that used the earlier names.
     def show_beginner(self): self.show_navigation()
@@ -789,6 +798,7 @@ class ViewWorkspace:
 
     def toggle_palette_side(self) -> None:
         self.palette_side = "right" if self.palette_side == "left" else "left"
+        if hasattr(self, 'docking'): self.docking.move_panel('palette', self.palette_side)
         self._place_palette()
 
     def toggle_palette(self) -> None:
@@ -833,6 +843,10 @@ class ViewWorkspace:
         dialog.exec()
 
     def _place_palette(self) -> None:
+        if hasattr(self, 'docking'):
+            self.docking.sync_visibility()
+            self._update_view_actions()
+            return
         if getattr(getattr(self, 'compact', None), 'active', False):
             return
         grid = self.window.gridLayout_4
@@ -885,6 +899,7 @@ class ViewWorkspace:
         self.window.db.set_setting_value('控制与操作收起', str(self.controls_collapsed))
         if hasattr(self, 'controls_scroll') and not self.compact.active:
             self.controls_scroll.setVisible(visible)
+        if hasattr(self, 'docking'): self.docking.sync_visibility()
         self.controls_action.setToolTip('收起控制与操作' if visible else '展开控制与操作')
 
     def _save_panel_sizes(self, *_):
@@ -920,11 +935,14 @@ class ViewWorkspace:
     def restore_last_view(self):
         # A missing or obsolete preference starts at the main page.
         key = str(self.window.db.get_setting_value('上次关闭界面') or 'main')
-        self.tabs.setCurrentWidget(self._remembered_pages().get(key, self.main_page))
+        keys = list(self._remembered_pages())
+        self._show_workspace(keys.index(key) if key in keys else MAIN_VIEW)
 
     def save_last_view(self):
-        current = self.tabs.currentWidget()
-        key = next((key for key,page in self._remembered_pages().items() if page is current), 'main')
+        if hasattr(self, 'docking'): self.docking.save()
+        keys = list(self._remembered_pages())
+        index = self.tabs.currentIndex()
+        key = keys[index] if 0 <= index < len(keys) else 'main'
         self.window.db.set_setting_value('上次关闭界面', key)
 
     def _view_changed(self, index: int) -> None:
@@ -1332,6 +1350,10 @@ class ViewWorkspace:
         if hasattr(self, "title_bar"):
             self.title_bar.apply_theme(self.theme_mode, c)
         self.window.setStyleSheet(f"""
+            QDockWidget {{ color: {c['text']}; font-size: 12px; border: none; }}
+            QLabel#dockPanelTitle {{ background: {c['surface2']}; color: {c['text']}; font-size: 12px; border: none; border-radius: 5px; }}
+            QDockWidget::title {{ background: {c['surface2']}; padding: 5px; border-radius: 5px; }}
+            QMainWindow::separator {{ background: {c['bg']}; width: 5px; height: 5px; }}
             QMainWindow, QWidget#centralwidget {{ background: {c['bg']}; color: {c['text']}; }}
             QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
             QLabel {{ color: {c['text']}; }}

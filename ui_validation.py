@@ -98,7 +98,7 @@ def validate_legacy_migration():
 
 
 def validate_image_click_modal_add(window):
-    """Exercise real modal confirmation and table insertion in the packaged app."""
+    """Exercise real editor confirmation and table insertion in the packaged app."""
     import tempfile
     from pathlib import Path
     from unittest.mock import patch
@@ -117,6 +117,9 @@ def validate_image_click_modal_add(window):
             raise RuntimeError('Cannot prepare image-add validation')
         editor = spec.create_editor(parent=window, context=workspace._editor_context())
         editor._set_image_path(image)
+        def capture_for_validation():
+            if not image.is_file(): raise RuntimeError('Image validation fixture disappeared before capture')
+            editor.capture_button.click()
         class Picker(QDialog):
             def exec(self):
                 QTimer.singleShot(250, lambda: editor.ui.buttonBox.button(QDialogButtonBox.StandardButton.Ok).click())
@@ -130,11 +133,22 @@ def validate_image_click_modal_add(window):
         watchdog.setSingleShot(True)
         watchdog.timeout.connect(editor.reject)
         watchdog.start(5000)
-        QTimer.singleShot(0, editor.capture_button.click)
+        capture_timer = QTimer(editor)
+        capture_timer.setSingleShot(True)
+        capture_timer.timeout.connect(capture_for_validation)
+        capture_timer.start(0)
         try:
             with patch.object(type(spec), 'create_editor', return_value=editor), \
                  patch('instructions.common.image_click_editor.SmartCaptureDialog', Picker):
                 command_id = workspace.add_command('图像点击')
+                if command_id is None:
+                    import time
+                    deadline = time.monotonic() + 5
+                    while command_id is None and time.monotonic() < deadline:
+                        QApplication.processEvents()
+                        time.sleep(0.025)
+                        created_ids = [c.id for c in workspace.repository.list_commands() if c.id not in original_ids]
+                        if created_ids: command_id = created_ids[-1]
             if command_id is None:
                 raise RuntimeError('Screenshot confirmation did not add command')
             window.view_workspace.refresh_table()
@@ -146,6 +160,7 @@ def validate_image_click_modal_add(window):
             if command.parameters['图像路径'] == str(image):
                 raise RuntimeError('Screenshot was not selected for new command')
         finally:
+            capture_timer.stop()
             watchdog.stop()
             created = [c.id for c in workspace.repository.list_commands() if c.id not in original_ids]
             if created:

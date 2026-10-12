@@ -3,7 +3,8 @@ import math
 import random
 import re
 
-from qt_compat.QtWidgets import QLineEdit
+from qt_compat.QtWidgets import QDialog, QMessageBox
+from instructions.common.multi_point_canvas import MultiPointCanvas
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
 from instructions.common import actions
 from .多坐标点击_ui import Ui_InstructionEditor
@@ -16,8 +17,6 @@ def parse_points(value):
         parts = [part.strip() for part in re.split(r'[;；\r\n]+', str(value or '')) if part.strip()]
     if not parts:
         raise ValueError('请取点或填写坐标，例如 100,200; 300,400')
-    if len(parts) > 1000:
-        raise ValueError('一次最多设置 1000 个坐标点')
     try:
         return [actions.point(part) for part in parts]
     except (TypeError, ValueError, OverflowError) as error:
@@ -36,6 +35,10 @@ class InstructionEditor(SchemaInstructionEditor):
         FieldSpec('垂直偏移', '垂直随机范围', 'int', 0, minimum=0, maximum=1000),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._controls['坐标列表'].setMaxLength(2147483647)
+
     def _validate_parameters(self, parameters):
         super()._validate_parameters(parameters)
         value = str(parameters['坐标列表'])
@@ -45,17 +48,28 @@ class InstructionEditor(SchemaInstructionEditor):
     def _run_auxiliary(self, key):
         if key != '坐标列表':
             return super()._run_auxiliary(key)
-        temporary = QLineEdit(self)
-        temporary.hide()
+        target = self._controls[key]
         try:
-            self._select_screen_point(key, temporary)
-            if temporary.text():
-                target = self._controls[key]
-                previous = target.text().strip().rstrip(';；')
-                target.setText((previous + '; ' if previous else '') + temporary.text())
+            points = parse_points(target.text()) if target.text().strip() else []
+        except ValueError as error:
+            QMessageBox.warning(self, '坐标无效', str(error))
+            return
+        windows = []
+        for window in (self.window(), getattr(self, '_workspace_owner', None),
+                       self.parentWidget().window() if self.parentWidget() else None):
+            if window is not None and window not in [item[0] for item in windows] and window.isVisible():
+                windows.append((window, window.windowOpacity()))
+        canvas = None
+        try:
+            for window, opacity in windows: window.setWindowOpacity(0)
+            canvas = MultiPointCanvas(points, self)
+            if canvas.exec() == QDialog.Accepted:
+                target.setText('; '.join(f'{x},{y}' for x, y in canvas.points))
                 target.setCursorPosition(len(target.text()))
         finally:
-            temporary.deleteLater()
+            if canvas is not None: canvas.deleteLater()
+            for window, opacity in windows: window.setWindowOpacity(opacity)
+
 
 
 class InstructionExecutor(InstructionExecutorBase):

@@ -10,7 +10,7 @@ from info import CURRENT_VERSION
 folders = {'.config', '.github', '.gitee', 'docs', 'flat', 'instructions', 'integrations', 'node_editor', 'node_test', 'old_ins', 'packaging', 'qt_compat', 'test', 'tools', 'update', 'Window', 'WindowControl', 'wxocr_client'}
 skip = {'__pycache__', 'node_modules', '.pytest_cache', '.git'}
 diagnostics = {'inspect_defaults.py', 'inspect_update_sdk.py', 'probe_conversion.py', 'check_hao123.py'}
-target = ROOT.parent / f'AnClicker-{CURRENT_VERSION}-source.zip'
+target = ROOT.parent / f'AnClicker-{CURRENT_VERSION}-win-DaiMa.zip'
 files = [p for p in ROOT.iterdir() if p.is_file() and (p.suffix.lower() in {'.py', '.md', '.toml', '.lock', '.txt', '.qrc', '.ico', '.cmd'} or p.name in {'LICENSE', '.gitignore', '.python-version'})]
 for folder in sorted(folders):
     for current, dirs, names in os.walk(ROOT / folder):

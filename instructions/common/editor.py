@@ -361,6 +361,9 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         capture_error_ = None
         opacity_ = self.windowOpacity()
         owner_opacity_ = owner_.windowOpacity() if owner_visible_ else None
+        workspace_owner_ = getattr(self, '_workspace_owner', None)
+        workspace_visible_ = workspace_owner_ is not None and workspace_owner_ is not owner_ and workspace_owner_.isVisible()
+        workspace_opacity_ = workspace_owner_.windowOpacity() if workspace_visible_ else None
         try:
             # Hiding a QDialog running exec() exits its modal event loop. The
             # caller may then delete the editor during the selector's loop.
@@ -368,6 +371,8 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
             self.setWindowOpacity(0.0)
             if owner_visible_:
                 owner_.setWindowOpacity(0.0)
+            if workspace_visible_:
+                workspace_owner_.setWindowOpacity(0.0)
             selector_ = _PointSelectionDialog(self)
             if selector_.exec() == QDialog.DialogCode.Accepted and selector_.point is not None:
                 # Commas also support negative coordinates on a secondary monitor.
@@ -380,6 +385,8 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
                 selector_.deleteLater()
             if owner_visible_:
                 owner_.setWindowOpacity(owner_opacity_)
+            if workspace_visible_:
+                workspace_owner_.setWindowOpacity(workspace_opacity_)
             self.setWindowOpacity(opacity_)
             if was_visible_:
                 self.activateWindow()

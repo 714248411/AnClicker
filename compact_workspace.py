@@ -22,6 +22,7 @@ class CompactWorkspace(QObject):
         button.setToolTip('还原完整界面' if enabled else '小化：仅显示控制与操作')
         button.setAccessibleName(button.toolTip())
         if enabled:
+            if hasattr(view, 'docking'): view.docking.suspend()
             self.workspace_sizes = view.workspace_splitter.sizes() if hasattr(view,'workspace_splitter') else None
             self.controls_hidden = getattr(view, 'controls_scroll', w.groupBox_3).isHidden()
             if hasattr(view, 'controls_scroll'):
@@ -107,6 +108,7 @@ class CompactWorkspace(QObject):
             for item in (view.title_bar.compact_button, view.title_bar.theme_button,
                          view.title_bar.minBtn, view.title_bar.maxBtn, view.title_bar.closeBtn):
                 item.setFixedSize(28, 28)
+            if hasattr(view, 'docking'): view.docking.resume()
             view.title_bar.apply_theme(view.theme_mode, view.THEMES[view.theme_mode])
 
     def scale_controls(self):

@@ -187,75 +187,81 @@ class InstructionWorkspace(QObject):
             return self.add_command(type_id, x=x, y=y, initial_draft=InstructionDraft(type_id, defaults), configure=False)
         return self.add_command(type_id, x=x, y=y)
 
-    def add_command(
-        self,
-        type_id: str,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        *, initial_draft=None, configure=True,
-    ) -> Optional[int]:
-        """Create a command; palette web entries can be configured later in the table."""
+    def _run_parameter_editor(self, editor, callback, key):
+        docking = getattr(getattr(self.parent_window, 'view_workspace', None), 'docking', None)
+        if docking is not None and isinstance(editor, QDialog):
+            from dock_workspace import ParameterPinFilter, PIN_RESULT
+            editor._pin_filter = ParameterPinFilter(editor)
+            from adaptive_panels import AdaptivePanelSizer
+            editor.setMinimumSize(260, 180)
+            editor._panel_scaler = AdaptivePanelSizer(editor, editor, 600, reference_height=420)
+            docking.pin_editor(editor, callback, key, floating=True)
+            return None
+        else:
+            result = editor.exec()
+        if result == QDialog.DialogCode.Accepted:
+            return callback(editor.get_draft())
+        return None
+
+    def _check_parameter_save_allowed(self):
+        window = self.parent_window
+        thread = getattr(window, 'command_thread', None)
+        view = getattr(window, 'view_workspace', None)
+        if ((thread is not None and thread.isRunning()) or getattr(self, '_instruction_test_active', False)
+                or (view is not None and (view.recording_page.busy or view.web_recording_page.busy))):
+            raise RuntimeError('请先停止运行、录制或指令测试，再保存参数。')
+
+    def add_command(self, type_id, x=None, y=None, *, initial_draft=None, configure=True):
         try:
             spec_ = get_instruction_spec(str(type_id))
             if initial_draft is None:
                 quick = self.palette.quick_parameters(str(type_id))
-                if quick is not None:
-                    initial_draft = InstructionDraft(str(type_id), quick)
-            if configure:
-                editor_ = spec_.create_editor(
-                    parent=self.parent_window,
-                    context=self._editor_context(),
-                    **({'draft': initial_draft} if initial_draft is not None else {}),
-                )
-                self._connect_editor_test(editor_, spec_)
-                if editor_.exec() != QDialog.DialogCode.Accepted:
-                    return None
-                draft_ = editor_.get_draft()
-            else:
-                draft_ = initial_draft or InstructionDraft(str(type_id))
-            command_ = self.repository.add_command(
-                draft_,
-                x=x,
-                y=y,
-                unconnected=True,
-            )
-            self.reload_graph(command_.id)
-            self.graphFinalized.emit(False)
-            self.statusMessage.emit(
-                f"已插入指令：{spec_.display_name}，请在流程图中完成连线"
-            )
-            QTimer.singleShot(0, lambda: self.palette.command_added(draft_.type_id, draft_.parameters))
-            return command_.id
-        except Exception as error_:
-            self._show_error("添加指令失败", error_)
+                if quick is not None: initial_draft = InstructionDraft(str(type_id), quick)
+            def commit(draft):
+                self._check_parameter_save_allowed()
+                command = self.repository.add_command(draft, x=x, y=y, unconnected=True)
+                self.reload_graph(command.id)
+                self.graphFinalized.emit(False)
+                self.statusMessage.emit(f'已插入指令：{spec_.display_name}，请在流程图中完成连线')
+                QTimer.singleShot(0, lambda: self.palette.command_added(draft.type_id, draft.parameters))
+                return command.id
+            if not configure:
+                return commit(initial_draft or InstructionDraft(str(type_id)))
+            editor = spec_.create_editor(parent=self.parent_window, context=self._editor_context(),
+                **({'draft':initial_draft} if initial_draft is not None else {}))
+            self._connect_editor_test(editor, spec_)
+            return self._run_parameter_editor(editor, commit, 'parameters_new_' + str(id(editor)))
+        except Exception as error:
+            self._show_error('添加指令失败', error)
             return None
 
     def edit_command(self, command_id) -> bool:
         try:
-            command_ = self.repository.get_command(int(command_id))
-            if command_ is None:
-                raise KeyError(f"指令不存在：{command_id}")
-            spec_ = get_instruction_spec(command_.type_id)
-            editor_ = spec_.create_editor(
-                parent=self.parent_window,
-                draft=command_.to_draft(),
-                context=self._editor_context(command_.id),
-            )
-            self._connect_editor_test(editor_, spec_)
-            if editor_.exec() != QDialog.DialogCode.Accepted:
+            docking = getattr(getattr(self.parent_window, 'view_workspace', None), 'docking', None)
+            key = 'parameters_' + str(int(command_id))
+            if docking is not None and key in docking.parameters:
+                docking.docks[key].show(); docking.docks[key].raise_()
                 return False
-            self.repository.update_command(command_.id, editor_.get_draft())
-            self.reload_graph(command_.id)
-            try:
-                self.repository.validate_graph()
-            except Exception:
-                self.graphFinalized.emit(False)
-            else:
-                self.graphFinalized.emit(True)
-            self.statusMessage.emit(f"已修改指令：{spec_.display_name}")
-            return True
-        except Exception as error_:
-            self._show_error("修改指令失败", error_)
+            command = self.repository.get_command(int(command_id))
+            if command is None: raise KeyError(f'指令不存在：{command_id}')
+            spec = get_instruction_spec(command.type_id)
+            editor = spec.create_editor(parent=self.parent_window, draft=command.to_draft(),
+                                        context=self._editor_context(command.id))
+            self._connect_editor_test(editor, spec)
+            def commit(draft):
+                self._check_parameter_save_allowed()
+                if self.repository.get_command(command.id) is None:
+                    raise RuntimeError('原指令已删除，请取消该设置后重新添加指令。')
+                self.repository.update_command(command.id, draft)
+                self.reload_graph(command.id)
+                try: self.repository.validate_graph()
+                except Exception: self.graphFinalized.emit(False)
+                else: self.graphFinalized.emit(True)
+                self.statusMessage.emit(f'已修改指令：{spec.display_name}')
+                return True
+            return bool(self._run_parameter_editor(editor, commit, key))
+        except Exception as error:
+            self._show_error('修改指令失败', error)
             return False
 
     def copy_commands(self, command_ids=None) -> list[int]:

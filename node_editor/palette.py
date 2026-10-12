@@ -30,6 +30,7 @@ class _WrappingInstructionDelegate(QStyledItemDelegate):
         self.initStyleOption(styled, index)
         document = QTextDocument()
         document.setDocumentMargin(0)
+        styled.font = self.parent().font()
         document.setDefaultFont(styled.font)
         document.setPlainText(styled.text)
         document.setTextWidth(max(24, width))
@@ -43,7 +44,7 @@ class _WrappingInstructionDelegate(QStyledItemDelegate):
             ancestor = ancestor.parent()
         width = max(24, tree.viewport().width() - depth * tree.indentation() - 20)
         styled, document = self._document(option, index, width)
-        return QSize(width, int(document.size().height() + 13))
+        return QSize(width, int(document.size().height() + max(6, self.parent().fontMetrics().height() * 0.7)))
 
     def paint(self, painter, option, index):
         styled, document = self._document(option, index, option.rect.width() - 12)
@@ -55,7 +56,7 @@ class _WrappingInstructionDelegate(QStyledItemDelegate):
             context.palette.setColor(QPalette.ColorRole.Text, styled.palette.highlightedText().color())
         painter.save()
         painter.setClipRect(option.rect)
-        painter.translate(option.rect.left() + 6, option.rect.top() + 6)
+        painter.translate(option.rect.left() + 6, option.rect.top() + max(3, self.parent().fontMetrics().height() * 0.3))
         document.documentLayout().draw(painter, context)
         painter.restore()
 
