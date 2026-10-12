@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from qt_compat.QtCore import QMimeData, QPoint, Signal, Qt, QStringListModel
-from qt_compat.QtGui import QDrag
+from qt_compat.QtCore import QMimeData, QPoint, Signal, Qt, QStringListModel, QSize
+from qt_compat.QtGui import QDrag, QTextDocument, QAbstractTextDocumentLayout, QPalette
 from qt_compat.QtWidgets import (
     QAbstractItemView,
+    QStyledItemDelegate, QStyleOptionViewItem, QHeaderView, QStyle,
     QLineEdit,
     QMenu,
     QCompleter,
@@ -23,6 +24,42 @@ INSTRUCTION_MIME_TYPE = "application/x-clicker-instruction"
 TYPE_ID_ROLE = Qt.ItemDataRole.UserRole
 
 
+class _WrappingInstructionDelegate(QStyledItemDelegate):
+    def _document(self, option, index, width):
+        styled = QStyleOptionViewItem(option)
+        self.initStyleOption(styled, index)
+        document = QTextDocument()
+        document.setDocumentMargin(0)
+        document.setDefaultFont(styled.font)
+        document.setPlainText(styled.text)
+        document.setTextWidth(max(24, width))
+        return styled, document
+
+    def sizeHint(self, option, index):
+        tree = self.parent()
+        depth, ancestor = 1, index.parent()
+        while ancestor.isValid():
+            depth += 1
+            ancestor = ancestor.parent()
+        width = max(24, tree.viewport().width() - depth * tree.indentation() - 20)
+        styled, document = self._document(option, index, width)
+        return QSize(width, int(document.size().height() + 13))
+
+    def paint(self, painter, option, index):
+        styled, document = self._document(option, index, option.rect.width() - 12)
+        styled.text = ''
+        self.parent().style().drawControl(QStyle.ControlElement.CE_ItemViewItem, styled, painter, self.parent())
+        context = QAbstractTextDocumentLayout.PaintContext()
+        context.palette = styled.palette
+        if styled.state & QStyle.StateFlag.State_Selected:
+            context.palette.setColor(QPalette.ColorRole.Text, styled.palette.highlightedText().color())
+        painter.save()
+        painter.setClipRect(option.rect)
+        painter.translate(option.rect.left() + 6, option.rect.top() + 6)
+        document.documentLayout().draw(painter, context)
+        painter.restore()
+
+
 class _InstructionTree(QTreeWidget):
     instructionActivated = Signal(str)
 
@@ -30,11 +67,22 @@ class _InstructionTree(QTreeWidget):
         super().__init__(parent_)
         self._drag_start = QPoint()
         self.setHeaderHidden(True)
+        self.setWordWrap(True)
+        self.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.setUniformRowHeights(False)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.header().setMinimumSectionSize(0)
+        self.header().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.setItemDelegate(_WrappingInstructionDelegate(self))
         self.setIndentation(16)
         self.setDragEnabled(True)
         self.setMouseTracking(True)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.itemDoubleClicked.connect(self._activate_item)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.scheduleDelayedItemsLayout()
 
     @staticmethod
     def instruction_type(item_) -> str | None:

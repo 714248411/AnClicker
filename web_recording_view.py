@@ -1,3 +1,4 @@
+from responsive_layout import FlowLayout
 """Opt-in browser recording with asynchronous engine calls and a preview."""
 import json
 from qt_compat.QtCore import QThread, QTimer
@@ -34,7 +35,7 @@ class WebRecordingView(QWidget):
         layout.addLayout(recording_header(self, '网页录制', description))
         address=QHBoxLayout();address.addWidget(QLabel('网页地址'))
         self.url=QLineEdit();self.url.setPlaceholderText('https://example.com');address.addWidget(self.url,1);layout.addLayout(address)
-        controls=QHBoxLayout()
+        controls=FlowLayout()
         self.start_button=QPushButton('打开网页并开始录制');self.start_button.setObjectName('accentButton')
         self.stop_button=QPushButton('停止网页录制');self.stop_button.setObjectName('dangerButton')
         self.continue_button=QPushButton('接续录制')

@@ -23,6 +23,11 @@ class CompactWorkspace(QObject):
         button.setAccessibleName(button.toolTip())
         if enabled:
             self.workspace_sizes = view.workspace_splitter.sizes() if hasattr(view,'workspace_splitter') else None
+            self.controls_hidden = getattr(view, 'controls_scroll', w.groupBox_3).isHidden()
+            if hasattr(view, 'controls_scroll'):
+                self.controls_minimum = view.controls_scroll.minimumSize()
+                view.controls_scroll.setMinimumWidth(0)
+                view.controls_scroll.show()
             self.geometry = w.saveGeometry()
             self.normal_rect = getattr(w, '_restore_client_geometry', w.normalGeometry()) if w.isMaximized() else w.geometry()
             self.was_maximized = w.isMaximized()
@@ -87,6 +92,9 @@ class CompactWorkspace(QObject):
             for item, hidden in self.hidden:
                 item.setVisible(not hidden)
             w.layout().setSizeConstraint(self.constraint)
+            if hasattr(view, 'controls_scroll'):
+                view.controls_scroll.setMinimumSize(self.controls_minimum)
+                view.controls_scroll.setVisible(not getattr(view, 'controls_collapsed', self.controls_hidden))
             w.setMinimumSize(self.minimum)
             w.restoreGeometry(self.geometry)
             if not self.was_maximized:

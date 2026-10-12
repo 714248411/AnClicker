@@ -304,6 +304,7 @@ class ViewWorkspace:
             self.theme_mode = "light"
         self.palette_side = "left"
         self.palette_collapsed = False
+        self.controls_collapsed = str(window.db.get_setting_value('控制与操作收起') or 'False').lower() == 'true'
         guidance = str(window.db.get_setting_value('中文编程提示') or 'True').lower() not in ('false', '0', '关闭')
         window.workspace.palette.set_guidance_enabled(guidance)
         window.workspace.palette.guidanceEnabledChanged.connect(
@@ -349,6 +350,9 @@ class ViewWorkspace:
         self._sync_status_visibility(status.currentMessage())
         self.window.gridLayout_4.setContentsMargins(4, 2, 4, 8)
         self.window.gridLayout_4.setSpacing(4)
+        self.tabs.setMinimumWidth(0)
+        self.tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        self.window.instructionPaletteHost.setMinimumWidth(120)
         self.tabs.setUsesScrollButtons(True)
         self.tabs.tabBar().setExpanding(False)
         self.window.textEdit.setMinimumHeight(0)
@@ -693,6 +697,8 @@ class ViewWorkspace:
 
     def _build_navigation(self) -> None:
         self._toolbar_dock_filter = _ToolbarDockOnDoubleClick(self.window, self.window.toolBar)
+        self.window.toolBar.setWindowTitle('显示工具栏')
+        self.window.toolBar.toggleViewAction().setText('显示工具栏')
         self.window.toolBar.setIconSize(QSize(16, 16))
         toolbar_font = self.window.toolBar.font()
         base_size = toolbar_font.pointSize()
@@ -708,6 +714,10 @@ class ViewWorkspace:
         self.palette_collapse_action.triggered.connect(self.toggle_palette)
         self.theme_action = QAction("切换浅色", self.window)
         self.theme_action.triggered.connect(self.toggle_theme)
+        self.controls_action = QAction('控制与操作', self.window)
+        self.controls_action.setCheckable(True)
+        self.controls_action.setChecked(not self.controls_collapsed)
+        self.controls_action.toggled.connect(self.set_controls_visible)
         self.donation_action = QAction("捐赠", self.window)
         self.donation_action.triggered.connect(self.show_donation)
         self.window.toolBar.addSeparator()
@@ -716,6 +726,7 @@ class ViewWorkspace:
         self.window.toolBar.addSeparator()
         self.window.toolBar.addAction(self.palette_side_action)
         self.window.toolBar.addAction(self.palette_collapse_action)
+        self.window.toolBar.addAction(self.controls_action)
         self.window.toolBar.addAction(self.donation_action)
         from window_chrome import install_title_bar
         self.title_bar = install_title_bar(self.window, self.theme_action)
@@ -743,6 +754,7 @@ class ViewWorkspace:
         self.window.menu_3.removeAction(self.window.actiong)
         self.window.actiong.setText('显示工具栏')
         menu.addAction(self.window.actiong)
+        menu.addAction(self.controls_action)
         view_actions['显示工具栏'] = self.window.actiong
         guidance_action = QAction('中文编程提示', self.window)
         guidance_action.setCheckable(True)
@@ -832,7 +844,11 @@ class ViewWorkspace:
             self.controls_scroll.viewport().setObjectName('controlsScrollViewport')
             self.controls_scroll.setFrameShape(QFrame.Shape.NoFrame)
             self.controls_scroll.setWidgetResizable(True)
-            self.controls_scroll.setMinimumSize(180, 0)
+            controls.setMinimumWidth(280)
+            for label in controls.findChildren(QLabel):
+                label.setWordWrap(True)
+                label.setMinimumWidth(0)
+            self.controls_scroll.setMinimumSize(300, 0)
             self.controls_scroll.setWidget(controls)
         palette, center, controls = self.window.instructionPaletteHost, self.tabs, self.controls_scroll
         if not hasattr(self, 'workspace_splitter'):
@@ -861,7 +877,15 @@ class ViewWorkspace:
             self.tabs.currentIndex() in (TABLE_VIEW, FLOW_VIEW)
             and not self.palette_collapsed
         )
+        controls.setVisible(not self.controls_collapsed)
         self._update_view_actions()
+
+    def set_controls_visible(self, visible):
+        self.controls_collapsed = not visible
+        self.window.db.set_setting_value('控制与操作收起', str(self.controls_collapsed))
+        if hasattr(self, 'controls_scroll') and not self.compact.active:
+            self.controls_scroll.setVisible(visible)
+        self.controls_action.setToolTip('收起控制与操作' if visible else '展开控制与操作')
 
     def _save_panel_sizes(self, *_):
         if getattr(getattr(self, 'compact', None), 'active', False): return
