@@ -37,9 +37,9 @@ class InstructionRegistryTests(unittest.TestCase):
         type_ids_ = [spec_.type_id for spec_ in INSTRUCTION_SPECS]
         module_paths_ = [spec_.module_path for spec_ in INSTRUCTION_SPECS]
 
-        self.assertEqual(len(type_ids_), 94)
-        self.assertEqual(len(set(type_ids_)), 94)
-        self.assertEqual(len(set(module_paths_)), 94)
+        self.assertEqual(len(type_ids_), 95)
+        self.assertEqual(len(set(type_ids_)), 95)
+        self.assertEqual(len(set(module_paths_)), 95)
         self.assertEqual(tuple(module_paths_), hidden_imports())
         for spec_ in INSTRUCTION_SPECS:
             self.assertTrue(spec_.display_name)
@@ -87,10 +87,16 @@ class InstructionRegistryTests(unittest.TestCase):
                     for widget_ in ui_root_.iter("widget")
                 }
                 editor_class_ = spec_.load_editor_class()
+                runtime_editor = spec_.create_editor()
+                self.addCleanup(runtime_editor.deleteLater)
                 for index_, field_ in enumerate(editor_class_.FIELDS):
                     parameter_name_ = f"parameter_{index_}"
-                    self.assertIn(parameter_name_, widget_names_)
-                    self.assertIn(f"self.{parameter_name_}", generated_source_)
+                    if hasattr(runtime_editor, "ui"):
+                        self.assertIsNotNone(getattr(runtime_editor.ui, parameter_name_, None))
+                        self.assertIn(field_.key, runtime_editor._controls)
+                    else:
+                        self.assertIn(parameter_name_, widget_names_)
+                        self.assertIn(f"self.{parameter_name_}", generated_source_)
                     if field_.key in auxiliary_keys_:
                         auxiliary_name_ = f"auxiliary_{index_}"
                         self.assertIn(auxiliary_name_, widget_names_)
@@ -127,6 +133,8 @@ class InstructionRegistryTests(unittest.TestCase):
             if field_.required and (value_ is None or str(value_) == ""):
                 if field_.key == "单元格":
                     value_ = "A1"
+                elif field_.key == "坐标列表":
+                    value_ = "10,20;30,40"
                 elif field_.key == "区域":
                     value_ = "0,0,10,10"
                 else:

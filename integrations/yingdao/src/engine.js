@@ -74,44 +74,17 @@
       return r;
     },
 
-    // 等待页面就绪：document.readyState 到 complete + AJAX/资源网络空闲。
-    // 老系统（朗坤 LiEMS 等）大量内容是 AJAX 异步加载的，readyState complete 不代表数据出来了，
-    // 所以要再等网络空闲一小段时间，否则"点击不了/提取不到"十有八九是内容还没渲染。
+    // Explicit full-load wait; opening a page only needs a usable document.
     async waitPageReady(timeoutSec = 20) {
       const deadline = Date.now() + Math.max(1, Number(timeoutSec) || 20) * 1000;
-      const code = `(async () => {
-        const t0 = Date.now();
-        // 第一步：等 readyState
-        while (document.readyState !== 'complete') {
-          if (Date.now() - t0 > 25000) break;
-          await new Promise(r => setTimeout(r, 150));
-        }
-        return document.readyState;
-      })()`;
-      try { await this.execJSAny(code, 30000); } catch (e) { }
-      // 第二步：等网络空闲（XHR/fetch 都不再挂起）
-      const idleCode = `(async () => {
-        const t0 = Date.now();
-        let stable = 0;
-        while (Date.now() - t0 < 20000) {
-          if (window.__rpaPendingRequests === undefined) {
-            // 注入计数器：拦 fetch + XHR
-            window.__rpaPendingRequests = 0;
-            const _f = window.fetch;
-            window.fetch = function () { window.__rpaPendingRequests++; try { return _f.apply(this, arguments).finally(function(){ window.__rpaPendingRequests--; }); } catch (e) { window.__rpaPendingRequests--; throw e; } };
-            const _o = XMLHttpRequest.prototype.open, _s = XMLHttpRequest.prototype.send;
-            XMLHttpRequest.prototype.open = function () { this.__rpaActive = true; return _o.apply(this, arguments); };
-            XMLHttpRequest.prototype.send = function () { window.__rpaPendingRequests++; this.addEventListener('loadend', function(){ window.__rpaPendingRequests--; }); return _s.apply(this, arguments); };
-          }
-          if (window.__rpaPendingRequests <= 0) stable++;
-          else stable = 0;
-          if (stable >= 3) return 'idle';
-          await new Promise(r => setTimeout(r, 250));
-        }
-        return 'timeout';
-      })()`;
-      try { await this.execJSAny(idleCode, 25000); } catch (e) { }
-      return true;
+      while (Date.now() < deadline) {
+        if (this.cancelRequested) throw new Error(ERR_STOP);
+        try {
+          if (await this.execJSAny('document.readyState', Math.min(1000, Math.max(1,deadline-Date.now()))) === 'complete') return true;
+        } catch (_) { }
+        await this.sleepInterruptible(.1);
+      }
+      throw new Error('等待网页加载完毕超时');
     },
 
     // 诊断：当前页面有哪些 frame、还在不在加载、候选元素（排错利器）
@@ -776,27 +749,32 @@
       if (!raw) return [];
       return raw.split(/[;；\n\r]+/).map(s => s.trim()).filter(Boolean).map(seg => {
         const m = /^(-?\d+(?:\.\d+)?)\s*[,，\s]\s*(-?\d+(?:\.\d+)?)$/.exec(seg);
-        if (!m) throw new Error(`坐标「${seg}」看不懂。正确写法：100,200；多个点用分号隔开，如 100,200; 300,400（最多 9 个点）`);
+        if (!m) throw new Error(`坐标「${seg}」看不懂。正确写法：100,200；多个点用分号隔开，如 100,200; 300,400（最多 1000 个点）`);
         return { x: Math.round(Number(m[1])), y: Math.round(Number(m[2])) };
       });
     },
 
-    // 坐标点击：支持多点，每点之间按「间隔(秒)」等待（默认 1 秒），最多 9 个点
-    async clickXY({ points, x, y, interval = 1, clickType = '单击' }) {
+    // 坐标点击：支持多点，每点之间按「间隔(秒)」等待（默认 1 秒），最多 1000 个点
+    async clickXY({ points, x, y, interval = 1, clickType = '单击', randomOffset = '关闭', offsetX = 0, offsetY = 0 }) {
       let list = this.parsePoints(points);
       // 兼容老流程：只填了 x / y
       if (!list.length && x !== undefined && x !== '' && y !== undefined && y !== '') {
         list = [{ x: Math.round(Number(x)), y: Math.round(Number(y)) }];
       }
       if (!list.length) throw new Error('请填写点击坐标（可点「🎯 在浏览器里点选坐标」自动填入）');
-      if (list.length > 9) list = list.slice(0, 9);
+      if (list.length > 1000) throw new Error('一次最多设置 1000 个坐标点');
+      if (list.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('点击坐标必须为有效数字');
+      const random = randomOffset === '启用' || randomOffset === true;
+      const rangeX = Math.max(0, Math.min(1000, Math.floor(Number(offsetX) || 0)));
+      const rangeY = Math.max(0, Math.min(1000, Math.floor(Number(offsetY) || 0)));
+      const shift = range => random ? Math.floor(Math.random() * (range * 2 + 1)) - range : 0;
       const gap = Math.max(0, Number(interval) || 0);
       const evt = clickType === '双击' ? 'dblclick' : (clickType === '右键' ? 'contextmenu' : 'click');
       const btn = clickType === '右键' ? '2' : '0';
       const done = [];
       for (let i = 0; i < list.length; i++) {
         if (this.cancelRequested) throw new Error(ERR_STOP);
-        const pt = list[i];
+        const pt = {x:list[i].x + shift(rangeX), y:list[i].y + shift(rangeY)};
         const code = `(() => {
           // 深层取元素：坐标落在同源 iframe 上时，继续钻进 iframe 里找真正的元素
           let x = ${pt.x}, y = ${pt.y}, guard = 0;
@@ -819,7 +797,7 @@
           el.dispatchEvent(mk('${evt}'));
           return el.tagName + (el.innerText ? ':' + el.innerText.slice(0, 16) : '');
         })()`;
-        const on = await this.execJSAny(code);
+        const on = await B().execJS(code);
         done.push(`${i + 1}(${pt.x},${pt.y})→${on}`);
         if (i < list.length - 1 && gap > 0) await this.sleepInterruptible(gap);   // 多点之间的间隔
       }
@@ -2865,7 +2843,8 @@
       switch (cmd.id) {
         case 'openUrl': {
           const r = await this.openUrl(p.url, p.target, p.loginMode, p.engine, p.waitType !== '立即返回');
-          if (p.waitType !== '立即返回') await this.waitPageReady();
+          // Internal navigation waits for a usable document; external navigation needs its own wait.
+          if (p.waitType !== '立即返回' && ['Edge','内置Chrome'].includes(r.badge)) await this.waitPageReady();
           return r;
         }
         case 'click': return await this.click(p);
@@ -2885,7 +2864,7 @@
           }
           return d;
         }
-        case 'clickXY': return await this.clickXY(p);
+        case 'clickXY': return p.pickOnly === true ? await B().pickPoints(1000, this.parsePoints(p.points)) : await this.clickXY(p);
         case 'pickElement': return await B().pickElement();
         case 'scrapeText': return await this.scrapeText(p);
         case 'scrapeAttr': return await this.scrapeAttr(p);

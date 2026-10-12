@@ -3,7 +3,7 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from types import SimpleNamespace
 import pytest
 from qt_compat.QtGui import QAction
-from qt_compat.QtWidgets import QApplication, QMainWindow, QFrame, QVBoxLayout, QSplitter, QStatusBar
+from qt_compat.QtWidgets import QApplication, QMainWindow, QFrame, QVBoxLayout, QSplitter, QStatusBar, QScrollArea
 from Window.mainwindow_ui import Ui_MainWindow
 from window_chrome import install_title_bar, FramelessMainWindow as QMainWindow
 from compact_workspace import CompactWorkspace
@@ -24,6 +24,20 @@ def compact():
     from view_workspace import ViewWorkspace
     view = SimpleNamespace(window=window, title_bar=bar, tabs=window.tabWidget,
                            table_splitter=splitter, theme_mode='light', THEMES=ViewWorkspace.THEMES)
+    # Match the production splitter and scroll wrapper, not the old grid layout.
+    controls = QScrollArea()
+    controls.setWidgetResizable(True)
+    controls.setMinimumWidth(180)
+    window.gridLayout_4.removeWidget(window.groupBox_3)
+    controls.setWidget(window.groupBox_3)
+    workspace_splitter = QSplitter()
+    workspace_splitter.setChildrenCollapsible(False)
+    for item in (window.instructionPaletteHost, view.tabs, controls):
+        window.gridLayout_4.removeWidget(item)
+        workspace_splitter.addWidget(item)
+    window.gridLayout_4.addWidget(workspace_splitter, 0, 0, 1, 3)
+    view.workspace_splitter = workspace_splitter
+    view.controls_scroll = controls
     controller = CompactWorkspace(view)
     window.show(); app.processEvents()
     yield app, window, view, controller
@@ -77,3 +91,27 @@ def test_compact_retains_edited_hide_preference(compact):
     window.checkBox_2.setChecked(True)
     controller.set_active(False)
     assert window.checkBox_2.isChecked() and window.checkBox_2.isEnabled()
+
+
+def test_compact_title_buttons_fit_at_minimum_width(compact):
+    app, w, view, controller = compact
+    controller.set_active(True)
+    w.resize(280, 350)
+    app.processEvents()
+    for button in (view.title_bar.minBtn, view.title_bar.maxBtn, view.title_bar.closeBtn):
+        assert view.title_bar.rect().contains(button.geometry())
+
+
+def test_maximized_compact_restore_keeps_normal_geometry(compact):
+    app, w, view, controller = compact
+    original = w.geometry()
+    w.showMaximized()
+    app.processEvents()
+    controller.set_active(True)
+    app.processEvents()
+    controller.set_active(False)
+    app.processEvents()
+    assert w.isMaximized()
+    w.showNormal()
+    app.processEvents()
+    assert w.size() == original.size()

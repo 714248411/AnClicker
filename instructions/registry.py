@@ -45,7 +45,7 @@ def _spec(name_: str, category_: str, color_: str) -> InstructionSpec:
 
 INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
     *(_spec(name_, "键鼠", "#2f80ed") for name_ in (
-        "图像点击", "多图点击", "坐标点击", "移动鼠标", "鼠标点击",
+        "图像点击", "多图点击", "坐标点击", "多坐标点击", "移动鼠标", "鼠标点击",
         "滚轮滑动", "按下键盘", "文本输入", "中键激活", "鼠标拖拽", "悬停后点击", "颜色判断",
     )),
     *(_spec(name_, "等待", "#f2a900") for name_ in (
@@ -95,7 +95,7 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
     InstructionSpec("等待元素出现", "等待元素出现", "网页自动化", "instructions.网页自动化.等待元素出现.等待元素出现", node_color="#4a6cf7"),
     InstructionSpec("等待页面加载完成", "等待页面加载完成", "网页自动化", "instructions.网页自动化.等待页面加载完成.等待页面加载完成", node_color="#4a6cf7"),
     InstructionSpec("诊断页面（排错）", "诊断页面(排错)", "网页自动化", "instructions.网页自动化.诊断页面（排错）.诊断页面（排错）", node_color="#98a2b3"),
-    InstructionSpec("坐标点击（可多点）", "坐标点击(可多点)", "网页自动化", "instructions.网页自动化.坐标点击（可多点）.坐标点击（可多点）", node_color="#4a6cf7"),
+    InstructionSpec("坐标点击（可多点）", "网页内坐标点击（可多点）", "网页自动化", "instructions.网页自动化.坐标点击（可多点）.坐标点击（可多点）", node_color="#4a6cf7"),
     InstructionSpec("等待（秒）", "等待(秒)", "网页自动化", "instructions.网页自动化.等待（秒）.等待（秒）", node_color="#4a6cf7"),
     InstructionSpec("按键", "按键", "网页自动化", "instructions.网页自动化.按键.按键", node_color="#4a6cf7"),
     InstructionSpec("点击并全选复制", "点击并全选复制", "网页自动化", "instructions.网页自动化.点击并全选复制.点击并全选复制", node_color="#4a6cf7"),

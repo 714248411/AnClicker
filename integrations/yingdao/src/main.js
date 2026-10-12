@@ -1,5 +1,16 @@
 const acRecorder = require('./ac-recorder');
 const { app, BrowserWindow, ipcMain, dialog, screen, shell, session, clipboard } = require('electron');
+const navigateWebContents = require('./browser-navigation');
+const { configureSession } = require('./browser-proxy');
+async function navigateBrowser(wc, url) {
+  try { await configureSession(wc.session); }
+  catch (error) {
+    wc.emit('ac:navigation-state',{requestedUrl:url,loading:false,error:'浏览器网络配置失败：'+error.message});
+    throw error;
+  }
+  return navigateWebContents(wc,url);
+}
+const attachBrowserControls = require('./browser-controls');
 const extBrowser = require('./ext-browser');   // 外部浏览器驱动（Edge / 便携版 Chrome，走 CDP）
 const path = require('path');
 const fs = require('fs');
@@ -142,10 +153,10 @@ const ROBUST_SELECTOR_JS = `
         if (same.length > 1) t += ':nth-of-type(' + (same.indexOf(cur) + 1) + ')';
       }
       parts.unshift(t);
-      if (cur.id && __stable(cur.id)) { parts.unshift('#' + __esc(cur.id)); break; }
+      if (cur.id && __stable(cur.id)) { parts[0] = '#' + __esc(cur.id); break; }
       cur = par;
     }
-    return parts.join(' > ');
+    return parts.join(' > ') || 'html';
   }
 `;
 
@@ -157,7 +168,7 @@ function normalizeUrl(url) {
   if (!url.includes('://')) url = 'https://' + url;
   const parsed = new URL(url);
   if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('请输入 http 或 https 网页地址');
-  if (['hao123', 'www.hao123'].includes(parsed.hostname.toLowerCase())) parsed.hostname = 'www.hao123.com';
+  if (['hao123', 'www.hao123', 'hao123.com'].includes(parsed.hostname.toLowerCase())) parsed.hostname = 'www.hao123.com';
   return parsed.href;
 }
 
@@ -178,6 +189,7 @@ function createWindow() {
       contextIsolation: true,
       // 程序自身界面单独一个分区：这样"清空浏览器登录数据"永远不会碰到程序自己的设置
       partition: APP_PARTITION,
+      backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -246,7 +258,7 @@ function normalizeEngineKey(k) {
 async function switchEngineTo(key) {
   const want = normalizeEngineKey(key);
   if (!want) return { ok: true, engine: browserEngine, note: '保持当前引擎' };
-  if (want === browserEngine) return { ok: true, engine: browserEngine, note: '已是该引擎' };
+  if (want === browserEngine && (want === '内置' || extBrowser.isRunning())) return { ok: true, engine: browserEngine, note: '已是该引擎' };
   if (want === '内置') {
     if (extBrowser.isRunning()) await extBrowser.close();
     extLaunchInfo = null;
@@ -351,7 +363,8 @@ function createBrowserWindow(url, loginMode) {
   wc.on('did-navigate', (_e, url) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:navigated', { id, url });
   });
-  wc.on('did-fail-load', (_e, code, desc, url) => {
+  wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
+    if (!isMainFrame || code === -3) return;
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:loadFailed', { id, code, desc, url });
   });
   wc.on('page-title-updated', (e, title) => {
@@ -360,21 +373,16 @@ function createBrowserWindow(url, loginMode) {
     try { win.setTitle('极速网页AC'); } catch (err) { }
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:titleUpdated', { id, title });
   });
-  // 注入录制脚本 + 悬浮工具栏（工具栏上显示会话标记）
-  wc.on('did-finish-load', () => {
-    // Recording is opt-in via the isolated preload and ac-recorder.
-    injectFloatingToolbar(wc, id, ses.badge);
-  });
+  // The local control view survives remote page failures and navigation.
+  attachBrowserControls(win, {normalizeUrl, navigate:navigateBrowser, markNavigation:wc=>acRecorder.markNavigation(wc)});
 
-  // 窗口获得焦点时，标记为激活
-  win.on('focus', () => { activeBrowserId = id; });
+  // Workflow target changes only when opening or explicitly switching pages.
+  // Focusing a different desktop window must not change the next command's page.
   // 窗口关闭时，从数组移除
   win.on('closed', () => {
     const idx = browserWindows.findIndex(b => b.id === id);
     if (idx !== -1) browserWindows.splice(idx, 1);
-    if (activeBrowserId === id) {
-      activeBrowserId = browserWindows.length ? browserWindows[browserWindows.length - 1].id : null;
-    }
+    // Keep the target ID so a closed previous page is reported, not replaced.
     // 通知主应用刷新任务栏
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('browser:windowClosed', { id });
@@ -391,17 +399,28 @@ function createBrowserWindow(url, loginMode) {
   // 加载目标网址（无效/空地址用 about:blank）
   const targetUrl = normalizeUrl(url);
   if (targetUrl !== 'about:blank') {
-    wc.loadURL(targetUrl).catch(() => {});
+    navigateBrowser(wc,targetUrl).catch(() => {});
   }
 
-  return { id, win, badge: ses.badge };
+  return browserWindows.find(b => b.id === id);
 }
 
 // 获取当前激活的浏览器窗口
 function getActiveBrowser() {
-  if (!browserWindows.length) return null;
-  const found = browserWindows.find(b => b.id === activeBrowserId);
-  return found || browserWindows[browserWindows.length - 1];
+  return browserWindows.find(b => b.id === activeBrowserId && !b.win.isDestroyed()) || null;
+}
+
+function requireBrowserWindow(show = false) {
+  if (browserEngine !== '内置') throw new Error('上一步使用的外部浏览器已关闭，请先重新打开网页');
+  const active = getActiveBrowser();
+  if (!active) throw new Error('没有可定位的上一步网页，请先执行“打开网页”，或重新选择已有网页窗口');
+  if (show) {
+    if (active.win.isMinimized()) active.win.restore();
+    active.win.show();
+    active.win.focus();
+    active.win.webContents.focus();
+  }
+  return active;
 }
 
 // 切换激活窗口（聚焦对应窗口）
@@ -422,17 +441,12 @@ function closeBrowserWindow(id) {
   if (idx === -1) return null;
   const { win } = browserWindows[idx];
   if (win && !win.isDestroyed()) win.close();
-  browserWindows.splice(idx, 1);
-  if (activeBrowserId === id) {
-    activeBrowserId = browserWindows.length ? browserWindows[browserWindows.length - 1].id : null;
-  }
   return browserWindows.length;
 }
 
 // 兼容旧的 ensureBrowserView（返回激活窗口，或新建一个独立窗口）
 function ensureBrowserWindow() {
-  if (getActiveBrowser()) return getActiveBrowser().win;
-  return createBrowserWindow('about:blank', LOGIN_MODE.CLEAN).win;
+  return requireBrowserWindow(true).win;
 }
 
 // 向浏览器视图注入录制脚本（监听 click / input 事件，存入全局数组）
@@ -487,100 +501,95 @@ function injectRecordScript(wc) {
       }, true);
     })();
   `;
-  wc.executeJavaScript(script, true).catch(() => {});
-}
-
-// 向独立浏览器窗口注入悬浮工具栏（后退/前进/刷新/地址栏/缩放）
-// badge：会话标记（账号位1 / 新会话#2 / 共用），显示在工具栏最左边，方便一眼区分多个窗口
-function injectFloatingToolbar(wc, id, badge) {
-  const install = require('./ac-toolbar');
-  wc.executeJavaScript('(' + install.toString() + ')(' + wc.getZoomLevel() + ')', true).catch(() => {});
+  wc.mainFrame.executeJavaScript(script, true).catch(() => {});
 }
 
 // 元素拾取：注入选择模式脚本，返回 Promise<{ selector, by, text }>
 let pickResolve = null;
 
 // 拾取脚本源码（注入到主文档 + 所有子框架，这样 iframe 里的元素也能拾取）
-function pickScriptSource() {
+function pickScriptSource(token = '') {
   return `
     (function () {
-      // 清掉旧状态
-      window.__rpaPicked = undefined;
+      if (typeof window.__rpaPickCleanup === 'function') window.__rpaPickCleanup();
+      window.__rpaPickToken = ${JSON.stringify(token)};
+      window.__rpaPicked = {status:'waiting'};
       window.__rpaPickActive = true;
-
-      // 移除旧遮罩（如果还在）
       const old = document.getElementById('__rpa_pick_overlay');
       if (old) old.remove();
-      // 移除旧高亮
-      const all = document.querySelectorAll('[style*="outline"]');
-      all.forEach(el => { el.style.outline = ''; el.style.outlineOffset = ''; });
-
-      // 创建遮罩 + 提示
       const overlay = document.createElement('div');
       overlay.id = '__rpa_pick_overlay';
-      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:10px 14px;background:#4a6cf7;color:#fff;font:14px/1.4 system-ui;z-index:2147483647;box-shadow:0 2px 10px rgba(0,0,0,.3);text-align:center;';
-      overlay.innerHTML = '🎯 <b>元素拾取模式</b>：点击目标元素  |  按 ESC 取消';
-      document.body.appendChild(overlay);
-
-      // hover 高亮
-      let lastHover = null;
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:10px 14px;background:#4a6cf7;color:#fff;font:14px/1.4 system-ui;z-index:2147483647;text-align:center;pointer-events:none;';
+      overlay.textContent = '元素拾取模式：点击目标元素，按 Esc 取消';
+      (document.body || document.documentElement).appendChild(overlay);
+      let lastHover = null, outline = '', offset = '';
       function highlight(el) {
         if (lastHover === el) return;
-        if (lastHover) lastHover.style.outline = '';
+        if (lastHover && lastHover.style) { lastHover.style.outline = outline; lastHover.style.outlineOffset = offset; }
         lastHover = el;
-        if (el) {
-          el.style.outline = '2px dashed #4a6cf7';
-          el.style.outlineOffset = '-2px';
+        if (el && el.style) {
+          outline = el.style.outline; offset = el.style.outlineOffset;
+          el.style.outline = '2px dashed #4a6cf7'; el.style.outlineOffset = '-2px';
         }
       }
-
       ${ROBUST_SELECTOR_JS}
       function buildXPath(el) {
-        if (!el || el === document.body) return '';
-        if (el.id) return '//*[@id="' + el.id + '"]';
         const parts = [];
-        let cur = el;
-        while (cur && cur.nodeType === 1 && cur !== document.body) {
-          let part = cur.tagName.toLowerCase();
-          const parent = cur.parentElement;
-          if (parent) {
-            const sameTag = [...parent.children].filter(c => c.tagName === cur.tagName);
-            if (sameTag.length > 1) part += '[' + (sameTag.indexOf(cur) + 1) + ']';
-          }
-          parts.unshift(part);
-          cur = parent;
+        while (el && el.nodeType === 1) {
+          const tag = el.localName;
+          const siblings = el.parentElement ? Array.from(el.parentElement.children).filter(e => e.localName === tag) : [el];
+          parts.unshift('*[local-name()=' + JSON.stringify(tag) + '][' + (siblings.indexOf(el) + 1) + ']');
+          el = el.parentElement;
         }
-        return '//' + parts.join('/');
+        return '/' + parts.join('/');
       }
-
-      // 阻止真实点击
-      function block(e) { e.preventDefault(); e.stopPropagation(); }
-
-      document.addEventListener('mousemove', function (e) {
-        highlight(e.target);
-      }, true);
-
-      document.addEventListener('click', function (e) {
-        const el = e.target;
+      let pressedInPage = false;
+      function block(e) { e.preventDefault(); e.stopImmediatePropagation(); }
+      function pointerdown(e) {
+        pressedInPage = window.__rpaPickActive && e.isTrusted && e.button === 0;
         block(e);
-        const css = buildSelector(el);
-        const xp = buildXPath(el);
-        const text = (el.innerText || el.value || '').trim().slice(0, 60);
-        // 清理
-        if (lastHover) lastHover.style.outline = '';
-        overlay.remove();
+      }
+      function resetPress() { pressedInPage = false; }
+      function target(e) { return (e.composedPath && e.composedPath()[0]) || e.target; }
+      function hover(e) { if (window.__rpaPickActive) highlight(target(e)); }
+      function cleanup() {
         window.__rpaPickActive = false;
-        window.__rpaPicked = { css, xpath: xp, text };
-      }, true);
-
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-          if (lastHover) lastHover.style.outline = '';
-          overlay.remove();
-          window.__rpaPickActive = false;
-          window.__rpaPicked = null;
-        }
-      }, true);
+        highlight(null); overlay.remove();
+        window.removeEventListener('mousemove', hover, true);
+        window.removeEventListener('pointerdown', pointerdown, true);
+        window.removeEventListener('pointercancel', resetPress, true);
+        window.removeEventListener('blur', resetPress, true);
+        window.removeEventListener('mousedown', block, true);
+        window.removeEventListener('mouseup', block, true);
+        window.removeEventListener('click', choose, true);
+        window.removeEventListener('keydown', keydown, true);
+      }
+      function choose(e) {
+        if (!window.__rpaPickActive) return;
+        block(e);
+        if (!pressedInPage || !e.isTrusted || e.button !== 0) return;
+        pressedInPage = false;
+        try {
+          const el = target(e);
+          const css = buildSelector(el);
+          if (!css || !__qAll(css).includes(el)) throw new Error('未能生成可用的元素定位，请重新拾取');
+          window.__rpaPicked = {status:'selected', css, xpath:buildXPath(el), text:String(el.innerText || el.value || el.textContent || '').trim().slice(0,60)};
+        } catch (err) { window.__rpaPicked = {status:'error', error:String(err.message || err)}; }
+        finally { cleanup(); }
+      }
+      function keydown(e) {
+        if (e.isTrusted && e.key === 'Escape') { block(e); window.__rpaPicked = {status:'canceled'}; cleanup(); }
+      }
+      window.__rpaPickCleanup = cleanup;
+      window.addEventListener('mousemove', hover, true);
+      window.addEventListener('pointerdown', pointerdown, true);
+      window.addEventListener('pointercancel', resetPress, true);
+      window.addEventListener('blur', resetPress, true);
+      window.addEventListener('mousedown', block, true);
+      window.addEventListener('mouseup', block, true);
+      window.addEventListener('click', choose, true);
+      window.addEventListener('keydown', keydown, true);
+      return true;
     })();
   `;
 }
@@ -588,89 +597,99 @@ function pickScriptSource() {
 // 兼容旧调用：往当前激活窗口（含所有子框架）注入拾取脚本
 function injectPickScript() {
   const win = ensureBrowserWindow();
-  injectAllFrames(win.webContents, pickScriptSource());
+  return injectAllFrames(win.webContents, pickScriptSource());
 }
 
-// 把一段脚本注入到「主文档 + 所有子框架」（framesInSubtree 连跨域 iframe 也拿得到），
-// 这样用户在 iframe 里点元素也能被拾取到 —— 只注入主文档的话 iframe 内部完全无感。
+// 每个框架有独立期限，避免一个未响应的子页面拖住所有拾取结果。
+function boundedFrameCall(task, timeout = 2000) {
+  let timer;
+  return Promise.race([
+    Promise.resolve().then(task),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('网页框架响应超时')), timeout); })
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function injectAllFrames(wc, script) {
-  let frames = [];
-  try { frames = (wc.mainFrame && wc.mainFrame.framesInSubtree) || []; } catch (e) { frames = []; }
-  if (!frames.length) { try { await wc.executeJavaScript(script, true); } catch (e) { } return; }
-  await Promise.all(frames.map(f => f.executeJavaScript(script, true).catch(() => { })));
+  const frames = wc.mainFrame.framesInSubtree;
+  const results = await Promise.allSettled(frames.map(f =>
+    boundedFrameCall(() => f.executeJavaScript(script, true))));
+  if (!results.some(r => r.status === 'fulfilled')) {
+    throw new Error('无法在当前网页启用拾取：' + (results[0]?.reason?.message || '没有可用的网页框架'));
+  }
 }
 
-// 在「主文档 + 所有子框架」里求值，返回第一个有意义的结果；
-// 全都没值时返回最后一次的 null（用于区分"取消了"）
+// 同时读取，优先交付已点选的结果；取消只在没有成功结果时返回。
 async function readAllFrames(wc, expr) {
-  let frames = [];
-  try { frames = (wc.mainFrame && wc.mainFrame.framesInSubtree) || []; } catch (e) { frames = []; }
-  if (!frames.length) return await wc.executeJavaScript(expr, true).catch(() => undefined);
-  let fallback;
-  for (const f of frames) {
-    const r = await f.executeJavaScript(expr, true).catch(() => undefined);
-    if (r !== undefined && r !== null) return r;
-    if (r !== undefined) fallback = r;
-  }
-  return fallback;
+  const frames = wc.mainFrame.framesInSubtree;
+  return await new Promise(resolve => {
+    let remaining = frames.length, fallback;
+    if (!remaining) return resolve(undefined);
+    frames.forEach(f => {
+      boundedFrameCall(() => f.executeJavaScript(expr, true)).then(value => {
+        if (value !== undefined && value !== null) resolve(value);
+        else if (value === null) fallback = null;
+      }).catch(() => {}).finally(() => { if (!--remaining) resolve(fallback); });
+    });
+  });
 }
 
-// 拾取元素：注入脚本 + 轮询检测用户操作（支持在 iframe 里点选）
+let pickerSequence = 0;
+let pickerBusy = false;
 async function pickElement() {
-  // 外部浏览器（Edge / 便携Chrome）：注入到所有框架，再逐框架读结果
-  if (extOn()) {
-    await extBrowser.injectAll('(() => { window.__rpaPicked = undefined; return true; })()');
-    await extBrowser.injectAll(pickScriptSource());
-    for (let i = 0; i < 100; i++) {
-      await new Promise(r => setTimeout(r, 500));
-      if (!extBrowser.isRunning()) return { canceled: true };
-      const picked = await extBrowser.readAllFrames('window.__rpaPicked').catch(() => undefined);
-      if (picked === null) return { canceled: true };
-      if (picked) return { canceled: false, css: picked.css, xpath: picked.xpath, text: picked.text };
+  if (pickerBusy) throw new Error('正在拾取元素，请先完成或取消本次拾取');
+  pickerBusy = true;
+  const token = 'pick-' + (++pickerSequence);
+  let inject, read, alive;
+  try {
+    if (extOn()) {
+      await extBrowser.focusCurrent();
+      inject = script => extBrowser.injectAll(script);
+      read = expr => extBrowser.readAllFrames(expr);
+      alive = () => extBrowser.isRunning();
+    } else {
+      const win = ensureBrowserWindow();
+      const wc = win.webContents;
+      inject = script => injectAllFrames(wc, script);
+      read = expr => readAllFrames(wc, expr);
+      alive = () => !win.isDestroyed();
     }
-    return { canceled: true };
+    await inject(pickScriptSource(token));
+    const deadline = Date.now() + 120000;
+    // Only terminal states are returned; empty transport values are never cancellation.
+    const expr = '(() => { const p = window.__rpaPicked; return window.__rpaPickToken === ' +
+      JSON.stringify(token) + ' && p && ["selected","canceled","error"].includes(p.status) ? p : undefined; })()';
+    while (Date.now() < deadline) {
+      if (!alive()) return {canceled:true};
+      const picked = await read(expr);
+      if (picked && picked.status === 'canceled') return {canceled:true};
+      if (picked && (picked.status === 'selected' || picked.status === 'error')) {
+        if (picked.error) throw new Error(picked.error);
+        if (!picked.css) throw new Error('拾取结果没有有效的定位信息，请重新拾取');
+        return {canceled:false, css:picked.css, xpath:picked.xpath, text:picked.text};
+      }
+      await new Promise(r => setTimeout(r, 100));
+    }
+    throw new Error('元素拾取超时，请重新点击“拾取元素”后在网页中选择目标');
+  } finally {
+    try {
+      if (inject && alive()) await inject('(() => { if (window.__rpaPickToken === ' + JSON.stringify(token) +
+        ' && typeof window.__rpaPickCleanup === "function") window.__rpaPickCleanup(); return true; })()');
+    } catch (_) { /* 页面关闭或导航后无需清理旧文档。 */ }
+    pickerBusy = false;
   }
-  const win = ensureBrowserWindow();
-  const wc = win.webContents;
-  // 清空之前的状态
-  await injectAllFrames(wc, '(() => { window.__rpaPicked = undefined; return true; })()');
-  await injectAllFrames(wc, pickScriptSource());
-
-  // 轮询直到用户点击或取消
-  for (let i = 0; i < 100; i++) { // 最多等 50 秒
-    await new Promise(r => setTimeout(r, 500));
-    if (win.isDestroyed()) return { canceled: true };
-    const picked = await readAllFrames(wc, 'window.__rpaPicked');
-    if (picked === null) return { canceled: true };
-    if (picked) return { canceled: false, css: picked.css, xpath: picked.xpath, text: picked.text };
-  }
-  return { canceled: true };
 }
 
 // 抓取拾取：进入拾取模式，用户点选元素后自动抓取文本（单个 + 同类全部），回传结果
 async function pickForScrape() {
-  const win = ensureBrowserWindow();
-  const wc = win.webContents;
-  // 进入拾取模式（注入到所有子框架，iframe 里的元素也能点选）
-  await injectAllFrames(wc, '(() => { window.__rpaPicked = undefined; return true; })()');
-  await injectAllFrames(wc, pickScriptSource());
-
-  // 轮询等待用户点选
-  let picked = null;
-  for (let i = 0; i < 100; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    if (win.isDestroyed()) return { canceled: true };
-    picked = await readAllFrames(wc, 'window.__rpaPicked');
-    if (picked === null) return { canceled: true };
-    if (picked) break;
-  }
-  if (!picked) return { canceled: true };
+  const picked = await pickElement();
+  if (picked.canceled) return picked;
+  const read = extOn() ? expr => extBrowser.readAllFrames(expr) : expr => readAllFrames(requireBrowserWindow().win.webContents, expr);
 
   // 根据拾取的选择器，抓取单个文本 + 同类全部文本（在所有框架里找，取第一个有结果的）
   const css = picked.css;
-  const esc = css.replace(/'/g, "\\'");
   const scrapeScript = `(() => {
-    const sel = '${esc}';
+    const sel = ${JSON.stringify(css)};
+    if (!window.__rpaPicked || window.__rpaPicked.css !== sel) return null;
     const one = document.querySelector(sel);
     const all = document.querySelectorAll(sel);
     if (!all.length) return null;
@@ -680,7 +699,7 @@ async function pickForScrape() {
       samples: Array.from(all).slice(0, 20).map(e => (e.innerText || e.value || e.textContent || '').trim().slice(0, 100))
     };
   })()`;
-  const data = await readAllFrames(wc, scrapeScript);
+  const data = await read(scrapeScript);
   if (!data) return { canceled: true };
   return {
     canceled: false,
@@ -692,13 +711,14 @@ async function pickForScrape() {
   };
 }
 
-// ============ 坐标拾取（多点，最多 9 个）============
+// ============ 坐标拾取（多点）============
 // 在浏览器窗口叠一层拾取层：鼠标移动实时显示坐标、点击记一个点并在页面上标序号，
 // 已标的点还能拖着微调；Backspace 撤销一个，ESC 或点「完成」结束。
 function pointPickScriptSource(maxPoints) {
   return `
     (function () {
       const MAX = ${maxPoints};
+      if (typeof window.__rpaPointCleanup === 'function') window.__rpaPointCleanup();
       const oldOv = document.getElementById('__rpa_pointpick');
       if (oldOv) oldOv.remove();
       window.__rpaPoints = window.__rpaPoints || [];
@@ -709,7 +729,7 @@ function pointPickScriptSource(maxPoints) {
 
       const ov = document.createElement('div');
       ov.id = '__rpa_pointpick';
-      ov.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483647;cursor:crosshair;background:transparent;';
+      ov.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483647;cursor:crosshair;background:transparent;touch-action:none;';
       document.documentElement.appendChild(ov);
 
       // 十字准线（跟随鼠标，方便精确定位）
@@ -749,7 +769,7 @@ function pointPickScriptSource(maxPoints) {
           // 记录点时的滚动位置也存了，这里按滚动量补偿，标注就"粘"在页面内容上
           var dx = window.scrollX - (p.sx || 0), dy = window.scrollY - (p.sy || 0);
           m.style.cssText = 'position:fixed;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;'
-            + 'background:#e74c3c;color:#fff;font:600 12px/24px system-ui;text-align:center;'
+            + 'background:rgba(255,0,0,0.5);color:#fff;border:2px solid #d93025;box-sizing:border-box;font:700 13px/20px system-ui;text-align:center;'
             + 'box-shadow:0 1px 6px rgba(0,0,0,.4);cursor:move;user-select:none;'
             + 'left:' + (p.x - dx) + 'px;top:' + (p.y - dy) + 'px;';
           m.textContent = String(i + 1);
@@ -770,92 +790,100 @@ function pointPickScriptSource(maxPoints) {
       function finish() {
         window.__rpaPointsDone = true;
         ov.remove();
+        document.removeEventListener('keydown', pointKeydown, true);
+        window.removeEventListener('scroll', renderMarks, true);
         if (bar) bar.style.display = '';
       }
 
-      var dragIdx = -1;
-      ov.addEventListener('mousemove', function (e) {
-        if (dragIdx >= 0) {
-          var p = window.__rpaPoints[dragIdx];
-          if (p) {
-            p.x = Math.round(e.clientX); p.y = Math.round(e.clientY);
-            p.sx = window.scrollX; p.sy = window.scrollY;
-            renderMarks(); sync();
-          }
-        }
+      window.__rpaPointCleanup = finish;
+      let dragging = null;
+      function stopPointer(e) { e.preventDefault(); e.stopPropagation(); }
+      ov.addEventListener('pointerdown', function (e) {
+        if (panel.contains(e.target) || e.button !== 0) return;
+        stopPointer(e);
+        const mark = e.target.closest('[data-idx]');
+        const index = mark ? Number(mark.getAttribute('data-idx')) : -1;
+        dragging = {id:e.pointerId, index, startX:e.clientX, startY:e.clientY,
+          dx:index >= 0 ? window.__rpaPoints[index].x - e.clientX : 0,
+          dy:index >= 0 ? window.__rpaPoints[index].y - e.clientY : 0};
+        ov.setPointerCapture(e.pointerId);
+      }, true);
+      ov.addEventListener('pointermove', function (e) {
         setXY(e.clientX, e.clientY);
-      });
-      ov.addEventListener('mousedown', function (e) {
-        var t = e.target;
-        e.preventDefault(); e.stopPropagation();
-        if (t && t.getAttribute && t.getAttribute('data-idx') !== null) dragIdx = Number(t.getAttribute('data-idx'));
+        if (!dragging || dragging.id !== e.pointerId || dragging.index < 0) return;
+        stopPointer(e);
+        const p = window.__rpaPoints[dragging.index];
+        p.x = Math.max(0, Math.min(innerWidth - 1, Math.round(e.clientX + dragging.dx)));
+        p.y = Math.max(0, Math.min(innerHeight - 1, Math.round(e.clientY + dragging.dy)));
+        p.sx = window.scrollX; p.sy = window.scrollY;
+        renderMarks(); sync();
       }, true);
-      ov.addEventListener('mouseup', function (e) { e.preventDefault(); e.stopPropagation(); dragIdx = -1; }, true);
+      ov.addEventListener('pointerup', function (e) {
+        if (!dragging || dragging.id !== e.pointerId) return;
+        stopPointer(e);
+        const selected = dragging;
+        dragging = null;
+        if (ov.hasPointerCapture(e.pointerId)) ov.releasePointerCapture(e.pointerId);
+        if (selected.index < 0 && Math.hypot(e.clientX-selected.startX, e.clientY-selected.startY) < 5) {
+          addPoint(e.clientX, e.clientY);
+        }
+      }, true);
+      ov.addEventListener('pointercancel', function () { dragging = null; });
       ov.addEventListener('click', function (e) {
-        e.preventDefault(); e.stopPropagation();
-        if (dragIdx >= 0) return;
-        var t = e.target;
-        if (t && t.getAttribute && t.getAttribute('data-idx') !== null) return;   // 点的是标注本身，不算新点
-        addPoint(e.clientX, e.clientY);
+        if (!panel.contains(e.target)) stopPointer(e);
       }, true);
-      ov.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
-      ov.addEventListener('wheel', function (e) { e.stopPropagation(); }, true);
-
-      panel.querySelector('#__pp_done').addEventListener('click', finish);
+      ov.addEventListener('contextmenu', stopPointer, true);
+      // 取点期间固定视口，标记、保存坐标和执行坐标始终使用同一原点。
+      ov.addEventListener('wheel', stopPointer, {capture:true, passive:false});
+      panel.querySelector('#__pp_done').addEventListener('click', () => finish());
       panel.querySelector('#__pp_clear').addEventListener('click', function () {
         window.__rpaPoints = []; renderMarks(); sync();
       });
-      document.addEventListener('keydown', function (e) {
+      function pointKeydown(e) {
         if (e.key === 'Escape') { e.preventDefault(); finish(); }
         else if (e.key === 'Backspace') { e.preventDefault(); window.__rpaPoints.pop(); renderMarks(); sync(); }
-      }, true);
+      }
+      document.addEventListener('keydown', pointKeydown, true);
       window.addEventListener('scroll', renderMarks, true);
-
-      setXY(0, 0); sync();
+      renderMarks(); setXY(0, 0); sync();
     })();
   `;
 }
 
-// 往内置窗口注入坐标拾取层（外部浏览器走 injectAll）
-function injectPointPickScript(wc, maxPoints) {
-  wc.executeJavaScript(pointPickScriptSource(maxPoints), true).catch(() => { });
-}
-
-// 进入坐标拾取模式，等用户点完返回点列表（最多 5 分钟）
-async function pickPoints(maxPoints = 9) {
-  // 外部浏览器（Edge / 便携Chrome）：注入拾取层脚本 + 逐框架轮询结果
+// 坐标始终相对于页面主视口，子框架不另建坐标原点。
+async function pickPoints(maxPoints = 1000, initialPoints = []) {
+  let execute, alive;
   if (extOn()) {
-    await extBrowser.injectAll('(() => { window.__rpaPoints = []; window.__rpaPointsDone = false; return true; })()');
-    await extBrowser.injectAll(pointPickScriptSource(maxPoints));
-    for (let i = 0; i < 600; i++) {
-      await new Promise(r => setTimeout(r, 500));
-      if (!extBrowser.isRunning()) return { canceled: true };
-      const st = await extBrowser.readAllFrames('({ done: !!window.__rpaPointsDone, points: (window.__rpaPoints || []).map(function(p){ return { x: p.x, y: p.y }; }) })').catch(() => null);
-      if (st && st.done) {
-        const pts = st.points || [];
-        if (!pts.length) return { canceled: true };
-        return { canceled: false, points: pts, count: pts.length };
+    await extBrowser.focusCurrent();
+    execute = script => extBrowser.execJS(script, 2000);
+    alive = () => extBrowser.isRunning();
+  } else {
+    const win = ensureBrowserWindow();
+    execute = script => boundedFrameCall(() => win.webContents.mainFrame.executeJavaScript(script, true));
+    alive = () => !win.isDestroyed();
+  }
+  try {
+    const points = (Array.isArray(initialPoints) ? initialPoints : []).slice(0, 1000).map(p => ({x:Math.round(Number(p.x)), y:Math.round(Number(p.y))}));
+    if (points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('已有坐标包含无效数字');
+    await execute('(() => { window.__rpaPoints = (' + JSON.stringify(points) + ').map(p => ({...p, sx:window.scrollX, sy:window.scrollY})); return true; })()');
+    await execute(pointPickScriptSource(Math.max(1, Math.min(1000, Number(maxPoints) || 1000))));
+    // 留出时间在 Python 桥接的 180 秒期限之前清理拾取层并反馈。
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      if (!alive()) return {canceled:true};
+      const state = await execute('({done:!!window.__rpaPointsDone, points:(window.__rpaPoints || []).map(p => ({x:p.x,y:p.y}))})');
+      if (state && state.done) {
+        const points = state.points || [];
+        return points.length ? {canceled:false, points, count:points.length} : {canceled:true};
       }
+      await new Promise(r => setTimeout(r, 100));
     }
-    return { canceled: true };
+    throw new Error('坐标拾取超时，请重新拾取');
+  } finally {
+    try {
+      if (alive()) await execute('(() => { if (typeof window.__rpaPointCleanup === "function") window.__rpaPointCleanup(); return true; })()');
+    } catch (_) {}
   }
-  const win = ensureBrowserWindow();
-  const wc = win.webContents;
-  await wc.executeJavaScript('(() => { window.__rpaPoints = []; window.__rpaPointsDone = false; return true; })()', true).catch(() => { });
-  injectPointPickScript(wc, maxPoints);
-  for (let i = 0; i < 600; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    if (win.isDestroyed()) return { canceled: true };
-    const st = await wc.executeJavaScript(
-      '({ done: !!window.__rpaPointsDone, points: (window.__rpaPoints || []).map(function(p){ return { x: p.x, y: p.y }; }) })',
-      true).catch(() => null);
-    if (st && st.done) {
-      const pts = st.points || [];
-      if (!pts.length) return { canceled: true };
-      return { canceled: false, points: pts, count: pts.length };
-    }
-  }
-  return { canceled: true };
 }
 
 // ============ 把流程 json 拖到 exe 上直接打开 ============
@@ -1224,8 +1252,8 @@ ipcMain.handle('browser:loadURL', async (_e, url, target, loginMode, engine, wai
   if (norm === 'about:blank') throw new Error('请填写完整网页地址');
   // 指定了内核就先切过去（没指定就保持当前引擎）
   const ek = normalizeEngineKey(engine);
-  if (ek && ek !== browserEngine) {
-    const sw = await switchEngineTo(ek);
+  if ((ek && ek !== browserEngine) || (browserEngine !== '内置' && !extBrowser.isRunning())) {
+    const sw = await switchEngineTo(ek || browserEngine);
     if (!sw.ok) throw new Error(sw.err || '浏览器内核启动失败');
   }
   if (extOn()) {
@@ -1236,7 +1264,10 @@ ipcMain.handle('browser:loadURL', async (_e, url, target, loginMode, engine, wai
   let targetWin = wantNew ? createBrowserWindow('about:blank', loginMode) : getActiveBrowser();
   if (!targetWin) targetWin = createBrowserWindow('about:blank', loginMode);
   // Await the actual navigation, not the initial blank document.
-  const navigation = targetWin.win.webContents.loadURL(norm);
+  if (targetWin.win.isMinimized()) targetWin.win.restore();
+  targetWin.win.show();
+  targetWin.win.focus();
+  const navigation = navigateBrowser(targetWin.win.webContents, norm);
   if (waitForLoad) await navigation;
   else navigation.catch(() => {});
   return { id: targetWin.id, url: waitForLoad ? targetWin.win.webContents.getURL() : norm, badge: targetWin.badge };
@@ -1248,8 +1279,11 @@ ipcMain.handle('browser:newTab', async (_e, url, loginMode) => {
     const r = await extBrowser.createTarget(normalizeUrl(url));
     return { id: r.id, url: r.url, badge: browserEngine };
   }
-  const tab = createBrowserWindow(url, loginMode);
-  return { id: tab.id, url: tab.win.webContents.getURL(), badge: tab.badge };
+  const norm = normalizeUrl(url);
+  if (norm === 'about:blank') throw new Error('请填写网页地址');
+  const tab = createBrowserWindow('about:blank', loginMode);
+  const actual = await navigateBrowser(tab.win.webContents,norm);
+  return { id: tab.id, url: actual, badge: tab.badge };
 });
 
 // 切换/聚焦窗口
@@ -1349,10 +1383,10 @@ ipcMain.handle('browser:reload', async () => {
 // 加超时保护：页面加载失败/卡死时 executeJavaScript 可能永不返回，导致流程假死
 ipcMain.handle('browser:execJS', async (_e, jsCode, timeoutMs) => {
   if (extOn()) return await extBrowser.execJS(jsCode, timeoutMs);
-  const active = getActiveBrowser() || createBrowserWindow('about:blank', LOGIN_MODE.CLEAN);
+  const active = requireBrowserWindow();
   const limit = Math.max(1000, Number(timeoutMs) || 30000);
   return await Promise.race([
-    active.win.webContents.executeJavaScript(jsCode, true),
+    active.win.webContents.mainFrame.executeJavaScript(jsCode, true),
     new Promise((_res, rej) => setTimeout(() => rej(new Error('页面脚本执行超时（可能是页面未加载成功）')), limit))
   ]);
 });
@@ -1363,14 +1397,14 @@ ipcMain.handle('browser:execJS', async (_e, jsCode, timeoutMs) => {
 // 注意：只适合"找不到就抛错或返回假值"的脚本（元素定位、点击、输入这类），不要塞有副作用的脚本。
 ipcMain.handle('browser:execJSFrames', async (_e, jsCode, timeoutMs) => {
   if (extOn()) return await extBrowser.execJSFrames(jsCode, timeoutMs);
-  const active = getActiveBrowser() || createBrowserWindow('about:blank', LOGIN_MODE.CLEAN);
+  const active = requireBrowserWindow();
   const wc = active.win.webContents;
   const limit = Math.max(1000, Number(timeoutMs) || 30000);
   let frames = [];
   try { frames = (wc.mainFrame && wc.mainFrame.framesInSubtree) || []; } catch (e) { frames = []; }
   if (!frames.length) {
     return await Promise.race([
-      wc.executeJavaScript(jsCode, true),
+      wc.mainFrame.executeJavaScript(jsCode, true),
       new Promise((_res, rej) => setTimeout(() => rej(new Error('页面脚本执行超时（可能是页面未加载成功）')), limit))
     ]);
   }
@@ -1412,7 +1446,7 @@ async function sendKeyToActiveWindow(key, times, modifiers) {
   const wc = win.webContents;
   const n = Math.max(1, Math.min(20, Number(times) || 1));
 
-  await wc.executeJavaScript('(() => { window.__rpaFocusKeeper = document.activeElement; return true; })()', true).catch(() => { });
+  await wc.mainFrame.executeJavaScript('(() => { window.__rpaFocusKeeper = document.activeElement; return true; })()', true).catch(() => { });
   try {
     if (!win.isVisible()) win.show();
     if (win.isMinimized()) win.restore();
@@ -1421,7 +1455,7 @@ async function sendKeyToActiveWindow(key, times, modifiers) {
   try { wc.focus(); } catch (e) { }
   await new Promise(r => setTimeout(r, 150));
   // 把焦点还给刚才那个元素（不然回车会打到 body 上）
-  await wc.executeJavaScript(`(() => {
+  await wc.mainFrame.executeJavaScript(`(() => {
     const el = window.__rpaFocusKeeper;
     if (el && el.focus && document.activeElement !== el) { try { el.focus(); } catch (e) { } }
     return (document.activeElement && (document.activeElement.id || document.activeElement.tagName)) || '';
@@ -1496,34 +1530,6 @@ ipcMain.handle('browser:resetZoom', () => {
 
 // ============ 浏览器窗口操作（悬浮工具栏动作 / 全屏 / 最大化） ============
 
-// 悬浮工具栏动作（来自独立窗口的 ipcRenderer.send）
-ipcMain.on('browser:toolbarAction', (e, action) => {
-  // 找到发送动作的窗口
-  const sender = e.sender;
-  const item = browserWindows.find(b => b.win.webContents === sender);
-  if (!item) return;
-  const wc = item.win.webContents;
-  if (['back','forward','reload'].includes(action) || action.startsWith('navigate:')) acRecorder.markNavigation(wc);
-  if(action.startsWith('navigate:')) { const url=normalizeUrl(action.slice(9));if(/^https?:/.test(url))wc.loadURL(url).catch(()=>{}); }
-  else if (action === 'back') { if (wc.canGoBack()) wc.goBack(); }
-  else if (action === 'forward') { if (wc.canGoForward()) wc.goForward(); }
-  else if (action === 'reload') { wc.reload(); }
-  else if (action === 'close') { item.win.close(); }
-  else if (action === 'scrape') {
-    // 摘取元素：进入拾取模式，点选后抓取文本并回传主应用
-    activeBrowserId = item.id;
-    pickForScrape().then(r => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('browser:scrapePicked', r);
-      }
-    });
-  }
-  else if (action.startsWith('zoom:')) {
-    const lvl = parseFloat(action.split(':')[1]);
-    if (!isNaN(lvl)) { wc.setZoomLevel(lvl); wc.send('ac:zoomLevel',lvl); }
-  }
-});
-
 // 抓取拾取（供主应用主动调用）
 ipcMain.handle('browser:pickForScrape', async () => {
   return await pickForScrape();
@@ -1580,8 +1586,8 @@ ipcMain.handle('browser:pickElement', async () => {
 });
 
 // 坐标拾取（多点）：在浏览器里点几个点，返回这些点的坐标
-ipcMain.handle('browser:pickPoints', async (_e, maxPoints) => {
-  return await pickPoints(Number(maxPoints) || 9);
+ipcMain.handle('browser:pickPoints', async (_e, maxPoints, initialPoints) => {
+  return await pickPoints(Number(maxPoints) || 1000, initialPoints);
 });
 
 // ============ Excel 编辑器弹出为独立窗口 ============
@@ -1828,7 +1834,7 @@ ipcMain.handle('ac:browserScreenshot', async (_e, selector, target) => {
   if (!active) throw new Error('请先打开网页');
   let rect;
   if (selector) {
-    rect = await active.win.webContents.executeJavaScript('(function(){const e=document.querySelector(' + JSON.stringify(selector) + ');if(!e)throw new Error("未找到截图元素");e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();if(r.width<=0||r.height<=0)throw new Error("截图元素不可见");return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)};})()');
+    rect = await active.win.webContents.mainFrame.executeJavaScript('(function(){const e=document.querySelector(' + JSON.stringify(selector) + ');if(!e)throw new Error("未找到截图元素");e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();if(r.width<=0||r.height<=0)throw new Error("截图元素不可见");return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)};})()');
   }
   const picture = await active.win.webContents.capturePage(rect);
   fs.writeFileSync(target, picture.toPNG());

@@ -38,7 +38,7 @@ def test_palette_next_step_payload_and_replacement(app):
     p=InstructionPalette(INSTRUCTION_SPECS)
     p.show_recent_ocr((1,2,30,40))
     p.command_added('OCR复制')
-    assert p._quick_ocr_item.childCount()==0
+    assert p._quick_ocr_item.childCount()>0 and not p._quick_ocr_item.isExpanded()
     assert p._guide_item.childCount()>=6
     item=p._guide_item.child(0);p.tree.setCurrentItem(item)
     assert p.quick_parameters('坐标点击')=={}
@@ -46,7 +46,7 @@ def test_palette_next_step_payload_and_replacement(app):
     p.tree.setCurrentItem(p._guide_item.child(0))
     assert p.quick_parameters('OCR粘贴')=={'内容来源':'剪贴板'}
     p.show_recent_capture('another.png')
-    assert p._guide_item.childCount()==0
+    assert p._guide_item.childCount()>0 and not p._guide_item.isExpanded()
     p.close();p.deleteLater()
 
 def test_code_completion_preserves_other_lines_and_undo(app):
@@ -98,4 +98,62 @@ def test_editor_cancel_does_not_advance_but_confirm_does(app,tmp_path,monkeypatc
     app.processEvents()
     assert ws.palette._guide_item.childCount()>=6
     assert len(ws.repository.list_commands())==1
+    owner.close();owner.deleteLater()
+
+
+def test_open_web_followups_offer_waits_then_web_actions():
+    choices = next_steps('打开网页')
+    assert [item.kind for item in choices[:3]] == ['等待（秒）', '等待元素出现', '等待页面加载完成']
+    assert {'拾取元素', '点击元素', '输入文本', '粘贴到网页元素', '获取文本'} <= {item.kind for item in choices}
+    for wait in choices[:3]:
+        assert '点击元素' in {item.kind for item in next_steps(wait.kind)}
+        assert wait.kind not in {item.kind for item in next_steps(wait.kind)}
+        assert command_template(wait).startswith(wait.kind + '(')
+    assert '等待页面加载完成' in {item.kind for item in matching('等待网页加载完毕')}
+
+
+def test_web_wait_shortcuts_replace_previous_guide(app):
+    palette = InstructionPalette(INSTRUCTION_SPECS)
+    palette.command_added('打开网页')
+    assert palette._web_open_item.text(0) == '打开网页'
+    assert palette._web_open_item.isExpanded()
+    assert palette._guide_item.childCount() == 0
+    expected = ['等待（秒）', '等待元素出现', '等待页面加载完成']
+    for index, kind in enumerate(expected):
+        item = palette._web_open_item.child(index)
+        assert item.data(0, TYPE_ID_ROLE) == kind
+        palette.tree.setCurrentItem(item)
+        assert palette.quick_parameters(kind) == {}
+    palette.command_added('等待元素出现')
+    assert palette._guide_item.text(0) == '等待元素出现后，可以…'
+    assert palette._guide_item.child(0).data(0, TYPE_ID_ROLE) == '拾取元素'
+    palette.close(); palette.deleteLater()
+
+
+def test_double_click_web_adds_once_and_followups_can_collapse(app,tmp_path,monkeypatch):
+    from qt_compat.QtWidgets import QWidget
+    from instruction_workspace import InstructionWorkspace
+    from 数据库操作 import DatabaseOperation
+    from instructions.registry import InstructionSpec
+    owner=QWidget();owner.db=DatabaseOperation(str(tmp_path/'web-guide.db'))
+    ws=InstructionWorkspace(owner.db.db_path,owner)
+    def no_editor(*args,**kwargs):raise AssertionError('Web double-click should insert directly')
+    monkeypatch.setattr(InstructionSpec,'create_editor',no_editor)
+    web=ws.palette._web_open_item
+    ws.palette.tree.setCurrentItem(web)
+    ws.palette.tree.itemDoubleClicked.emit(web,0)
+    app.processEvents()
+    rows=ws.repository.list_commands()
+    assert len(rows)==1 and rows[0].type_id=='打开网页'
+    assert rows[0].parameters['engine']=='跟随当前'
+    count=web.childCount()
+    assert count>=8 and web.isExpanded()
+    ws.palette.tree.collapseItem(web)
+    assert not web.isExpanded() and web.childCount()==count
+    ws.palette.tree.expandItem(web)
+    assert web.isExpanded() and len(ws.repository.list_commands())==1
+    ws.palette.tree.setCurrentItem(web.child(0))
+    assert ws.palette.quick_parameters('等待（秒）')=={}
+    ws.palette.show_recent_capture('new.png')
+    assert web.childCount()>0 and not web.isExpanded()
     owner.close();owner.deleteLater()

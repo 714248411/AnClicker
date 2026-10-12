@@ -135,3 +135,16 @@ def test_entered_site_names_and_paths_keep_their_destination():
     assert normalize_web_url('localhost:8000/path') == 'https://localhost:8000/path'
     with pytest.raises(ValueError):
         normalize_web_url('https://')
+
+
+@pytest.mark.parametrize('address', ['hao123', 'hao123.com', 'https://hao123.com', 'https://www.hao123.com'])
+def test_hao123_entry_uses_homepage_without_offline_redirect(address):
+    from web_urls import normalize_web_url
+    assert normalize_web_url(address) == 'https://www.hao123.com'
+
+
+def test_hao123_normalization_preserves_paths_and_does_not_change_other_hosts():
+    from web_urls import normalize_web_url
+    assert normalize_web_url('https://hao123.com/path?q=1#part') == 'https://www.hao123.com/path?q=1#part'
+    assert normalize_web_url('https://img.hao123.com/file') == 'https://img.hao123.com/file'
+    assert normalize_web_url('https://hao123.com.example.org/') == 'https://hao123.com.example.org/'

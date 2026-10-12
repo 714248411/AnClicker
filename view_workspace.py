@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 
-from qt_compat.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
+from qt_compat.QtCore import QObject, QEvent, QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
 from qt_compat.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
 from qt_compat.QtWidgets import (
     QAbstractItemView,
@@ -25,7 +25,10 @@ from qt_compat.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSplitter,
+    QScrollArea,
+    QSizePolicy,
     QStackedWidget,
+    QTabBar,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -43,9 +46,8 @@ MAIN_VIEW = 0
 TABLE_VIEW = 1
 FLOW_VIEW = 2
 CODE_VIEW = 3
-NAVIGATION_VIEW = 4
-RECORDING_VIEW = 5
-WEB_RECORDING_VIEW = 6
+RECORDING_VIEW = 4
+WEB_RECORDING_VIEW = 5
 CODE_SETTING = "多功能代码"
 CODE_GRAPH_SIGNATURE_SETTING = "多功能流程签名"
 TASK_NAME_SETTING = "任务名称"
@@ -115,6 +117,8 @@ class InstructionTableWidget(QTableWidget):
             self.clearSelection()
             self.setCurrentCell(index.row(), index.column())
         menu = QMenu(self)
+        from context_menu_style import style_context_menu
+        style_context_menu(menu, self)
         count = len(self.selected_command_ids())
         copy = menu.addAction(f'复制选中指令（{count} 行）', self.copyRequested.emit)
         copy.setEnabled(count > 0)
@@ -122,7 +126,10 @@ class InstructionTableWidget(QTableWidget):
         menu.addSeparator()
         delete = menu.addAction(f'删除选中指令（{count} 行）', self.deleteRequested.emit)
         delete.setEnabled(count > 0)
-        menu.exec(event.globalPos())
+        try:
+            menu.exec(event.globalPos())
+        finally:
+            menu.deleteLater()
 
     def mousePressEvent(self, event):
         self._row_press = None
@@ -214,6 +221,60 @@ class InstructionTableWidget(QTableWidget):
         super().dragLeaveEvent(event)
 
 
+class _ToolbarDockOnDoubleClick(QObject):
+    """Return a floating toolbar to its last dock area from empty-space double clicks."""
+
+    def __init__(self, window, toolbar):
+        super().__init__(toolbar)
+        self.window = window
+        self.toolbar = toolbar
+        area = window.toolBarArea(toolbar)
+        self.area = area if area != Qt.ToolBarArea.NoToolBarArea else Qt.ToolBarArea.TopToolBarArea
+        toolbar.installEventFilter(self)
+        toolbar.topLevelChanged.connect(self._remember_area)
+
+    def _remember_area(self, floating=False):
+        if not floating and not self.toolbar.isFloating():
+            area = self.window.toolBarArea(self.toolbar)
+            if area != Qt.ToolBarArea.NoToolBarArea:
+                self.area = area
+
+    def eventFilter(self, watched, event):
+        if watched is self.toolbar:
+            if event.type() in (QEvent.Type.Move, QEvent.Type.Show):
+                self._remember_area()
+            elif (event.type() == QEvent.Type.MouseButtonDblClick
+                  and event.button() == Qt.MouseButton.LeftButton
+                  and self.toolbar.isFloating()):
+                point = event.position().toPoint()
+                action = self.toolbar.actionAt(point)
+                # Buttons, embedded controls and the overflow button retain their own behavior.
+                if action is not None and not action.isSeparator():
+                    return False
+                if self.toolbar.childAt(point) is not None:
+                    return False
+                event.accept()
+                QTimer.singleShot(0, self._dock)
+                return True
+        return super().eventFilter(watched, event)
+
+    def _dock(self):
+        if not self.toolbar.isFloating():
+            return
+        area = self.area
+        if not (self.toolbar.allowedAreas() & area):
+            area = next((candidate for candidate in (
+                Qt.ToolBarArea.TopToolBarArea, Qt.ToolBarArea.BottomToolBarArea,
+                Qt.ToolBarArea.LeftToolBarArea, Qt.ToolBarArea.RightToolBarArea)
+                if self.toolbar.allowedAreas() & candidate), None)
+        if area is None:
+            return
+        self.window.removeToolBar(self.toolbar)
+        self.toolbar.setParent(self.window, Qt.WindowType.Widget)
+        self.window.addToolBar(area, self.toolbar)
+        self.toolbar.show()
+
+
 class ViewWorkspace:
     """Coordinate six workspaces, palette layout and application theme."""
 
@@ -243,6 +304,17 @@ class ViewWorkspace:
             self.theme_mode = "light"
         self.palette_side = "left"
         self.palette_collapsed = False
+        guidance = str(window.db.get_setting_value('中文编程提示') or 'True').lower() not in ('false', '0', '关闭')
+        window.workspace.palette.set_guidance_enabled(guidance)
+        window.workspace.palette.guidanceEnabledChanged.connect(
+            lambda enabled: window.db.set_setting_value('中文编程提示', str(enabled)))
+        try:
+            order = json.loads(window.db.get_setting_value('指令栏置顶顺序') or '{}')
+        except (TypeError, ValueError):
+            order = {}
+        window.workspace.palette.restore_instruction_order(order)
+        window.workspace.palette.orderChanged.connect(
+            lambda order: window.db.set_setting_value('指令栏置顶顺序', json.dumps(order, ensure_ascii=False)))
         self._normalize_existing_controls()
         self._apply_theme()
         self._assemble_views()
@@ -270,11 +342,25 @@ class ViewWorkspace:
         self.window.pushButton_6.setObjectName("dangerButton")
         self.window.textEdit.setReadOnly(True)
         self.window.groupBox_3.setStyleSheet('')
+        status = self.window.statusBar
+        status.setSizeGripEnabled(False)
+        status.setFixedHeight(max(18, status.fontMetrics().height() + 2))
+        status.messageChanged.connect(self._sync_status_visibility)
+        self._sync_status_visibility(status.currentMessage())
+        self.window.gridLayout_4.setContentsMargins(4, 2, 4, 8)
+        self.window.gridLayout_4.setSpacing(4)
+        self.tabs.setUsesScrollButtons(True)
+        self.tabs.tabBar().setExpanding(False)
+        self.window.textEdit.setMinimumHeight(0)
+        self.window.textEdit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
+
+    def _sync_status_visibility(self, message):
+        compact = getattr(getattr(self, 'compact', None), 'active', False)
+        self.window.statusBar.setVisible(bool(message) and not compact)
 
     def _assemble_views(self) -> None:
         self.table_page = self.window.tab
         self._build_table_view()
-        self.navigation_page = self._build_beginner_view()
         self.main_page = self._build_main_view()
         self.editor_page = self._build_editor_view()
         self.code_page = self._build_code_view()
@@ -284,13 +370,19 @@ class ViewWorkspace:
         self.tabs.addTab(self.table_page, "表格")
         self.tabs.addTab(self.editor_page, "流程图")
         self.tabs.addTab(self.code_page, "多功能")
-        self.tabs.addTab(self.navigation_page, "导航")
         self.tabs.addTab(self.recording_page, "录制")
+        separator = QFrame(self.tabs.tabBar())
+        separator.setObjectName("workspaceTabSeparator")
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setFixedSize(10, 20)
+        separator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.tabs.tabBar().setTabButton(RECORDING_VIEW, QTabBar.ButtonPosition.LeftSide, separator)
         self.web_recording_page = WebRecordingView(self.window)
         self.tabs.addTab(self.web_recording_page, "网页录制")
 
     def _build_main_view(self) -> QWidget:
         page = QWidget()
+        page.setObjectName("mainWorkspacePage")
         layout = QVBoxLayout(page)
         hero, hero_layout = self._card(
             "An Clicker 自动化工作台",
@@ -305,7 +397,6 @@ class ViewWorkspace:
             ("打开表格", self.show_table, False),
             ("打开流程图", self.show_flow, True),
             ("打开多功能", self.show_code, False),
-            ("功能导航", self.show_navigation, False),
             ("键鼠录制", self.show_recording, False),
         ):
             button = QPushButton(label)
@@ -491,11 +582,13 @@ class ViewWorkspace:
         table_panel = QFrame()
         table_panel.setObjectName("workspacePanel")
         table_layout = QVBoxLayout(table_panel)
-        table_layout.setContentsMargins(12, 12, 12, 12)
+        table_layout.setContentsMargins(6, 4, 6, 4)
+        table_layout.setSpacing(4)
         table_title = QLabel("指令表格")
         table_title.setObjectName("sectionTitle")
         table_layout.addWidget(table_title)
         self.table_state = QLabel()
+        self.table_state.setWordWrap(True)
         self.table_state.setObjectName("mutedText")
         table_layout.addWidget(self.table_state)
         table_layout.addWidget(self.command_table, 1)
@@ -503,7 +596,8 @@ class ViewWorkspace:
         log_panel = QFrame()
         log_panel.setObjectName("workspacePanel")
         log_layout = QVBoxLayout(log_panel)
-        log_layout.setContentsMargins(12, 10, 12, 12)
+        log_layout.setContentsMargins(6, 4, 6, 4)
+        log_layout.setSpacing(4)
         log_header = QHBoxLayout()
         log_title = QLabel("运行日志")
         log_title.setObjectName("sectionTitle")
@@ -519,12 +613,21 @@ class ViewWorkspace:
         self.table_splitter = QSplitter(Qt.Orientation.Vertical)
         self.table_splitter.setObjectName("tableLogSplitter")
         self.table_splitter.setChildrenCollapsible(False)
+        self.command_table.setMinimumHeight(0)
+        self.command_table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         self.table_splitter.addWidget(table_panel)
         self.table_splitter.addWidget(log_panel)
         self.table_splitter.setStretchFactor(0, 3)
         self.table_splitter.setStretchFactor(1, 2)
-        self.table_splitter.setSizes([520, 260])
-        self.window.horizontalLayout.setContentsMargins(8, 8, 8, 8)
+        self.table_splitter.setHandleWidth(8)
+        sizes = [520,260]
+        try:
+            saved = json.loads(self.window.db.get_setting_value('表格日志面板高度') or 'null')
+            if isinstance(saved,list) and len(saved)==2 and all(isinstance(v,int) and v>0 for v in saved): sizes=saved
+        except (TypeError, ValueError): pass
+        self.table_splitter.setSizes(sizes)
+        self.table_splitter.splitterMoved.connect(lambda *_: self.window.db.set_setting_value('表格日志面板高度',json.dumps(self.table_splitter.sizes())))
+        self.window.horizontalLayout.setContentsMargins(2, 2, 2, 2)
         self.window.horizontalLayout.addWidget(self.table_splitter, 1)
 
     def _build_editor_view(self) -> QWidget:
@@ -573,8 +676,13 @@ class ViewWorkspace:
         self.command_list.itemDoubleClicked.connect(self._insert_command_hint)
         from guided_code_editor import GuidedCodeEditor
         self.code_editor = GuidedCodeEditor()
+        palette = self.window.workspace.palette
+        self.code_editor.set_guidance_enabled(palette.guidance_enabled)
+        palette.guidanceEnabledChanged.connect(self.code_editor.set_guidance_enabled)
         hint = QLabel("中文输入提示：↑↓选择，Tab / 回车插入，Esc关闭；Ctrl+空格查看下一步。模板参数可继续修改。")
         hint.setWordWrap(True)
+        hint.setVisible(palette.guidance_enabled)
+        palette.guidanceEnabledChanged.connect(hint.setVisible)
         layout.addWidget(hint)
         self.code_editor.textChanged.connect(self._schedule_code_save)
         splitter.addWidget(self.command_list)
@@ -584,6 +692,7 @@ class ViewWorkspace:
         return page
 
     def _build_navigation(self) -> None:
+        self._toolbar_dock_filter = _ToolbarDockOnDoubleClick(self.window, self.window.toolBar)
         self.window.toolBar.setIconSize(QSize(16, 16))
         toolbar_font = self.window.toolBar.font()
         base_size = toolbar_font.pointSize()
@@ -614,18 +723,19 @@ class ViewWorkspace:
         from compact_workspace import CompactWorkspace
         self.compact = CompactWorkspace(self)
         menu = QMenu("视图", self.window)
+        view_actions = {}
         for label, shortcut, callback in (
             ("主界面", "Ctrl+1", self.show_main),
             ("表格", "Ctrl+2", self.show_table),
             ("流程图", "Ctrl+3", self.show_flow),
             ("多功能", "Ctrl+4", self.show_code),
-            ("导航", "Ctrl+5", self.show_navigation),
             ("录制", "Ctrl+6", self.show_recording),
             ("网页录制", "Ctrl+7", self.show_web_recording),
             ("设置变量", "Ctrl+Shift+V", self.show_variables),
         ):
             action = QAction(label, self.window)
             action.setShortcut(QKeySequence(shortcut))
+            view_actions[label] = action
             action.triggered.connect(callback)
             menu.addAction(action)
         self.window.menubar.insertMenu(self.window.menu_4.menuAction(), menu)
@@ -633,6 +743,18 @@ class ViewWorkspace:
         self.window.menu_3.removeAction(self.window.actiong)
         self.window.actiong.setText('显示工具栏')
         menu.addAction(self.window.actiong)
+        view_actions['显示工具栏'] = self.window.actiong
+        guidance_action = QAction('中文编程提示', self.window)
+        guidance_action.setCheckable(True)
+        palette = self.window.workspace.palette
+        guidance_action.setChecked(palette.guidance_enabled)
+        guidance_action.toggled.connect(palette.set_guidance_enabled)
+        palette.guidanceEnabledChanged.connect(guidance_action.setChecked)
+        menu.addAction(guidance_action)
+        view_actions['中文编程提示'] = guidance_action
+        menu.addSeparator()
+        from view_shortcuts import install_view_shortcuts
+        install_view_shortcuts(self.window, menu, view_actions)
         self.window.menubar.removeAction(self.window.menu_3.menuAction())
 
     def toggle_primary(self) -> None:
@@ -644,7 +766,7 @@ class ViewWorkspace:
     def show_code(self):
         self._load_code()
         self.tabs.setCurrentIndex(CODE_VIEW)
-    def show_navigation(self): self.tabs.setCurrentIndex(NAVIGATION_VIEW)
+    def show_navigation(self): self.show_main()
     def show_recording(self): self.tabs.setCurrentIndex(RECORDING_VIEW)
 
     def show_web_recording(self): self.tabs.setCurrentIndex(WEB_RECORDING_VIEW)
@@ -702,28 +824,52 @@ class ViewWorkspace:
         if getattr(getattr(self, 'compact', None), 'active', False):
             return
         grid = self.window.gridLayout_4
-        palette = self.window.instructionPaletteHost
-        center = self.tabs
-        controls = self.window.groupBox_3
-        for widget in (palette, center, controls):
-            grid.removeWidget(widget)
-        if self.palette_side == "left":
-            grid.addWidget(palette, 0, 0, 1, 1)
-            grid.addWidget(center, 0, 1, 1, 1)
-            grid.addWidget(controls, 0, 2, 1, 1)
-            stretches = (0, 4, 1)
-        else:
-            grid.addWidget(center, 0, 0, 1, 1)
-            grid.addWidget(palette, 0, 1, 1, 1)
-            grid.addWidget(controls, 0, 2, 1, 1)
-            stretches = (4, 0, 1)
-        for column, stretch in enumerate(stretches):
-            grid.setColumnStretch(column, stretch)
+        if not hasattr(self, 'controls_scroll'):
+            controls = self.window.groupBox_3
+            grid.removeWidget(controls)
+            self.controls_scroll = QScrollArea()
+            self.controls_scroll.setObjectName('controlsScroll')
+            self.controls_scroll.viewport().setObjectName('controlsScrollViewport')
+            self.controls_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            self.controls_scroll.setWidgetResizable(True)
+            self.controls_scroll.setMinimumSize(180, 0)
+            self.controls_scroll.setWidget(controls)
+        palette, center, controls = self.window.instructionPaletteHost, self.tabs, self.controls_scroll
+        if not hasattr(self, 'workspace_splitter'):
+            self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
+            self.workspace_splitter.setObjectName('workspaceSplitter')
+            self.workspace_splitter.setChildrenCollapsible(False)
+            self.workspace_splitter.setHandleWidth(8)
+            for widget in (palette, center, controls):
+                grid.removeWidget(widget)
+                self.workspace_splitter.addWidget(widget)
+            grid.addWidget(self.workspace_splitter, 0, 0, 1, 3)
+            self._panel_sizes = {'palette':240, 'center':800, 'controls':300}
+            try:
+                saved = json.loads(self.window.db.get_setting_value('工作区面板宽度') or '{}')
+                if isinstance(saved, dict):
+                    self._panel_sizes.update({k:v for k,v in saved.items() if k in self._panel_sizes and isinstance(v,int) and 80<=v<=10000})
+            except (TypeError, ValueError): pass
+            self.workspace_splitter.splitterMoved.connect(self._save_panel_sizes)
+        order = ((palette, 'palette'), (center, 'center'), (controls, 'controls')) if self.palette_side == 'left' else ((center, 'center'), (palette, 'palette'), (controls, 'controls'))
+        for index, (widget, key) in enumerate(order):
+            if self.workspace_splitter.widget(index) is not widget:
+                self.workspace_splitter.insertWidget(index, widget)
+            self.workspace_splitter.setStretchFactor(index, int(widget is center))
+        self.workspace_splitter.setSizes([self._panel_sizes[key] for widget,key in order])
         palette.setVisible(
             self.tabs.currentIndex() in (TABLE_VIEW, FLOW_VIEW)
             and not self.palette_collapsed
         )
         self._update_view_actions()
+
+    def _save_panel_sizes(self, *_):
+        if getattr(getattr(self, 'compact', None), 'active', False): return
+        splitter = self.workspace_splitter
+        for widget,key in ((self.window.instructionPaletteHost,'palette'),(self.tabs,'center'),(self.controls_scroll,'controls')):
+            size = splitter.sizes()[splitter.indexOf(widget)]
+            if size > 0: self._panel_sizes[key] = size
+        self.window.db.set_setting_value('工作区面板宽度', json.dumps(self._panel_sizes))
 
     def _update_view_actions(self) -> None:
         self.primary_action.setText(
@@ -737,9 +883,29 @@ class ViewWorkspace:
         )
         self.theme_action.setText("切换深色" if self.theme_mode == "light" else "切换浅色")
 
+    def _remembered_pages(self):
+        return {
+            'main': self.main_page,
+            'table': self.table_page,
+            'flow': self.editor_page,
+            'code': self.code_page,
+            'recording': self.recording_page,
+            'web_recording': self.web_recording_page,
+        }
+
+    def restore_last_view(self):
+        # A missing or obsolete preference starts at the main page.
+        key = str(self.window.db.get_setting_value('上次关闭界面') or 'main')
+        self.tabs.setCurrentWidget(self._remembered_pages().get(key, self.main_page))
+
+    def save_last_view(self):
+        current = self.tabs.currentWidget()
+        key = next((key for key,page in self._remembered_pages().items() if page is current), 'main')
+        self.window.db.set_setting_value('上次关闭界面', key)
+
     def _view_changed(self, index: int) -> None:
         self._place_palette()
-        if index in (MAIN_VIEW, NAVIGATION_VIEW): self.refresh_summary()
+        if index == MAIN_VIEW: self.refresh_summary()
         elif index == TABLE_VIEW: self.refresh_table()
         elif index == CODE_VIEW: self._load_code()
 
@@ -760,11 +926,9 @@ class ViewWorkspace:
                 f"流程节点  {len(snapshot.nodes)}\n可执行指令  {len(snapshot.commands)}\n"
                 f"多功能代码  {code_lines} 行"
             )
-            self.stats.setText(summary)
             self.main_stats.setText(summary)
         except Exception as error:
             summary = f"任务状态暂不可用：{error}"
-            self.stats.setText(summary)
             self.main_stats.setText(summary)
 
     def refresh_table(self) -> None:
@@ -819,7 +983,7 @@ class ViewWorkspace:
         table.viewport().update()
 
     def _add_table_command(self, type_id: str) -> None:
-        self.window.workspace.add_command(type_id)
+        self.window.workspace.add_palette_command(type_id)
         self.refresh_table()
         self.window.statusBar.showMessage(f"已从指令栏添加：{type_id}", 2500)
 
@@ -1101,6 +1265,13 @@ class ViewWorkspace:
         self._code_dirty = False
         self.code_status.setText("已自动保存")
 
+    def _align_search_row(self):
+        palette = self.window.workspace.palette
+        palette.search_edit.ensurePolished()
+        height = palette.search_edit.fontMetrics().height() + 4
+        palette.search_edit.setFixedHeight(height)
+        palette.search_row.setFixedHeight(max(height + 2, self.tabs.tabBar().sizeHint().height()))
+
     def _apply_theme(self) -> None:
         c = self.THEMES[self.theme_mode]
         down_arrow = os.path.join(RESOURCE_FOLDER, 'flat', 'chevron-down.svg').replace('\\', '/')
@@ -1144,12 +1315,16 @@ class ViewWorkspace:
             QWidget#tab, QWidget#editorView, QWidget#multifunctionView,
             QWidget#beginnerView, QStackedWidget {{ background: {c['bg']}; color: {c['text']}; }}
             QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
+            QMenu {{ background: {c['surface']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 10px; padding: 4px; font-size: 12px; }}
+            QMenu::item {{ padding: 3px 18px 3px 20px; margin: 0; border: none; border-radius: 5px; font-size: 12px; }}
+            QMenu::item:disabled {{ color: {c['dim']}; background: transparent; }}
+            QMenu::separator {{ height: 1px; background: {c['line']}; margin: 3px 7px; }}
             QMenuBar::item:selected, QMenu::item:selected {{ background: {c['surface3']}; color: {c['accent']}; }}
-            QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 2px 3px; spacing: 2px; font-size: 11px; }}
-            QToolBar QToolButton {{ padding: 3px 6px; border-radius: 6px; font-size: 11px; }}
+            QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 0px 2px; spacing: 2px; font-size: 11px; }}
+            QToolBar QToolButton {{ padding: 2px 5px; border-radius: 4px; font-size: 11px; }}
             QToolBar QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
             QTabWidget::pane {{ border: none; background: {c['bg']}; top: 0px; }}
-            QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 9px 18px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
+            QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 4px 12px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
             QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
             QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: none; border-radius: 12px; }}
@@ -1183,6 +1358,7 @@ class ViewWorkspace:
             QSlider#imageConfidenceSlider::handle:horizontal {{ width: 14px; margin: -5px 0; border-radius: 7px; background: {c['accent']}; }}
             QPushButton#dangerButton {{ background: {c['danger']}; color: white; font-weight: 700; border-color: {c['danger']}; }}
             QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 6px; selection-background-color: {c['accent2']}; }}
+            QLineEdit#instructionSearchEdit {{ padding: 1px 6px; min-height: 0px; border-radius: 4px; }}
             QSpinBox, QDoubleSpinBox {{ min-height: 20px; padding: 6px 20px 6px 6px; }}
             QSpinBox QLineEdit, QDoubleSpinBox QLineEdit {{ border: none; border-radius: 0; padding: 0; min-height: 0; background: transparent; }}
             QSpinBox::up-button, QDoubleSpinBox::up-button {{ subcontrol-origin: border; subcontrol-position: top right; width: 18px; height: 16px; border: none; }}
@@ -1219,10 +1395,20 @@ class ViewWorkspace:
             QScrollBar::handle:horizontal {{ background: {c['surface3']}; min-width: 24px; border-radius: 5px; }}
             QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: {c['bg']}; }}
             QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; }}
-            QSplitter::handle {{ background: {c['bg']}; }}
-            QSplitter#tableLogSplitter::handle {{ background: {c['bg']}; height: 8px; }}
-            QSplitter#tableLogSplitter::handle:hover {{ background: {c['accent']}; border-radius: 4px; }}
-            QStatusBar {{ background: {c['nav']}; color: {c['dim']}; border-top: 1px solid {c['line']}; }}
+            QFrame#recordingOptionSeparator {{ background: {c['line']}; border: none; }}
+            QFrame#workspaceTabSeparator {{ background: transparent; border: none; border-left: 1px solid {c['line']}; margin-left: 4px; }}
+            QSplitter::handle {{ background: transparent; }}
+            QSplitter::handle:horizontal {{ border: none; background: transparent; margin: 0px; }}
+            QSplitter::handle:vertical {{ border: none; background: transparent; margin: 0px; }}
+            QSplitter::handle:horizontal:hover {{ border: none; background: transparent; }}
+            QSplitter::handle:vertical:hover {{ border: none; background: transparent; }}
+
+            QWidget#mainWorkspacePage {{ background: {c['bg']}; border: none; }}
+            QScrollArea#controlsScroll, QWidget#controlsScrollViewport {{ background: {c['bg']}; border: none; }}
+            QStatusBar {{ background: {c['bg']}; color: {c['dim']}; border: none; padding: 0px 6px; }}
+            QStatusBar::item {{ border: none; }}
+            QStatusBar QSizeGrip {{ background: transparent; }}
             QGroupBox {{ color: {c['accent']}; background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 10px; margin-top: 10px; padding-top: 10px; font-weight: 700; }}
             QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; }}
         """)
+        QTimer.singleShot(0, self._align_search_row)

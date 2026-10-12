@@ -53,13 +53,30 @@ class RpaInstructionEditor(SchemaInstructionEditor):
             from instructions.common.test_runner import run_cancellable_test
             context = ExecutionContext(variables=dict(getattr(self.context, 'variables', {})))
             context.variables.pop('网页元素', None)
+            context.variables.pop('网页元素详情', None)
+            resolve_previous = getattr(self.context, 'metadata', {}).get('previous_web_command')
+            if callable(resolve_previous):
+                previous = resolve_previous()
+                url = str(previous.get('url') or '').strip()
+                if url in ('', 'https://', 'http://'):
+                    raise ValueError('流程上方最近的“打开网页”尚未填写网址，请先补齐。')
+                # Prepare only the upstream page; do not execute intervening actions.
+                previous.update({'target': '当前标签页', 'waitType': '加载完成'})
+                open_spec = get_instruction_spec('打开网页')
+                run_cancellable_test(open_spec, CommandRecord(None, open_spec.type_id, previous), context, self)
+                if context.stop_requested:
+                    return
             spec = get_instruction_spec('拾取元素')
             run_cancellable_test(spec, CommandRecord(None, spec.type_id, {}), context, self)
+            self.window().raise_()
+            self.window().activateWindow()
             chosen = context.variables.get('网页元素')
             if chosen and not context.stop_requested:
                 control.setText(str(chosen))
                 if key == 'selector' and 'by' in self._controls:
                     self._set_control_value(self._controls['by'], 'CSS选择器')
+                control.setFocus()
+                control.selectAll()
         elif key in ('varName', 'data'):
             from WindowControl.变量池窗口 import VariablePool_Win
             manager = VariablePool_Win(self, database=self._variable_database(), selected_name=control.text())
@@ -94,8 +111,23 @@ class RpaInstructionExecutor(InstructionExecutorBase):
                                         context.variables, context=context)
         context.variables.update(response.get('variables', {}))
         result = response.get('result')
-        if self.COMMAND_ID == 'pickElement' and result and not result.get('canceled'):
+        if self.COMMAND_ID == 'clickXY' and parameters.get('pickOnly'):
+            if not isinstance(result, dict):
+                raise RuntimeError('未收到网页取点结果，请重新取点')
+            context.set_variable('网页取点结果', result)
+        if self.COMMAND_ID == 'pickElement':
+            context.variables.pop('网页元素', None)
+            context.variables.pop('网页元素详情', None)
+            if not isinstance(result, dict):
+                raise RuntimeError('未收到网页元素信息，请重新拾取')
+            if result.get('error'):
+                raise RuntimeError(str(result['error']))
             context.set_variable('网页元素详情', result)
-            context.set_variable('网页元素', result.get('css', '') if isinstance(result, dict) else str(result))
+            if result.get('canceled'):
+                context.emit('拾取元素：已取消')
+                return result
+            if not result.get('css'):
+                raise RuntimeError('拾取结果缺少定位信息，请重新拾取')
+            context.set_variable('网页元素', result['css'])
         context.emit(definition['name'] + '：完成')
         return result

@@ -46,8 +46,8 @@ class InstructionWorkspace(QObject):
     def _connect_signals(self) -> None:
         self.palette.quickCaptureRequested.connect(self.quick_capture)
         self.palette.quickOcrCaptureRequested.connect(self.quick_ocr_capture)
-        self.palette.instructionActivated.connect(self.add_command)
-        self.editor.instructionDropped.connect(self.add_command)
+        self.palette.instructionActivated.connect(self.add_palette_command)
+        self.editor.instructionDropped.connect(self.add_palette_command)
         self.editor.instructionCreateRequested.connect(self.add_command)
         self.editor.commandActivated.connect(self.edit_command)
         self.editor.copyRequested.connect(self.copy_commands)
@@ -178,29 +178,41 @@ class InstructionWorkspace(QObject):
             return
         self.add_command(type_id_)
 
+    def add_palette_command(self, type_id, x=None, y=None):
+        """Use identical insertion and follow-up guidance for double-click and drag/drop."""
+        if type_id == '打开网页':
+            from instructions.common.rpa_instruction import CATALOG
+            defaults = {p['key']: p.get('default', '') for p in CATALOG['openUrl']['params']}
+            defaults.update(self.palette.quick_parameters(type_id) or {})
+            return self.add_command(type_id, x=x, y=y, initial_draft=InstructionDraft(type_id, defaults), configure=False)
+        return self.add_command(type_id, x=x, y=y)
+
     def add_command(
         self,
         type_id: str,
         x: Optional[float] = None,
         y: Optional[float] = None,
-        *, initial_draft=None,
+        *, initial_draft=None, configure=True,
     ) -> Optional[int]:
-        """Open the independent editor and create only after confirmation."""
+        """Create a command; palette web entries can be configured later in the table."""
         try:
             spec_ = get_instruction_spec(str(type_id))
             if initial_draft is None:
                 quick = self.palette.quick_parameters(str(type_id))
                 if quick is not None:
                     initial_draft = InstructionDraft(str(type_id), quick)
-            editor_ = spec_.create_editor(
-                parent=self.parent_window,
-                context=self._editor_context(),
-                **({'draft': initial_draft} if initial_draft is not None else {}),
-            )
-            self._connect_editor_test(editor_, spec_)
-            if editor_.exec() != QDialog.DialogCode.Accepted:
-                return None
-            draft_ = editor_.get_draft()
+            if configure:
+                editor_ = spec_.create_editor(
+                    parent=self.parent_window,
+                    context=self._editor_context(),
+                    **({'draft': initial_draft} if initial_draft is not None else {}),
+                )
+                self._connect_editor_test(editor_, spec_)
+                if editor_.exec() != QDialog.DialogCode.Accepted:
+                    return None
+                draft_ = editor_.get_draft()
+            else:
+                draft_ = initial_draft or InstructionDraft(str(type_id))
             command_ = self.repository.add_command(
                 draft_,
                 x=x,
@@ -227,7 +239,7 @@ class InstructionWorkspace(QObject):
             editor_ = spec_.create_editor(
                 parent=self.parent_window,
                 draft=command_.to_draft(),
-                context=self._editor_context(),
+                context=self._editor_context(command_.id),
             )
             self._connect_editor_test(editor_, spec_)
             if editor_.exec() != QDialog.DialogCode.Accepted:
@@ -267,14 +279,20 @@ class InstructionWorkspace(QObject):
         command_ids_ = command_ids or self.selected_command_ids()
         if not command_ids_:
             return 0
-        if confirm and QMessageBox.question(
-            self.parent_window,
-            "删除指令",
-            f"确认删除选中的 {len(command_ids_)} 条指令吗？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        ) != QMessageBox.StandardButton.Yes:
-            return 0
+        if confirm:
+            dialog = QMessageBox(self.parent_window)
+            dialog.setWindowTitle('删除指令')
+            dialog.setIcon(QMessageBox.Icon.Question)
+            dialog.setText(f'确认删除选中的 {len(command_ids_)} 条指令吗？')
+            dialog.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+            confirm_button = dialog.button(QMessageBox.StandardButton.Ok)
+            confirm_button.setText('确认')
+            dialog.button(QMessageBox.StandardButton.Cancel).setText('取消')
+            dialog.setDefaultButton(QMessageBox.StandardButton.Ok)
+            dialog.setEscapeButton(QMessageBox.StandardButton.Cancel)
+            confirm_button.setFocus()
+            if dialog.exec() != QMessageBox.StandardButton.Ok:
+                return 0
         try:
             deleted_ = self.repository.delete_commands(
                 command_ids_, preserve_flow=self.repository.is_plain_chain()
@@ -654,12 +672,42 @@ class InstructionWorkspace(QObject):
         )
         return math.hypot(px_ - (ax_ + ratio_ * dx_), py_ - (ay_ + ratio_ * dy_))
 
-    def _editor_context(self) -> ExecutionContext:
+    def _previous_web_command(self, command_id=None):
+        snapshot = self.repository.snapshot()
+        commands = {command.id: command for command in snapshot.commands}
+        nodes = {node.node_id: node for node in snapshot.nodes}
+        current = next((node for node in snapshot.nodes if node.command_id == command_id), None) if command_id is not None else None
+        incoming = {}
+        for edge in snapshot.edges:
+            incoming.setdefault(edge.target, []).append(edge.source)
+        if current is not None and incoming.get(current.node_id):
+            visited = {current.node_id}
+            frontier = incoming[current.node_id]
+            while frontier:
+                layer = [node_id for node_id in dict.fromkeys(frontier) if node_id not in visited]
+                visited.update(layer)
+                matches = [commands[nodes[node_id].command_id] for node_id in layer
+                           if node_id in nodes and nodes[node_id].command_id in commands
+                           and commands[nodes[node_id].command_id].type_id == '打开网页']
+                if len(matches) > 1:
+                    raise ValueError('上方多个分支都有打开网页，请明确连接到要定位的网页流程后再拾取元素。')
+                if matches: return dict(matches[0].parameters)
+                frontier = [parent for node_id in layer for parent in incoming.get(node_id, [])]
+        else:
+            previous = []
+            for command in sorted(snapshot.commands, key=lambda item: item.order):
+                if command.id == command_id: break
+                if command.type_id == '打开网页': previous.append(command)
+            if previous: return dict(previous[-1].parameters)
+        raise ValueError('这条指令上方没有“打开网页”。请先添加网页地址，再拾取元素。')
+
+    def _editor_context(self, command_id=None) -> ExecutionContext:
         return ExecutionContext(
             variables=self._load_variables(),
             output=self.statusMessage.emit,
             metadata={"database": getattr(self.parent_window, "db", None),
                       "main_window": self.parent_window,
+                      "previous_web_command": lambda: self._previous_web_command(command_id),
                       "recent_capture": getattr(self, '_recent_capture', ''),
                       "remember_capture": self.remember_capture},
         )

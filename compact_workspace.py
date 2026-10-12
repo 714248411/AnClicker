@@ -22,8 +22,9 @@ class CompactWorkspace(QObject):
         button.setToolTip('还原完整界面' if enabled else '小化：仅显示控制与操作')
         button.setAccessibleName(button.toolTip())
         if enabled:
+            self.workspace_sizes = view.workspace_splitter.sizes() if hasattr(view,'workspace_splitter') else None
             self.geometry = w.saveGeometry()
-            self.normal_rect = w.geometry()
+            self.normal_rect = getattr(w, '_restore_client_geometry', w.normalGeometry()) if w.isMaximized() else w.geometry()
             self.was_maximized = w.isMaximized()
             self.minimum = w.minimumSize()
             self.control_style = w.groupBox_3.styleSheet()
@@ -90,13 +91,14 @@ class CompactWorkspace(QObject):
             w.restoreGeometry(self.geometry)
             if not self.was_maximized:
                 w.setGeometry(self.normal_rect)
-            view.title_bar.setFixedHeight(48)
-            view.title_bar.hBoxLayout.setSpacing(4)
-            view.title_bar.updateButton.setFixedHeight(32)
-            w.setContentsMargins(0, 48, 0, 0)
+            if self.workspace_sizes is not None: view.workspace_splitter.setSizes(self.workspace_sizes)
+            view.title_bar.setFixedHeight(34)
+            view.title_bar.hBoxLayout.setSpacing(2)
+            view.title_bar.updateButton.setFixedHeight(28)
+            w.setContentsMargins(0, view.title_bar.height(), 0, 0)
             for item in (view.title_bar.compact_button, view.title_bar.theme_button,
                          view.title_bar.minBtn, view.title_bar.maxBtn, view.title_bar.closeBtn):
-                item.setFixedSize(32, 32)
+                item.setFixedSize(28, 28)
             view.title_bar.apply_theme(view.theme_mode, view.THEMES[view.theme_mode])
 
     def scale_controls(self):

@@ -252,12 +252,12 @@ class RuntimeIntegrationTests(unittest.TestCase):
             window_ = Main_window()
         self.assertFalse(hasattr(window_, "tableWidget"))
         self.assertFalse(hasattr(window_, "groupBox_4"))
-        self.assertEqual(len(window_.workspace.palette.specs()), 94)
+        self.assertEqual(len(window_.workspace.palette.specs()), 95)
         self.assertEqual(
             [
-                window_.gridLayout_4.indexOf(window_.instructionPaletteHost),
-                window_.gridLayout_4.indexOf(window_.tabWidget),
-                window_.gridLayout_4.indexOf(window_.groupBox_3),
+                window_.view_workspace.workspace_splitter.indexOf(window_.instructionPaletteHost),
+                window_.view_workspace.workspace_splitter.indexOf(window_.tabWidget),
+                window_.view_workspace.workspace_splitter.indexOf(window_.view_workspace.controls_scroll),
             ],
             [0, 1, 2],
         )
@@ -266,8 +266,8 @@ class RuntimeIntegrationTests(unittest.TestCase):
         window_.view_workspace.show_flow()
         self.app.processEvents()
         self.assertEqual(
-            [window_.tabWidget.tabText(index_) for index_ in range(5)],
-            ["主界面", "表格", "流程图", "多功能", "导航"],
+            [window_.tabWidget.tabText(index_) for index_ in range(6)],
+            ["主界面", "表格", "流程图", "多功能", "录制", "网页录制"],
         )
         self.assertIs(
             window_.tabWidget.currentWidget(), window_.view_workspace.editor_page

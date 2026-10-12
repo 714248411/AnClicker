@@ -230,6 +230,7 @@ class NodeView(QGraphicsView):
         return action
 
     def contextMenuEvent(self, event_):
+        from context_menu_style import style_context_menu
         if self.cutter.active or monotonic() < self._suppress_context_until:
             event_.accept()
             return
@@ -253,6 +254,7 @@ class NodeView(QGraphicsView):
                 selected_edges = [edge]
             pairs = [(item.source_node.node_id, item.target_node.node_id) for item in selected_edges]
             menu = QMenu(self)
+            style_context_menu(menu, self)
             delete = menu.addAction('删除此连线' if len(pairs) == 1 else f'删除选中连线（{len(pairs)} 根）')
             self._add_connection_undo(menu)
             chosen = menu.exec(event_.globalPos())
@@ -266,6 +268,7 @@ class NodeView(QGraphicsView):
             return
         if node_ is None:
             menu_ = QMenu(self)
+            style_context_menu(menu_, self)
             self._add_connection_undo(menu_)
             menu_.addSeparator()
             select_all_action_ = menu_.addAction("全选")
@@ -278,11 +281,13 @@ class NodeView(QGraphicsView):
                 categories_.setdefault(spec_.category, []).append((type_id_, spec_.title))
             for category_, entries_ in categories_.items():
                 category_menu_ = menu_.addMenu(category_)
+                style_context_menu(category_menu_, self)
                 for type_id_, title_ in entries_:
                     action_ = category_menu_.addAction(title_)
                     action_types_[action_] = type_id_
             template_actions_ = {}
             template_menu_ = menu_.addMenu("插入模板")
+            style_context_menu(template_menu_, self)
             for name_ in self.template_names_provider() or ():
                 action_ = template_menu_.addAction(str(name_))
                 template_actions_[action_] = str(name_)
@@ -323,6 +328,7 @@ class NodeView(QGraphicsView):
             return
         if node_.is_terminal:
             menu = QMenu(self)
+            style_context_menu(menu, self)
             self._add_connection_undo(menu)
             menu.exec(event_.globalPos())
             menu.deleteLater()
@@ -336,6 +342,8 @@ class NodeView(QGraphicsView):
             return
 
         menu_ = QMenu(self)
+
+        style_context_menu(menu_, self)
         self._add_connection_undo(menu_)
         menu_.addSeparator()
         configure_action_ = menu_.addAction("配置")

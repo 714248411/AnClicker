@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'">
+<title>网页控制栏</title><link rel="stylesheet" href="browser-controls.css"></head>
+<body><button id="trigger" type="button" title="展开网页工具栏" aria-label="展开网页工具栏" aria-controls="panel" aria-expanded="false">↓</button>
+<section id="panel" hidden>
+<form id="addressForm"><input id="address" type="text" spellcheck="false" autocomplete="off" placeholder="输入网址，回车打开" aria-label="网页地址"><button type="submit" title="打开地址">打开</button></form>
+<div id="actions"><button data-action="back" id="back" title="后退">←</button><button data-action="forward" id="forward" title="前进">→</button><button data-action="reload">刷新</button><button data-action="stop">停止</button><button data-action="zoom" data-value="-0.5">−</button><span id="zoom">100%</span><button data-action="zoom" data-value="0.5">＋</button></div>
+<span id="status" role="status"></span></section><script src="browser-controls-renderer.js"></script></body></html>

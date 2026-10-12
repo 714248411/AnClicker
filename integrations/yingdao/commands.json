@@ -681,13 +681,13 @@
     "params": [
       {
         "key": "url",
-        "label": "网页地址",
+        "label": "网页地址（如 www.hao123.com，可省略 https://）",
         "type": "text",
         "default": "https://"
       },
       {
         "key": "engine",
-        "label": "用哪个内核(朗坤6.5等老系统选Edge)",
+        "label": "浏览器内核（Chrome 为内置浏览器）",
         "type": "select",
         "default": "跟随当前",
         "options": [
@@ -720,7 +720,7 @@
       },
       {
         "key": "waitType",
-        "label": "等待加载",
+        "label": "打开后等待（加载完成指主页面就绪）",
         "type": "select",
         "default": "加载完成",
         "options": [
@@ -1042,13 +1042,13 @@
   },
   {
     "id": "clickXY",
-    "name": "坐标点击(可多点)",
+    "name": "网页内坐标点击（可多点）",
     "category": "网页自动化",
     "color": "#4a6cf7",
     "params": [
       {
         "key": "points",
-        "label": "点击坐标(最多9个点，用;分隔，如 100,200; 300,400)",
+        "label": "点击坐标（按顺序执行，用分号分隔）",
         "type": "text",
         "default": ""
       },
@@ -1078,6 +1078,28 @@
       {
         "key": "y",
         "label": "Y坐标(只在单点、且上面没填时用)",
+        "type": "number",
+        "default": 0
+      },
+      {
+        "key": "randomOffset",
+        "label": "高级设置：随机偏移",
+        "type": "select",
+        "default": "关闭",
+        "options": [
+          "关闭",
+          "启用"
+        ]
+      },
+      {
+        "key": "offsetX",
+        "label": "水平偏移范围 ± 像素",
+        "type": "number",
+        "default": 0
+      },
+      {
+        "key": "offsetY",
+        "label": "垂直偏移范围 ± 像素",
         "type": "number",
         "default": 0
       }

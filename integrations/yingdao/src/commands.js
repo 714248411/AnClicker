@@ -62,13 +62,16 @@ window.COMMANDS = [
     ] },
   { id: 'diagnosePage', name: '诊断页面(排错)', category: '网页自动化', color: '#98a2b3',
     params: [] },
-  { id: 'clickXY', name: '坐标点击(可多点)', category: '网页自动化', color: '#4a6cf7',
+  { id: 'clickXY', name: '网页内坐标点击（可多点）', category: '网页自动化', color: '#4a6cf7',
     params: [
-      { key: 'points', label: '点击坐标(最多9个点，用;分隔，如 100,200; 300,400)', type: 'text', default: '' },
+      { key: 'points', label: '点击坐标（按顺序执行，用分号分隔）', type: 'text', default: '' },
       { key: 'interval', label: '每个点之间间隔(秒)', type: 'number', default: 1 },
       { key: 'clickType', label: '点击方式', type: 'select', default: '单击', options: ['单击', '双击', '右键'] },
       { key: 'x', label: 'X坐标(只在单点、且上面没填时用)', type: 'number', default: 0 },
-      { key: 'y', label: 'Y坐标(只在单点、且上面没填时用)', type: 'number', default: 0 }
+      { key: 'y', label: 'Y坐标(只在单点、且上面没填时用)', type: 'number', default: 0 },
+      {"key":"randomOffset","label":"高级设置：随机偏移","type":"select","default":"关闭","options":["关闭","启用"]},
+      {"key":"offsetX","label":"水平偏移范围 ± 像素","type":"number","default":0},
+      {"key":"offsetY","label":"垂直偏移范围 ± 像素","type":"number","default":0}
     ] },
   { id: 'browserWait', name: '等待(秒)', category: '网页自动化', color: '#4a6cf7',
     params: [

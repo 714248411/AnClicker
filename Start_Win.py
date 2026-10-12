@@ -204,6 +204,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.get_data()
         # 加载窗体初始值
         self.load_initialization()
+        self.view_workspace.restore_last_view()
         self._install_updates()
 
     def _install_updates(self):
@@ -630,6 +631,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
     def closeEvent(self, event):
         """关闭窗口事件"""
         if getattr(self, "_update_exit_requested", False):
+            self.view_workspace.save_last_view()
             event.accept()
             return
         cancel_update = False
@@ -689,6 +691,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return
         if self.db.get_bool_setting("退出提醒清空指令"):
             self.db.clear_all_ins()
+        self.view_workspace.save_last_view()
         web_recording = getattr(self.view_workspace, 'web_recording_page', None)
         if web_recording is not None:
             web_recording.shutdown()

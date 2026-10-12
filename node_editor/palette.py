@@ -7,10 +7,12 @@ from qt_compat.QtGui import QDrag
 from qt_compat.QtWidgets import (
     QAbstractItemView,
     QLineEdit,
+    QMenu,
     QCompleter,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
+    QHBoxLayout,
     QWidget,
 )
 
@@ -79,22 +81,31 @@ class InstructionPalette(QWidget):
     instructionDoubleClicked = Signal(str)
     quickCaptureRequested = Signal()
     quickOcrCaptureRequested = Signal()
+    guidanceEnabledChanged = Signal(bool)
+    orderChanged = Signal(object)
 
     def __init__(self, specs_=None, parent_=None):
         super().__init__(parent_)
         self.search_edit = QLineEdit(self)
         self.search_edit.setObjectName("instructionSearchEdit")
-        self.search_edit.setPlaceholderText("用中文描述下一步，如：粘贴到表格")
+        self.search_edit.setPlaceholderText("自动展开可进行的下一步操作")
         self.tree = _InstructionTree(self)
         self.tree.setObjectName("instructionTree")
 
         layout_ = QVBoxLayout(self)
         layout_.setContentsMargins(0, 0, 0, 0)
-        layout_.setSpacing(6)
-        layout_.addWidget(self.search_edit)
+        layout_.setSpacing(4)
+        self.search_row = QWidget(self)
+        search_layout = QHBoxLayout(self.search_row)
+        search_layout.setContentsMargins(0, 0, 0, 2)
+        search_layout.addWidget(self.search_edit, 1, Qt.AlignmentFlag.AlignBottom)
+        layout_.addWidget(self.search_row)
         layout_.addWidget(self.tree, 1)
 
         self._specs: dict[str, NodeDisplaySpec] = {}
+        self.guidance_enabled = True
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._show_settings_menu)
         self._clipboard_ready = False
         self._chosen_suggestion = None
         self._suggestion_model = QStringListModel(self)
@@ -108,12 +119,222 @@ class InstructionPalette(QWidget):
         self.tree.itemDoubleClicked.connect(self._quick_action_clicked)
         self.set_specs(specs_ or {})
 
+    def _show_settings_menu(self, position):
+        item = self.tree.itemAt(position)
+        if item is not None:
+            self.tree.setCurrentItem(item)
+        group = item
+        while group is not None and group.parent() is not None:
+            group = group.parent()
+        # Pin only actual entries, not the generated next-step suggestions.
+        pinnable = (item is not None and item.parent() is group
+                    and item is not self._guide_item)
+        menu = QMenu(self)
+        menu.setObjectName('instructionContextMenu')
+        from context_menu_style import style_context_menu
+        style_context_menu(menu, self)
+        settings = menu.addMenu('设置')
+        style_context_menu(settings, self)
+        guidance = settings.addAction('中文编程提示')
+        guidance.setCheckable(True)
+        guidance.setChecked(self.guidance_enabled)
+        guidance.toggled.connect(self.set_guidance_enabled)
+        menu.addSeparator()
+        menu.addAction('指令全部展开', self.tree.expandAll)
+        menu.addAction('指令取消全部展开', self.tree.collapseAll)
+        menu.addSeparator()
+        for title, step in (('↑指令栏', -1), ('↓指令栏', 1)):
+            action = menu.addAction(title)
+            action.setEnabled(self._can_move_group(group, step))
+            action.triggered.connect(lambda checked=False, delta=step: self._move_group(group, delta))
+        for title, step in (('↑指令', -1), ('↓指令', 1)):
+            action = menu.addAction(title)
+            action.setEnabled(self._can_move_command(item, step))
+            action.triggered.connect(lambda checked=False, delta=step: self._move_command(item, delta))
+        menu.addSeparator()
+        pin_group = menu.addAction('置顶选中指令栏')
+        pin_group.setEnabled(group is not None)
+        pin_group.triggered.connect(lambda: self._pin_group(group))
+        bottom_group = menu.addAction('置底选中指令栏')
+        bottom_group.setEnabled(group is not None)
+        bottom_group.triggered.connect(lambda: self._bottom_group(group))
+        pin_command = menu.addAction('置顶指令')
+        pin_command.setEnabled(pinnable)
+        pin_command.triggered.connect(lambda: self._pin_command(item))
+        bottom_command = menu.addAction('置底指令')
+        bottom_command.setEnabled(pinnable)
+        bottom_command.triggered.connect(lambda: self._bottom_command(item))
+        try:
+            menu.exec(self.tree.viewport().mapToGlobal(position))
+        finally:
+            menu.deleteLater()
+
+    @staticmethod
+    def _order_key(item):
+        kind = item.data(0, TYPE_ID_ROLE)
+        return 'type:' + str(kind) if kind else 'label:' + item.text(0)
+
+    def _pin_group(self, group):
+        if group is None:
+            return
+        index = self.tree.indexOfTopLevelItem(group)
+        if index < 0:
+            return
+        self.tree.takeTopLevelItem(index)
+        self.tree.insertTopLevelItem(0, group)
+        group.setExpanded(True)
+        self.tree.setCurrentItem(group)
+        self.orderChanged.emit(self.instruction_order())
+
+    def _pin_command(self, item):
+        if item is None or item.parent() is None or item is self._guide_item:
+            return
+        parent = item.parent()
+        if parent.parent() is not None:
+            return
+        parent.takeChild(parent.indexOfChild(item))
+        parent.insertChild(0, item)
+        parent.setExpanded(True)
+        self.tree.setCurrentItem(item)
+        self.orderChanged.emit(self.instruction_order())
+
+    def _bottom_group(self, group):
+        if group is None:
+            return
+        index = self.tree.indexOfTopLevelItem(group)
+        if index < 0:
+            return
+        self.tree.takeTopLevelItem(index)
+        self.tree.addTopLevelItem(group)
+        group.setExpanded(True)
+        self.tree.setCurrentItem(group)
+        self.tree.scrollToItem(group)
+        self.orderChanged.emit(self.instruction_order())
+
+    def _bottom_command(self, item):
+        if item is None or item.parent() is None or item is self._guide_item:
+            return
+        parent = item.parent()
+        if parent.parent() is not None:
+            return
+        parent.takeChild(parent.indexOfChild(item))
+        # Keep the generated Chinese guidance as the final quick-function row.
+        guide_index = parent.indexOfChild(self._guide_item)
+        if guide_index >= 0:
+            parent.insertChild(guide_index, item)
+        else:
+            parent.addChild(item)
+        parent.setExpanded(True)
+        self.tree.setCurrentItem(item)
+        self.tree.scrollToItem(item)
+        self.orderChanged.emit(self.instruction_order())
+
+    def _can_move_group(self, group, step):
+        if group is None:
+            return False
+        index = self.tree.indexOfTopLevelItem(group)
+        return index >= 0 and 0 <= index + step < self.tree.topLevelItemCount()
+
+    def _move_group(self, group, step):
+        if not self._can_move_group(group, step):
+            return
+        index = self.tree.indexOfTopLevelItem(group)
+        expanded = group.isExpanded()
+        self.tree.takeTopLevelItem(index)
+        self.tree.insertTopLevelItem(index + step, group)
+        group.setExpanded(expanded)
+        self.tree.setCurrentItem(group)
+        self.tree.scrollToItem(group)
+        self.orderChanged.emit(self.instruction_order())
+
+    def _can_move_command(self, item, step):
+        if item is None or item is self._guide_item or item.parent() is None:
+            return False
+        parent = item.parent()
+        if parent.parent() is not None:
+            return False
+        index = parent.indexOfChild(item)
+        target = index + step
+        return (index >= 0 and 0 <= target < parent.childCount()
+                and parent.child(target) is not self._guide_item)
+
+    def _move_command(self, item, step):
+        if not self._can_move_command(item, step):
+            return
+        parent = item.parent()
+        index = parent.indexOfChild(item)
+        expanded = item.isExpanded()
+        parent.takeChild(index)
+        parent.insertChild(index + step, item)
+        item.setExpanded(expanded)
+        self.tree.setCurrentItem(item)
+        self.tree.scrollToItem(item)
+        self.orderChanged.emit(self.instruction_order())
+
+    def instruction_order(self):
+        groups = [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())]
+        return {
+            'groups': [group.text(0) for group in groups],
+            'commands': {group.text(0): [self._order_key(group.child(i))
+                         for i in range(group.childCount()) if group.child(i) is not self._guide_item]
+                         for group in groups},
+        }
+
+    def restore_instruction_order(self, order):
+        if not isinstance(order, dict):
+            return
+        groups = order.get('groups', [])
+        if isinstance(groups, list):
+            position = 0
+            for name in dict.fromkeys(name for name in groups if isinstance(name, str)):
+                for index in range(position, self.tree.topLevelItemCount()):
+                    group = self.tree.topLevelItem(index)
+                    if group.text(0) == name:
+                        self.tree.takeTopLevelItem(index)
+                        self.tree.insertTopLevelItem(position, group)
+                        position += 1
+                        break
+        commands = order.get('commands', {})
+        if not isinstance(commands, dict):
+            return
+        for index in range(self.tree.topLevelItemCount()):
+            group = self.tree.topLevelItem(index)
+            keys = commands.get(group.text(0), [])
+            if not isinstance(keys, list):
+                continue
+            position = 0
+            for key in dict.fromkeys(key for key in keys if isinstance(key, str)):
+                for child_index in range(position, group.childCount()):
+                    child = group.child(child_index)
+                    if child is not self._guide_item and self._order_key(child) == key:
+                        group.takeChild(child_index)
+                        group.insertChild(position, child)
+                        position += 1
+                        break
+
+    def set_guidance_enabled(self, enabled):
+        enabled = bool(enabled)
+        changed = self.guidance_enabled != enabled
+        self.guidance_enabled = enabled
+        self.tree.setExpandsOnDoubleClick(enabled)
+        self._guide_item.setHidden(not enabled)
+        if not enabled:
+            self._collapse_previous_actions()
+            self.completer.popup().hide()
+            self._suggestion_model.setStringList([])
+            self._suggestions = []
+            self._chosen_suggestion = None
+        self.search_edit.setPlaceholderText('自动展开可进行的下一步操作' if enabled else '搜索指令')
+        self._apply_filter(self.search_edit.text())
+        if changed:
+            self.guidanceEnabledChanged.emit(enabled)
+
     def _quick_action_clicked(self, item, column):
         if item is self._quick_capture_item:
-            self.clear_quick_actions()
+            self._collapse_previous_actions()
             self.quickCaptureRequested.emit()
         elif item is self._quick_ocr_item:
-            self.clear_quick_actions()
+            self._collapse_previous_actions()
             self.quickOcrCaptureRequested.emit()
 
     def _emit_activation(self, type_id_) -> None:
@@ -123,6 +344,9 @@ class InstructionPalette(QWidget):
     def set_specs(self, specs_) -> None:
         self._specs = normalize_specs(specs_)
         self._capture_item = None
+        self._last_used_branch = None
+        self._web_open_item = None
+        self._web_category_item = None
         self.tree.clear()
         self._quick_group = QTreeWidgetItem(['快捷功能栏'])
         self._quick_group.setFlags(self._quick_group.flags() & ~Qt.ItemFlag.ItemIsDragEnabled)
@@ -135,6 +359,11 @@ class InstructionPalette(QWidget):
         self._quick_ocr_item.setFlags(self._quick_ocr_item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled)
         self._quick_ocr_item.setToolTip(0, '双击框选范围；完成后在下方选择识字、点击或复制文字。')
         self._quick_group.addChild(self._quick_ocr_item)
+        if '打开网页' in self._specs:
+            self._web_open_item = QTreeWidgetItem(['打开网页'])
+            self._web_open_item.setData(0, TYPE_ID_ROLE, '打开网页')
+            self._web_open_item.setToolTip(0, '先打开网页，再等待页面或按钮出现，然后点击、输入或获取文字。\n双击加入表格，或拖入表格/流程图；添加后在下方选择下一步，左侧箭头可收起/展开。')
+            self._quick_group.addChild(self._web_open_item)
         self._guide_item = QTreeWidgetItem(['下一步操作（中文引导）'])
         self._quick_group.addChild(self._guide_item)
         categories_: dict[str, QTreeWidgetItem] = {}
@@ -155,6 +384,9 @@ class InstructionPalette(QWidget):
             instruction_item_ = QTreeWidgetItem([spec_.title])
             instruction_item_.setData(0, TYPE_ID_ROLE, spec_.type_id)
             category_item_.addChild(instruction_item_)
+            if spec_.type_id == '打开网页':
+                self._web_category_item = instruction_item_
+                instruction_item_.setToolTip(0, '双击加入表格，再在表格中填写网址；下方显示后续操作，左侧箭头可收起/展开。')
         # Keep the original directory and stable command IDs. Common actions
         # lead the list once, followed by the more specialized OCR commands.
         offline_group = categories_.get('离线识字OCR')
@@ -172,8 +404,24 @@ class InstructionPalette(QWidget):
         self.tree.expandAll()
         self._apply_filter(self.search_edit.text())
 
+    def _collapse_previous_actions(self):
+        # Keep children and their parameters for the next use.
+        for item in (self._quick_capture_item, self._quick_ocr_item, self._guide_item,
+                     self._web_open_item, self._web_category_item):
+            if item is not None:
+                item.setExpanded(False)
+        current = self.tree.currentItem()
+        branch = current
+        while branch is not None and branch.parent() is not None:
+            branch = branch.parent()
+        previous = self._last_used_branch
+        if previous is not None and previous is not branch:
+            previous.setExpanded(False)
+        self._last_used_branch = branch
+
     def clear_quick_actions(self):
-        for item in (self._quick_capture_item, self._quick_ocr_item, self._guide_item):
+        for item in (self._quick_capture_item, self._quick_ocr_item, self._guide_item, self._web_open_item, self._web_category_item):
+            if item is None: continue
             item.takeChildren()
             item.setExpanded(False)
         self._capture_item = None
@@ -181,28 +429,31 @@ class InstructionPalette(QWidget):
         self._clipboard_ready = False
 
     def _show_quick_children(self, parent, actions, payload):
-        self.clear_quick_actions()
+        self._collapse_previous_actions()
+        parent.takeChildren()
         self._quick_payload = dict(payload)
         for title, kind in actions:
             item = QTreeWidgetItem([title])
             item.setData(0, TYPE_ID_ROLE, kind)
+            item.setData(0, TYPE_ID_ROLE + 1, dict(payload))
             item.setToolTip(0, '双击配置并添加，或拖到表格/流程图；自动带入本次快捷操作的设置。\n' + str(payload))
             parent.addChild(item)
             if kind == '图像点击':
                 self._capture_item = item
-        parent.setExpanded(True)
-        self._quick_group.setExpanded(True)
         self._apply_filter(self.search_edit.text())
+        self._collapse_previous_actions()
+        parent.setExpanded(self.guidance_enabled)
+        self._quick_group.setExpanded(True)
 
     def quick_parameters(self, kind):
         if self._chosen_suggestion is not None and self._chosen_suggestion.kind == kind:
             return dict(self._chosen_suggestion.parameters)
         current = self.tree.currentItem()
-        if current is not None and current.parent() is self._guide_item and current.data(0, TYPE_ID_ROLE) == kind:
+        if current is not None and current.parent() in (self._guide_item, self._web_open_item, self._web_category_item) and current.data(0, TYPE_ID_ROLE) == kind:
             return dict(current.data(0, TYPE_ID_ROLE + 1) or {})
         if current is not None and current.parent() in (self._quick_capture_item, self._quick_ocr_item):
             if current.data(0, TYPE_ID_ROLE) == kind:
-                return dict(getattr(self, '_quick_payload', {}))
+                return dict(current.data(0, TYPE_ID_ROLE + 1) or {})
         return None
 
     def show_recent_capture(self, path):
@@ -215,6 +466,8 @@ class InstructionPalette(QWidget):
              ('复制识别文字', 'OCR复制')], {'区域': str(tuple(region))})
 
     def _suggest(self, text):
+        if not self.guidance_enabled:
+            return
         from instruction_guidance import matching
         self._suggestions = [s for s in matching(text) if s.kind in self._specs]
         self._suggestion_model.setStringList([s.label for s in self._suggestions])
@@ -229,11 +482,19 @@ class InstructionPalette(QWidget):
         finally: self._chosen_suggestion = None
 
     def command_added(self, kind, parameters=None):
+        if not self.guidance_enabled:
+            self._collapse_previous_actions()
+            return
         from instruction_guidance import next_steps
         ready = self._clipboard_ready or kind in ('OCR复制', '复制到剪贴板', '点击并全选复制')
-        actions = next_steps(kind, ready)
-        self.clear_quick_actions()
+        actions = next_steps(kind, ready, parameters)
+        from_category = self.tree.currentItem() is self._web_category_item
+        self._collapse_previous_actions()
         self._clipboard_ready = ready
+        parent = self._guide_item
+        if kind == '打开网页':
+            parent = (self._web_category_item if from_category else self._web_open_item) or self._guide_item
+        parent.takeChildren()
         self._guide_item.setText(0, ('复制识别文字' if kind == 'OCR复制' else kind) + '后，可以…')
         for action in actions:
             if action.kind not in self._specs: continue
@@ -241,8 +502,9 @@ class InstructionPalette(QWidget):
             item.setData(0, TYPE_ID_ROLE, action.kind)
             item.setData(0, TYPE_ID_ROLE + 1, action.parameters)
             item.setToolTip(0, action.label + '\n双击设置这一步；确认后添加指令，不会立即执行。')
-            self._guide_item.addChild(item)
-        self._guide_item.setExpanded(True)
+            parent.addChild(item)
+        parent.setExpanded(True)
+        if parent.parent() is not None: parent.parent().setExpanded(True)
         self._quick_group.setExpanded(True)
         self.search_edit.clear()
 
@@ -257,6 +519,9 @@ class InstructionPalette(QWidget):
     def _apply_filter(self, filter_text_) -> None:
         needle = filter_text_.strip().casefold()
         def visit(item, inherited=False):
+            if item is self._guide_item and not self.guidance_enabled:
+                item.setHidden(True)
+                return False
             match = inherited or needle in (item.text(0) + item.toolTip(0)).casefold()
             child_visible = False
             for i in range(item.childCount()):

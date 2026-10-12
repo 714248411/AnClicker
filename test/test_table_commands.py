@@ -48,7 +48,7 @@ def test_toolbar_delete_uses_table_selection_and_syncs_flow(table_host):
     host.workspace.focus_command(before[0])
     table = host.view_workspace.command_table
     table.setCurrentCell(2, 3)
-    with patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.Yes):
+    with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Ok):
         assert host.delete_data() == 1
     assert ids(host) == [before[0], before[1], before[3]]
     assert table.rowCount() == 3
@@ -79,10 +79,10 @@ def test_delete_rectangle_and_cancel(table_host):
     table = table_host.view_workspace.command_table
     before = ids(table_host)
     table.setRangeSelected(QTableWidgetSelectionRange(1, 2, 2, 4), True)
-    with patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.No):
+    with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Cancel):
         QTest.keyClick(table, Qt.Key.Key_Delete)
     assert ids(table_host) == before
-    with patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.Yes):
+    with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Ok):
         QTest.keyClick(table, Qt.Key.Key_Delete)
     assert ids(table_host) == [before[0], before[3]]
 

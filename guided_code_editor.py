@@ -1,12 +1,13 @@
 """Chinese command completion that preserves IME composition and existing code."""
 from qt_compat.QtCore import Qt, QStringListModel, QTimer
-from qt_compat.QtGui import QTextCursor
-from qt_compat.QtWidgets import QPlainTextEdit, QCompleter
+from qt_compat.QtGui import QTextCursor, QKeySequence
+from qt_compat.QtWidgets import QPlainTextEdit, QCompleter, QMenu
 from instruction_guidance import matching, next_steps, command_template, Suggestion
 
 class GuidedCodeEditor(QPlainTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.guidance_enabled=True
         self._composing=False
         self._choices=[]
         self._model=QStringListModel(self)
@@ -16,6 +17,51 @@ class GuidedCodeEditor(QPlainTextEdit):
         self.completer.activated[str].connect(self._accept)
         self.setPlaceholderText('输入中文动作，如“复制文字”“粘贴到网页”；↑↓选择，Tab/回车插入，Esc关闭。Ctrl+空格查看候选。')
         self.cursorPositionChanged.connect(self._cursor_changed)
+
+    def contextMenuEvent(self, event):
+        from context_menu_style import style_context_menu
+        self.completer.popup().hide()
+        menu = QMenu(self)
+        style_context_menu(menu, self)
+        editable = not self.isReadOnly()
+        selected = self.textCursor().hasSelection()
+
+        def add(label, callback, enabled, shortcut=None):
+            action = menu.addAction(label, callback)
+            action.setEnabled(enabled)
+            if shortcut is not None:
+                action.setShortcut(QKeySequence(shortcut))
+            return action
+
+        add('撤销', self.undo, editable and self.document().isUndoAvailable(), QKeySequence.StandardKey.Undo)
+        add('重做', self.redo, editable and self.document().isRedoAvailable(), QKeySequence.StandardKey.Redo)
+        menu.addSeparator()
+        add('剪切', self.cut, editable and selected, QKeySequence.StandardKey.Cut)
+        add('复制', self.copy, selected, QKeySequence.StandardKey.Copy)
+        add('粘贴', self.paste, editable and self.canPaste(), QKeySequence.StandardKey.Paste)
+        add('删除选中文字', self._delete_selected_text, editable and selected)
+        menu.addSeparator()
+        add('全选', self.selectAll, not self.document().isEmpty(), QKeySequence.StandardKey.SelectAll)
+        try:
+            menu.exec(event.globalPos())
+        finally:
+            menu.deleteLater()
+        event.accept()
+
+    def _delete_selected_text(self):
+        if self.isReadOnly():
+            return
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            cursor.removeSelectedText()
+            self.setTextCursor(cursor)
+
+    def set_guidance_enabled(self, enabled):
+        self.guidance_enabled = bool(enabled)
+        if not enabled:
+            self.completer.popup().hide()
+            self._choices = []
+        self.setPlaceholderText('输入中文动作，选择提示插入指令；Ctrl+空格查看候选。' if enabled else '在此编辑流程代码')
 
     def _cursor_changed(self):
         self.completer.popup().hide()
@@ -42,7 +88,7 @@ class GuidedCodeEditor(QPlainTextEdit):
             self.show_suggestions()
 
     def show_suggestions(self,force=False):
-        if self._composing:return
+        if self._composing or not self.guidance_enabled:return
         cursor=self.textCursor()
         line=cursor.block().text()
         prefix=line[:cursor.positionInBlock()]
@@ -65,6 +111,7 @@ class GuidedCodeEditor(QPlainTextEdit):
         self.completer.popup().setCurrentIndex(self._model.index(0,0))
 
     def _accept(self,label):
+        if not self.guidance_enabled:return
         choice=next((s for s in self._choices if s.label==label),None)
         if choice is None:return
         cursor=self.textCursor()

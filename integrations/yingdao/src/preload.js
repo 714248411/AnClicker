@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('yingdao', {
     pickElement: () => ipcRenderer.invoke('browser:pickElement'),
     pickForScrape: () => ipcRenderer.invoke('browser:pickForScrape'),
     // 坐标拾取（多点，最多 9 个）：在浏览器里点几个点，返回坐标列表
-    pickPoints: (maxPoints) => ipcRenderer.invoke('browser:pickPoints', maxPoints),
+    pickPoints: (maxPoints, initialPoints) => ipcRenderer.invoke('browser:pickPoints', maxPoints, initialPoints),
     // 缩放
     setZoomLevel: (level) => ipcRenderer.invoke('browser:setZoomLevel', level),
     resetZoom: () => ipcRenderer.invoke('browser:resetZoom'),

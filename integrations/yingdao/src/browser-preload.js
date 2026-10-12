@@ -1,10 +1,5 @@
-// 独立浏览器窗口的 preload：提供工具栏动作桥 + 缩放 + 录制事件读取
+// Remote page preload: recording and Ctrl+wheel only. Address controls live in a separate local view.
 const { contextBridge, ipcRenderer } = require('electron');
-
-// 工具栏动作桥：悬浮工具栏通过它通知主进程
-contextBridge.exposeInMainWorld('__rpaSendToMain', (action) => {
-  ipcRenderer.send('browser:toolbarAction', action);
-});
 
 // 主进程读取录制事件：暴露读取函数
 contextBridge.exposeInMainWorld('__rpaReadEvents', () => {
@@ -48,4 +43,4 @@ document.addEventListener('click',e=>acCapture(e,'click'),true);
 document.addEventListener('input',e=>acCapture(e,'input'),true);
 document.addEventListener('keydown',e=>acCapture(e,'key'),true);
 
-contextBridge.exposeInMainWorld('__rpaOnZoom', cb => ipcRenderer.on('ac:zoomLevel', (_e,value)=>cb(value)));
+

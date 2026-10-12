@@ -306,7 +306,7 @@ async function execJS(code, timeoutMs) {
 }
 
 // 主框架 + 所有子框架（含跨域，用隔离执行上下文）逐个跑，返回 [{frameId, value, err}]
-async function evalAllFrames(code, timeoutMs) {
+async function evalAllFrames(code, timeoutMs, parallel = false) {
   const sid = await ensureSession();
   const tree = await send('Page.getFrameTree', {}, sid);
   const ids = [];
@@ -316,16 +316,18 @@ async function evalAllFrames(code, timeoutMs) {
     (node.childFrames || []).forEach(walk);
   })(tree.frameTree);
 
-  const out = [];
-  for (let i = 0; i < ids.length; i++) {
+  const evaluate = async (id, index) => {
     try {
-      const v = await evalInFrame(code, i === 0 ? null : ids[i], timeoutMs);
-      out.push({ frameId: ids[i], value: v, err: false });
-    } catch (e) {
-      out.push({ frameId: ids[i], err: true, message: e.message });
+      const value = await evalInFrame(code, index === 0 ? null : id, timeoutMs);
+      return {frameId:id, value, err:false};
+    } catch (error) {
+      return {frameId:id, err:true, message:error.message};
     }
-  }
-  return out;
+  };
+  if (parallel) return await Promise.all(ids.map(evaluate));
+  const results = [];
+  for (let index = 0; index < ids.length; index++) results.push(await evaluate(ids[index], index));
+  return results;
 }
 
 // 和主进程 execJSFrames 语义一致：抛错/假值 = 这个框架没目标，继续下一个
@@ -341,14 +343,30 @@ async function execJSFrames(code, timeoutMs) {
 
 // 读取某个全局值在哪个框架里出现了（给元素拾取用）
 async function readAllFrames(expr) {
-  const res = await evalAllFrames(expr);
-  let fallback;
-  for (const r of res) {
-    if (r.err) continue;
-    if (r.value !== undefined && r.value !== null) return r.value;
-    if (r.value !== undefined) fallback = r.value;
-  }
-  return fallback;
+  const sid = await ensureSession();
+  const tree = await send('Page.getFrameTree', {}, sid);
+  const ids = [];
+  (function walk(node) {
+    if (!node) return;
+    if (node.frame) ids.push(node.frame.id);
+    (node.childFrames || []).forEach(walk);
+  })(tree.frameTree);
+  return await new Promise((resolve, reject) => {
+    let remaining = ids.length, fallback, successful = 0, lastError;
+    if (!remaining) return reject(new Error('没有可用的网页框架'));
+    ids.forEach((id, index) => {
+      evalInFrame(expr, index === 0 ? null : id, 2000).then(value => {
+        successful++;
+        if (value !== undefined && value !== null) resolve(value);
+        else if (value === null) fallback = null;
+      }).catch(error => { lastError = error; }).finally(() => {
+        if (!--remaining) {
+          if (!successful) reject(lastError || new Error('网页框架读取失败'));
+          else resolve(fallback);
+        }
+      });
+    });
+  });
 }
 
 async function sendKey(key, times, modifiers) {
@@ -402,6 +420,14 @@ async function switchTarget(tid) {
   return { id: tid };
 }
 
+async function focusCurrent() {
+  if (!isRunning() || !targetId) throw new Error('没有可定位的上一步网页，请先打开网页');
+  const sid = await ensureSession();
+  await send('Target.activateTarget', {targetId});
+  await send('Page.bringToFront', {}, sid);
+  return {id:targetId};
+}
+
 async function currentUrl() { try { return await execJS('location.href'); } catch (e) { return ''; } }
 async function currentTitle() { try { return await execJS('document.title'); } catch (e) { return ''; } }
 
@@ -443,7 +469,8 @@ async function clearData(opts) {
 
 // 往"主框架 + 所有子框架"都注入一段脚本（不关心返回值，给拾取用）
 async function injectAll(code) {
-  try { await evalAllFrames(code); } catch (e) { }
+  const results = await evalAllFrames(code, 2000, true);
+  if (!results.some(r => !r.err)) throw new Error(results[0]?.message || '无法在当前网页启用拾取');
   return true;
 }
 
@@ -470,6 +497,7 @@ module.exports = {
   createTarget,
   closeTarget,
   switchTarget,
+  focusCurrent,
   execJS,
   execJSFrames,
   evalAllFrames,

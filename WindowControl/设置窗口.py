@@ -1,6 +1,6 @@
 from qt_compat.QtCore import Qt, QUrl
 from qt_compat.QtGui import QDesktopServices
-from qt_compat.QtWidgets import QDialog, QMessageBox
+from qt_compat.QtWidgets import QDialog, QMessageBox, QCheckBox, QWidget, QVBoxLayout, QLabel, QPushButton
 from functions import create_system_hotkey, global_hotkeys_supported, is_hotkey_valid
 from 数据库操作 import DatabaseOperation
 from Window.setting_ui import Ui_Setting
@@ -17,6 +17,34 @@ class Setting(QDialog, Ui_Setting):
         super().__init__(parent)
         # 初始化设置窗口
         self.setupUi(self)
+        shortcut_page = QWidget(self.tabWidget)
+        shortcut_page.setObjectName('settingsBody')
+        shortcut_layout = QVBoxLayout(shortcut_page)
+        shortcut_layout.setContentsMargins(12, 12, 12, 12)
+        shortcut_layout.setSpacing(10)
+        shortcut_tip = QLabel('更改界面切换、中文编程提示等快捷键，可单独启用、停用或清除按键。', shortcut_page)
+        shortcut_tip.setWordWrap(True)
+        shortcut_layout.addWidget(shortcut_tip)
+        self.change_shortcuts_button = QPushButton('更改快捷键', shortcut_page)
+        shortcut_layout.addWidget(self.change_shortcuts_button)
+        shortcut_layout.addStretch()
+        open_shortcuts = getattr(parent, 'open_view_shortcut_settings', None)
+        self.change_shortcuts_button.setEnabled(callable(open_shortcuts))
+        if callable(open_shortcuts):
+            self.change_shortcuts_button.clicked.connect(lambda: open_shortcuts(self))
+        else:
+            shortcut_tip.setText('请从主界面打开设置后更改快捷键。')
+        self.tabWidget.addTab(shortcut_page, '更改快捷键')
+        self.label_14.setText('应用编号：')
+        self.label_15.setText('接口密钥：')
+        self.label_16.setText('安全密钥：')
+        self.label_18.setText('访问令牌：')
+        self.programming_hint_checkbox = QCheckBox('开启中文编程提示', self)
+        self.programming_hint_checkbox.setToolTip('关闭后隐藏快捷功能栏的中文引导，拖入指令不再自动展开，并关闭中文候选提示')
+        self.gridLayout_3.addWidget(self.programming_hint_checkbox, 2, 0, 1, 2)
+        self._guidance_palette = getattr(getattr(parent, 'workspace', None), 'palette', None)
+        if self._guidance_palette is not None:
+            self._guidance_palette.guidanceEnabledChanged.connect(self.programming_hint_checkbox.setChecked)
         self.db = getattr(parent, "db", None) or DatabaseOperation()
         install_window_state(self, self.db, self.windowTitle())
         # 绑定快捷键事件
@@ -27,6 +55,8 @@ class Setting(QDialog, Ui_Setting):
         self.pushButton_2.clicked.connect(lambda: self.open_link(BAIDU_OCR))  # 打开百度OCR链接
         self.pushButton_4.clicked.connect(lambda: self.open_link(YUN_CODE))  # 打开云码链接
         self.load_setting_data()  # 加载设置数据
+        from settings_theme import apply_settings_theme
+        apply_settings_theme(self, parent)
 
     def unregister_global_shortcut_keys(self):
         """如果是主窗口打开，则注销全局快捷键，否则隐藏全局快捷键设置"""
@@ -83,6 +113,11 @@ class Setting(QDialog, Ui_Setting):
         for action, key_sequence_edit in key_mapping.items():
             validate_and_set_hotkey(create_system_hotkey(), key_sequence_edit, action)
 
+        enabled = self.programming_hint_checkbox.isChecked()
+        self.db.set_setting_value('中文编程提示', str(enabled))
+        if self._guidance_palette is not None:
+            self._guidance_palette.set_guidance_enabled(enabled)
+
 
     def save_setting(self):
         """保存按钮事件"""
@@ -97,6 +132,10 @@ class Setting(QDialog, Ui_Setting):
     def load_setting_data(self):
         """加载设置数据库中的数据"""
         # 加载设置数据
+        enabled = str(self.db.get_setting_value('中文编程提示') or 'True').lower() not in ('false', '0', '关闭')
+        if self._guidance_palette is not None:
+            enabled = self._guidance_palette.guidance_enabled
+        self.programming_hint_checkbox.setChecked(enabled)
         app_data_dic = self.db.get_setting_data(
             'appId',
             'apiKey',

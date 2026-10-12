@@ -212,7 +212,7 @@ def normalize_key(key, platform=None):
 class GlobalInputRecorder:
     """Listeners exist only between an explicit Start and Stop."""
     def __init__(self, buffer, stopped, failed, exclude_mouse=lambda x, y: False,
-                 exclude_keyboard=lambda: False, stop_with_f8=True):
+                 exclude_keyboard=lambda: False, stop_with_f8=True, record_trajectory=False):
         self.buffer = buffer
         self.stopped = stopped
         self.failed = failed
@@ -221,6 +221,7 @@ class GlobalInputRecorder:
         self.listeners = []
         self.active = False
         self.stop_with_f8 = stop_with_f8
+        self.record_trajectory = bool(record_trajectory)
         self.held_keys = set()
         self.held_buttons = set()
 
@@ -285,7 +286,8 @@ class GlobalInputRecorder:
                     self.held_buttons.discard(name)
 
         def move(x, y):
-            if self.held_buttons or not self.exclude_mouse(x, y):
+            # Drag motion must survive even when ordinary cursor paths are disabled.
+            if self.held_buttons or (self.record_trajectory and not self.exclude_mouse(x, y)):
                 self.buffer.append("move", int(x), int(y))
 
         def scroll(x, y, dx, dy):

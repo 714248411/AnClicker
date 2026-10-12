@@ -172,7 +172,7 @@ class Ui_InstructionEditor(object):
     # setupUi
 
     def retranslateUi(self, InstructionEditor):
-        self.titleLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u5750\u6807\u70b9\u51fb(\u53ef\u591a\u70b9)", None))
+        self.titleLabel.setText(QCoreApplication.translate("InstructionEditor", u"网页内坐标点击（可多点）", None))
         self.parameterGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u6307\u4ee4\u53c2\u6570", None))
         self.label_0.setText(QCoreApplication.translate("InstructionEditor", u"\u70b9\u51fb\u5750\u6807(\u6700\u591a9\u4e2a\u70b9\uff0c\u7528;\u5206\u9694\uff0c\u5982 100,200; 300,400)", None))
         self.parameter_0.setText("")

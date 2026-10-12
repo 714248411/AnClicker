@@ -130,14 +130,14 @@ def test_quick_actions_replace_previous_children_and_preserve_parameters():
     leaf=palette._quick_capture_item.child(0);palette.tree.setCurrentItem(leaf)
     assert palette.quick_parameters('图像点击')=={'图像路径':'first.png'}
     palette.show_recent_ocr((1,2,30,40))
-    assert palette._quick_capture_item.childCount()==0
+    assert palette._quick_capture_item.childCount()>0 and not palette._quick_capture_item.isExpanded()
     assert palette._quick_ocr_item.childCount()==3
     palette.tree.setCurrentItem(palette._quick_ocr_item.child(1))
     assert palette.quick_parameters('OCR点击识别区域')=={'区域':'(1, 2, 30, 40)'}
     palette.search_edit.setText('复制识别文字')
     assert not palette._quick_ocr_item.isHidden()
     palette.show_recent_capture('second.png')
-    assert palette._quick_ocr_item.childCount()==0
+    assert palette._quick_ocr_item.childCount()>0 and not palette._quick_ocr_item.isExpanded()
     assert palette._quick_capture_item.childCount()==1
     palette.close()
 

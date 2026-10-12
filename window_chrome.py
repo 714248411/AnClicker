@@ -5,7 +5,7 @@ from qt_compat.QtCore import QLineF, QRect, QRectF, QSize, Qt
 from qt_compat.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from qt_compat.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QWidget
 from info import APP_NAME, CURRENT_VERSION
-from qframelesswindow import FramelessMainWindow, StandardTitleBar
+from qframelesswindow import FramelessMainWindow as _FramelessMainWindow, StandardTitleBar
 from qframelesswindow.titlebar import TitleBarButton
 try:
     from qframelesswindow.utils import toggleMaxState
@@ -18,6 +18,21 @@ except ImportError:
         if sys.platform == 'win32':
             from qframelesswindow.utils.win32_utils import releaseMouseLeftButton
             releaseMouseLeftButton(window.winId())
+
+
+class FramelessMainWindow(_FramelessMainWindow):
+    """Preserve client geometry across Qt 5 native maximize/restore cycles."""
+    def showMaximized(self):
+        if not self.isMaximized() and not self.isMinimized():
+            self._restore_client_geometry = QRect(self.geometry())
+        super().showMaximized()
+
+    def showNormal(self):
+        restore = self.isMaximized()
+        bounds = getattr(self, '_restore_client_geometry', None)
+        super().showNormal()
+        if restore and bounds is not None and bounds.isValid():
+            self.setGeometry(bounds)
 
 
 def chrome_icon(kind, color):
@@ -90,7 +105,7 @@ class UpdateNoticeButton(QPushButton):
         super().__init__('新版本', parent)
         self.setObjectName('updateNotice')
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(32)
+        self.setFixedHeight(28)
         self.setIconSize(QSize(18, 18))
         self.badge = QWidget(self)
         self.badge.setFixedSize(8, 8)
@@ -107,7 +122,7 @@ class UpdateNoticeButton(QPushButton):
 class WindowTitleBar(StandardTitleBar):
     def __init__(self, window, theme_action):
         super().__init__(window)
-        self.setFixedHeight(48)
+        self.setFixedHeight(34)
         self.setObjectName('windowTitleBar')
         # Keep the library's native window behavior; replace only button artwork.
         for name, kind in (('minBtn', 'minimize'), ('maxBtn', 'maximize'), ('closeBtn', 'close')):
@@ -122,8 +137,8 @@ class WindowTitleBar(StandardTitleBar):
         self.minBtn.clicked.connect(window.showMinimized)
         self.maxBtn.clicked.connect(lambda: toggleMaxState(window))
         self.closeBtn.clicked.connect(window.close)
-        self.hBoxLayout.setContentsMargins(0, 0, 8, 0)
-        self.hBoxLayout.setSpacing(4)
+        self.hBoxLayout.setContentsMargins(0, 0, 4, 0)
+        self.hBoxLayout.setSpacing(2)
         self._ready_version = ''
         self._ready_notes = ''
         self.titleLabel.setMinimumWidth(0)
@@ -151,11 +166,11 @@ class WindowTitleBar(StandardTitleBar):
         self.theme_button.setDefaultAction(theme_action)
         self.theme_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         for button in (self.compact_button, self.theme_button):
-            button.setFixedSize(32, 32)
+            button.setFixedSize(28, 28)
             button.setIconSize(QSize(18, 18))
             self.hBoxLayout.insertWidget(self.hBoxLayout.indexOf(self.minBtn), button)
         for button, label in ((self.minBtn, '最小化'), (self.maxBtn, '最大化/还原'), (self.closeBtn, '关闭')):
-            button.setFixedSize(32, 32)
+            button.setFixedSize(28, 28)
             button.setToolTip(label)
             button.setAccessibleName(label)
 
