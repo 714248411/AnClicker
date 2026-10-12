@@ -40,6 +40,8 @@ def main():
             if result != 0 or not report.exists():
                 error_log = Path(folder) / "logs/startup-error.log"
                 detail = error_log.read_text(encoding="utf-8") if error_log.exists() else "No readiness report"
+                for engine_log in Path(folder).glob('*/engine-startup.log'):
+                    detail += '\n' + engine_log.read_text(encoding='utf-8', errors='replace')[-6000:]
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
             if not ready["ready"] or ready["views"] != 7 or not ready.get("window_chrome_valid"):

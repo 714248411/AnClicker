@@ -52,6 +52,10 @@ jobs:
         run: |
           mkdir extracted
           unzip -q release/*.zip -d extracted
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
+          fi
           uv run --locked --group release python packaging/smoke_release.py --dist extracted 2>&1 | tee release/verification-${{ matrix.artifact }}.txt
           uv run --locked --group release python - <<'PY'
           import hashlib, pathlib, platform, json
