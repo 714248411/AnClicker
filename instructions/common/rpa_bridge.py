@@ -33,7 +33,9 @@ class RpaBridge:
     def _start(self):
         if self.process is not None and self.process.poll() is None:
             return
-        executable = Path(os.environ.get('ANCLICKER_ELECTRON', ROOT / 'runtime/electron/electron.exe'))
+        runtime_entry = ('Electron.app/Contents/MacOS/Electron' if sys.platform == 'darwin'
+                         else 'electron.exe' if sys.platform == 'win32' else 'electron')
+        executable = Path(os.environ.get('ANCLICKER_ELECTRON', ROOT / 'runtime/electron' / runtime_entry))
         if not executable.is_file():
             raise RuntimeError('缺少自动化运行时，请运行 tools/setup_rpa_runtime.py 或设置 ANCLICKER_ELECTRON')
         environment = dict(os.environ)

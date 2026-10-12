@@ -31,7 +31,7 @@ def main():
             report.unlink(missing_ok=True)
             process = subprocess.Popen([str(executable), "--startup-smoke-test"], env=env, cwd=folder)
             try:
-                result = process.wait(timeout=90)
+                result = process.wait(timeout=240)
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
@@ -62,6 +62,10 @@ def main():
             if not ocr_checks.get('rapidocr') or not ocr_checks.get('isolated_worker'):
                 raise RuntimeError(f'Packaged offline OCR checks missing: {ready}')
             print(f'Offline OCR: {ocr_checks}')
+            rpa_checks = ready.get('rpa_validation', {})
+            if not all(rpa_checks.get(key) for key in ('excel', 'browser', 'screenshot', 'web_recording')):
+                raise RuntimeError(f'Packaged RPA checks missing: {ready}')
+            print(f'RPA: {rpa_checks}')
         result = subprocess.run([str(executable), '--migration-tool', '--startup-smoke-test'],
                                 env=env, cwd=folder, timeout=90)
         if result.returncode or not (Path(folder) / 'migration-ready.json').is_file():

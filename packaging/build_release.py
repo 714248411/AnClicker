@@ -45,6 +45,12 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
     for path_ in sorted(source_.rglob("*")):
         relative_ = path_.relative_to(source_)
         archive_name_ = Path(prefix_) / relative_
+        if path_.is_symlink():
+            info_ = zipfile.ZipInfo(archive_name_.as_posix())
+            info_.create_system = 3
+            info_.external_attr = (stat.S_IFLNK | 0o777) << 16
+            archive_.writestr(info_, os.readlink(path_))
+            continue
         if path_.is_dir():
             continue
         info_ = zipfile.ZipInfo.from_file(path_, archive_name_.as_posix())
