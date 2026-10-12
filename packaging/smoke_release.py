@@ -44,7 +44,10 @@ def main():
                     detail += '\n' + engine_log.read_text(encoding='utf-8', errors='replace')[-6000:]
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
-            if not ready["ready"] or ready["views"] != 7 or not ready.get("window_chrome_valid"):
+            expected_views = ["主界面", "表格", "流程图", "多功能", "录制", "网页录制"]
+            if (not ready["ready"] or ready["views"] != len(expected_views)
+                    or ready.get("view_labels") != expected_views
+                    or not ready.get("window_chrome_valid")):
                 raise RuntimeError(f"Main window incomplete: {ready}")
             if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
                 raise RuntimeError(f"Packaged version does not match release: {ready}")
