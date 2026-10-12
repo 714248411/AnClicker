@@ -2,9 +2,9 @@
 from time import monotonic
 import math
 
-from PySide6.QtCore import QObject, QPointF, Qt, QTimer
-from PySide6.QtGui import QColor, QPainterPath, QPainterPathStroker, QPen
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QObject, QPointF, Qt, QTimer
+from qt_compat.QtGui import QColor, QPainterPath, QPainterPathStroker, QPen
+from qt_compat.QtWidgets import QApplication
 
 class ConnectionCutter(QObject):
     def __init__(self, view):
@@ -106,7 +106,7 @@ class ConnectionCutter(QObject):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.save()
         clip = QPainterPath()
-        from PySide6.QtCore import QRectF
+        from qt_compat.QtCore import QRectF
         clip.addRect(QRectF(self.view.viewport().rect()))
         painter.setClipPath(clip.subtracted(self.blockers))
         for path in self.hits.values():

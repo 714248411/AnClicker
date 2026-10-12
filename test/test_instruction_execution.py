@@ -129,7 +129,9 @@ class InstructionFallbackTests(unittest.TestCase):
 
     def test_all_registered_fallbacks_execute_without_delegated_service(self):
         parameters_ = self._parameters()
-        self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS})
+        from instructions.common.rpa_instruction import CATALOG
+        rpa_ids = {item['type_id'] for item in CATALOG.values()}
+        self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS} - rpa_ids)
         self.context_.variables["值"] = 2
         self.context_.metadata['run_project'] = Mock(return_value=True)
         self.context_.services = dict(self.context_.services, 本地OCR=lambda **kwargs: [
@@ -160,6 +162,8 @@ class InstructionFallbackTests(unittest.TestCase):
             }))
 
             for spec_ in INSTRUCTION_SPECS:
+                if spec_.type_id in rpa_ids:
+                    continue
                 with self.subTest(type_id=spec_.type_id):
                     # Every fallback is an independent invocation; 终止流程
                     # must not suppress all the later subtests.
@@ -189,6 +193,9 @@ class InstructionFallbackTests(unittest.TestCase):
         common_source_ = (Path(actions.__file__).read_text(encoding="utf-8"))
         from instructions.common import local_ocr_instruction
         common_source_ += Path(local_ocr_instruction.__file__).read_text(encoding='utf-8')
+        from instructions.common import rpa_instruction
+        common_source_ += Path(rpa_instruction.__file__).read_text(encoding='utf-8')
+        common_source_ += (Path(actions.__file__).resolve().parents[2] / 'integrations/yingdao/src/engine.js').read_text(encoding='utf-8')
         for spec_ in INSTRUCTION_SPECS:
             with self.subTest(type_id=spec_.type_id):
                 module_ = sys.modules.get(spec_.module_path)

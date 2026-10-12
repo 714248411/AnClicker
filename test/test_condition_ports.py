@@ -2,10 +2,9 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import tempfile
 import unittest
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor
-from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QPointF, Qt
+from qt_compat.QtGui import QColor
+from qt_compat.QtWidgets import QApplication
 from node_editor.items import NodeItem, EdgeItem
 from node_editor.scene import NodeScene
 from instruction_workspace import InstructionWorkspace
@@ -45,13 +44,14 @@ class ConditionPortTests(unittest.TestCase):
             scene.addItem(node)
             scene.nodes_by_id[node.node_id] = node
         target.setPos(300, 100)
-        spy = QSignalSpy(scene.branchConnectionRequested)
+        signals = []
+        scene.branchConnectionRequested.connect(lambda *args: signals.append(list(args)))
         scene.begin_port_connection(source.no_port)
         scene.end_port_connection(target.mapToScene(QPointF(target.width / 2, target.height / 2)))
-        self.assertEqual(spy.at(0), ["condition", "target", 2])
+        self.assertEqual(signals[0], ["condition", "target", 2])
         scene.begin_port_connection(source.output_port)
         scene.end_port_connection(target.mapToScene(QPointF(target.width / 2, target.height / 2)))
-        self.assertEqual(spy.at(1), ["condition", "target", 1])
+        self.assertEqual(signals[1], ["condition", "target", 1])
 
     def test_false_edge_attaches_to_top_and_moves_with_node(self):
         scene = NodeScene()

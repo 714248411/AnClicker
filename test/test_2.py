@@ -3,9 +3,9 @@ import sys
 import time
 
 import cv2
-from PySide6.QtCore import QPoint, QRect, QRectF, QSettings, Qt, Signal as pyqtSignal
-from PySide6.QtGui import QBrush, QColor, QCursor, QFont, QPainter, QPen, QPixmap, QWindow
-from PySide6.QtWidgets import QApplication, QLabel
+from qt_compat.QtCore import QPoint, QRect, QRectF, QSettings, Qt, Signal as pyqtSignal
+from qt_compat.QtGui import QBrush, QColor, QCursor, QFont, QPainter, QPen, QPixmap, QWindow
+from qt_compat.QtWidgets import QApplication, QLabel
 from numpy import uint8, array
 
 

@@ -3,9 +3,9 @@ import time
 from threading import Event
 from unittest.mock import patch
 
-from PySide6.QtCore import QThread
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QThread
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication
 
 from instructions.models import InstructionDraft
 from test.test_hidden_stop import host

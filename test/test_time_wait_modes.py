@@ -8,9 +8,9 @@ from unittest.mock import Mock
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QTimer
+from qt_compat.QtGui import QColor
+from qt_compat.QtWidgets import QApplication
 from instructions.models import InstructionDraft, ExecutionContext, CommandRecord
 from instructions.registry import get_instruction_spec
 from instruction_workspace import InstructionWorkspace

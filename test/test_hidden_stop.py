@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtWidgets import QApplication
-from PySide6.QtTest import QTest
+from qt_compat.QtWidgets import QApplication
+from qt_compat.QtTest import QTest
 from instructions.models import InstructionDraft
 from 数据库操作 import DatabaseOperation
 
@@ -115,7 +115,7 @@ def test_single_view_menu_keeps_toolbar_toggle(host):
 
 
 def test_worker_cache_cleanup_is_queued_to_gui_thread(host):
-    from PySide6.QtCore import QThread
+    from qt_compat.QtCore import QThread
     import gc
     observed = []
     with patch.object(gc, 'collect', side_effect=lambda: observed.append(QThread.currentThread())):
@@ -164,7 +164,7 @@ def test_stop_does_not_block_gui_or_show_cancel_error(host):
 
 
 def test_error_dialog_is_nonmodal_and_stop_cancels_wait(host):
-    from PySide6.QtCore import Qt
+    from qt_compat.QtCore import Qt
     def fail(context, command):
         raise ValueError('test image not found')
     host.execution_services = {'悬停后点击': fail}
@@ -178,7 +178,7 @@ def test_error_dialog_is_nonmodal_and_stop_cancels_wait(host):
 
 @pytest.mark.parametrize('choice', ['Retry', 'Ignore', 'Abort'])
 def test_error_choices_still_work(host, choice):
-    from PySide6.QtWidgets import QMessageBox
+    from qt_compat.QtWidgets import QMessageBox
     calls = []
     def run(context, command):
         calls.append(1)

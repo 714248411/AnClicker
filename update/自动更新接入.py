@@ -5,8 +5,8 @@ import random
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QObject, QTimer, Signal, Slot
-from PySide6.QtWidgets import QMessageBox
+from qt_compat.QtCore import QObject, QTimer, Signal, Slot
+from qt_compat.QtWidgets import QMessageBox
 
 from info import CURRENT_VERSION
 from update.自动更新 import (
@@ -95,6 +95,7 @@ class AutoUpdateManager(QObject):
         self.check_thread_factory = check_thread_factory
         self.download_thread_factory = download_thread_factory
         self.apply_update = apply_update
+        self._stopping = False
         self.check_thread = None
         self.download_thread = None
         self.show_check_message = False
@@ -116,6 +117,8 @@ class AutoUpdateManager(QObject):
         self.check_for_updates(show_message=False)
 
     def check_for_updates(self, show_message: bool = False) -> None:
+        if self._stopping:
+            return
         if getattr(self.main_window, '_update_preparing', False):
             return
         if self._ready_update_info is not None:
@@ -178,17 +181,23 @@ class AutoUpdateManager(QObject):
 
     @Slot(object)
     def handle_pending_update(self, update_info_: Any) -> None:
+        if self._stopping:
+            return
         self.mark_update_ready(update_info_)
         if self.show_check_message:
             self.show_manual_update_message(update_info_, ready=True)
 
     @Slot(object)
     def handle_update_info(self, update_info_: Any) -> None:
+        if self._stopping:
+            return
         if self.show_check_message:
             self.show_manual_update_message(update_info_, ready=False)
         self.start_download(update_info_, is_manual=self.show_check_message)
 
     def start_download(self, update_info_: Any, *, is_manual: bool = False) -> None:
+        if self._stopping:
+            return
         if self.download_thread is not None and self.download_thread.isRunning():
             self.download_was_manual = self.download_was_manual or bool(is_manual)
             return
@@ -267,6 +276,8 @@ class AutoUpdateManager(QObject):
 
     @Slot(object)
     def handle_download_finished(self, update_info_: Any) -> None:
+        if self._stopping:
+            return
         self.download_result_handled = True
         self.progress_animator.complete()
         self.mark_update_ready(update_info_)
@@ -343,8 +354,21 @@ class AutoUpdateManager(QObject):
             return False
         return True
 
+    def cancel_for_exit(self) -> bool:
+        self._stopping = True
+        self.show_check_message = self.download_was_manual = False
+        self.progress_animator.stop()
+        threads = [t for t in (self.check_thread, self.download_thread) if t is not None]
+        for thread in threads:
+            if thread.isRunning():
+                thread.requestInterruption()
+        for thread in threads:
+            if thread.isRunning() and not thread.wait(5000):
+                return False
+        return True
+
     def shutdown(self) -> bool:
-        # SDK downloads cannot be forcibly terminated without risking corrupt packages.
+        # Ordinary shutdown waits; explicit exit cancels the isolated SDK process.
         if any(t is not None and t.isRunning() for t in (self.check_thread, self.download_thread)):
             return False
         self.progress_animator.stop()

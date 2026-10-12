@@ -1,6 +1,6 @@
 """Visual constants shared by the node editor components."""
 
-from PySide6.QtGui import QColor
+from qt_compat.QtGui import QColor
 
 
 BACKGROUND_COLOR = QColor("#171a21")

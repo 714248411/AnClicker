@@ -276,7 +276,7 @@ def open_path(path_: str) -> None:
 def get_screen_resolution() -> str:
     """Return the primary screen size using Qt on every desktop platform."""
     try:
-        from PySide6.QtGui import QGuiApplication
+        from qt_compat.QtGui import QGuiApplication
 
         app_ = QGuiApplication.instance()
         screen_ = app_.primaryScreen() if app_ is not None else None
@@ -299,7 +299,7 @@ def play_system_tone(frequency_: int = 500, duration_ms_: int = 300) -> None:
         except (ImportError, RuntimeError):
             pass
     try:
-        from PySide6.QtWidgets import QApplication
+        from qt_compat.QtWidgets import QApplication
 
         QApplication.beep()
     except Exception:

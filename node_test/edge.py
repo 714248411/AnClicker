@@ -1,6 +1,6 @@
-from PySide6.QtCore import QLineF, QPointF, Qt
-from PySide6.QtGui import QPainterPath, QPainterPathStroker, QPen
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem
+from qt_compat.QtCore import QLineF, QPointF, Qt
+from qt_compat.QtGui import QPainterPath, QPainterPathStroker, QPen
+from qt_compat.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
 from node_test.style import (
     EDGE_COLOR,

@@ -7,8 +7,8 @@ import math
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QObject, Signal, QTimer
-from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox
+from qt_compat.QtCore import QObject, Signal, QTimer
+from qt_compat.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from graph_repository import END_NODE_ID, GraphRepository
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft
@@ -138,7 +138,7 @@ class InstructionWorkspace(QObject):
         if not self._connection_edit_allowed():
             return
         from smart_capture import SmartCaptureDialog
-        from PySide6.QtWidgets import QInputDialog
+        from qt_compat.QtWidgets import QInputDialog
         from instructions.models import InstructionDraft
         owner = self.parent_window
         visible = owner is not None and owner.isVisible()
@@ -161,12 +161,9 @@ class InstructionWorkspace(QObject):
                     owner.activateWindow()
             if region is None or not self._connection_edit_allowed():
                 return
-            action, accepted = QInputDialog.getItem(owner, '快捷截图（OCR）',
-                '后续流程（运行时识别框选区域）：', ('点击OCR识别区域', '复制OCR内容'), 0, False)
-            if not accepted:
-                return
-            kind = 'OCR点击识别区域' if action == '点击OCR识别区域' else 'OCR复制'
-            self.add_command(kind, initial_draft=InstructionDraft(kind, {'区域': str(tuple(region))}))
+            self._recent_ocr_region = tuple(region)
+            self.palette.show_recent_ocr(region)
+            self.statusMessage.emit('框选已完成：在快捷截图（OCR）下方选择下一步操作。')
         QTimer.singleShot(180, choose)
 
     def add_selected_instruction(self) -> None:
@@ -191,6 +188,10 @@ class InstructionWorkspace(QObject):
         """Open the independent editor and create only after confirmation."""
         try:
             spec_ = get_instruction_spec(str(type_id))
+            if initial_draft is None:
+                quick = self.palette.quick_parameters(str(type_id))
+                if quick is not None:
+                    initial_draft = InstructionDraft(str(type_id), quick)
             editor_ = spec_.create_editor(
                 parent=self.parent_window,
                 context=self._editor_context(),
@@ -211,6 +212,7 @@ class InstructionWorkspace(QObject):
             self.statusMessage.emit(
                 f"已插入指令：{spec_.display_name}，请在流程图中完成连线"
             )
+            QTimer.singleShot(0, lambda: self.palette.command_added(draft_.type_id, draft_.parameters))
             return command_.id
         except Exception as error_:
             self._show_error("添加指令失败", error_)
@@ -692,7 +694,7 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                if spec_.type_id in {'中键激活', '时间等待', '按键等待', '鼠标点击', '按下键盘'} or spec_.category == '本地OCR':
+                if spec_.type_id in {'中键激活', '时间等待', '按键等待', '鼠标点击', '按下键盘'} or spec_.category in {'本地OCR', 'Excel', '白话指令', '网页自动化', '数据抓取'}:
                     from instructions.common.test_runner import run_cancellable_test
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:

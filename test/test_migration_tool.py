@@ -121,7 +121,7 @@ def test_cross_branch_jump_not_flattened(tmp_path):
 
 
 def test_ui_selection_keeps_current_database_until_import(tmp_path):
-    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    from qt_compat.QtWidgets import QInputDialog, QMessageBox
     source = old_export()
     path = tmp_path / 'old.xlsx'
     source.save(path)
@@ -140,7 +140,7 @@ def test_ui_selection_keeps_current_database_until_import(tmp_path):
 
 
 def test_ui_cancel_produces_no_files(tmp_path):
-    from PySide6.QtWidgets import QMessageBox
+    from qt_compat.QtWidgets import QMessageBox
     source = old_export()
     path = tmp_path / 'old.xlsx'
     source.save(path)

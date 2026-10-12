@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QPointF, QRectF, Qt, QEvent
-from PySide6.QtGui import QMouseEvent, QPainter, QColor
-from PySide6.QtWidgets import QApplication, QWidget, QDialog
+from qt_compat.QtCore import QPointF, QRectF, Qt, QEvent
+from qt_compat.QtGui import QMouseEvent, QPainter, QColor
+from qt_compat.QtWidgets import QApplication, QWidget, QDialog
 
 from instructions.common import actions
 from instructions.models import CommandRecord, ExecutionContext

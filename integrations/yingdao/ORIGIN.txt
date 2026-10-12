@@ -1,0 +1,4 @@
+Source: user-provided yingdao-rpa/src
+Integration: AnClicker Qt instruction editors + private authenticated loopback bridge to the original Electron execution engine.
+Original package declares MIT, author WorkBuddy. Original source comments and bundled SheetJS license retained.
+Runtime: Electron 31.7.7; LICENSE and LICENSES.chromium.html are in runtime/electron.

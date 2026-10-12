@@ -1,7 +1,7 @@
 import os
 
-from PySide6.QtGui import QStandardItemModel, QStandardItem
-from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
+from qt_compat.QtGui import QStandardItemModel, QStandardItem
+from qt_compat.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from Window.global_s_ui import Ui_Global
 from functions import open_path

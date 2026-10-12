@@ -19,7 +19,7 @@ class InstructionEditor(SchemaInstructionEditor):
 
     def __init__(self, parent=None, draft=None, context=None):
         super().__init__(parent, draft, context)
-        from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
+        from qt_compat.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
         form = self.ui.parameterFormLayout
         keys = self._controls['按键']
         duration = self._controls['按压时长']
@@ -49,7 +49,7 @@ class InstructionEditor(SchemaInstructionEditor):
             self._controls['按压时长'].setValue(value)
 
     def capture_keys(self):
-        from PySide6.QtWidgets import QDialog, QMessageBox
+        from qt_compat.QtWidgets import QDialog, QMessageBox
         from instructions.common.input_controls import KeyCaptureDialog
         owner = self.parentWidget()
         while owner is not None and not hasattr(owner, 'unregister_global_shortcut_keys'):

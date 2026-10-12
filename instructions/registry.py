@@ -55,7 +55,7 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
         "获取时间", "获取Excel", "获取鼠标位置", "获取剪切板", "获取对话框",
         "数字验证码", "OCR识别",
     )),
-    _spec("写入单元格", "Excel", "#5b6fdc"),
+    InstructionSpec("写入单元格", "写入单元格（独立文件）", "Excel", "instructions.Excel.写入单元格.写入单元格", node_color="#5b6fdc"),
     *(_spec(name_, "本地OCR", "#527cbb") for name_ in (
         "OCR文字提取", "OCR精准找字点击", "OCR模糊找字返回坐标",
         "OCR范围找字", "OCR等待文字出现", "OCR等待文字消失",
@@ -66,6 +66,48 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
         "运行Python", "运行cmd", "运行外部文件", "窗口控制", "信息录入",
         "屏幕截图", "提示音", "提示窗口", "发送消息",
     )),
+    InstructionSpec("粘贴到单元格", "粘贴到单元格", "Excel", "instructions.Excel.粘贴到单元格.粘贴到单元格", node_color="#16a085"),
+    InstructionSpec("打开Excel", "打开Excel", "Excel", "instructions.Excel.打开Excel.打开Excel", node_color="#16a085"),
+    InstructionSpec("读取单元格", "读取单元格", "Excel", "instructions.Excel.读取单元格.读取单元格", node_color="#16a085"),
+    InstructionSpec("Excel写入单元格", "写入单元格", "Excel", "instructions.Excel.Excel写入单元格.Excel写入单元格", node_color="#16a085"),
+    InstructionSpec("读取区域", "读取区域", "Excel", "instructions.Excel.读取区域.读取区域", node_color="#16a085"),
+    InstructionSpec("写入区域", "写入区域", "Excel", "instructions.Excel.写入区域.写入区域", node_color="#16a085"),
+    InstructionSpec("复制粘贴（选择性粘贴）", "复制粘贴(选择性粘贴)", "Excel", "instructions.Excel.复制粘贴（选择性粘贴）.复制粘贴（选择性粘贴）", node_color="#16a085"),
+    InstructionSpec("表格复制粘贴", "表格复制粘贴", "Excel", "instructions.Excel.表格复制粘贴.表格复制粘贴", node_color="#16a085"),
+    InstructionSpec("插入行", "插入行", "Excel", "instructions.Excel.插入行.插入行", node_color="#16a085"),
+    InstructionSpec("插入列", "插入列", "Excel", "instructions.Excel.插入列.插入列", node_color="#16a085"),
+    InstructionSpec("删除行", "删除行", "Excel", "instructions.Excel.删除行.删除行", node_color="#16a085"),
+    InstructionSpec("删除列", "删除列", "Excel", "instructions.Excel.删除列.删除列", node_color="#16a085"),
+    InstructionSpec("获取行数", "获取行数", "Excel", "instructions.Excel.获取行数.获取行数", node_color="#16a085"),
+    InstructionSpec("新建Excel", "新建Excel", "Excel", "instructions.Excel.新建Excel.新建Excel", node_color="#16a085"),
+    InstructionSpec("保存Excel", "保存Excel", "Excel", "instructions.Excel.保存Excel.保存Excel", node_color="#16a085"),
+    InstructionSpec("表格另存为", "表格另存为", "Excel", "instructions.Excel.表格另存为.表格另存为", node_color="#16a085"),
+    InstructionSpec("处理文件（白话）", "处理文件(白话)", "白话指令", "instructions.白话指令.处理文件（白话）.处理文件（白话）", node_color="#d35400"),
+    InstructionSpec("重命名文件（白话）", "重命名文件(白话)", "白话指令", "instructions.白话指令.重命名文件（白话）.重命名文件（白话）", node_color="#d35400"),
+    InstructionSpec("查找文件（白话）", "查找文件(白话)", "白话指令", "instructions.白话指令.查找文件（白话）.查找文件（白话）", node_color="#d35400"),
+    InstructionSpec("统计文件（白话）", "统计文件(白话)", "白话指令", "instructions.白话指令.统计文件（白话）.统计文件（白话）", node_color="#d35400"),
+    InstructionSpec("表格复制粘贴（白话）", "表格复制粘贴(白话)", "白话指令", "instructions.白话指令.表格复制粘贴（白话）.表格复制粘贴（白话）", node_color="#d35400"),
+    InstructionSpec("打开网页", "打开网页", "网页自动化", "instructions.网页自动化.打开网页.打开网页", node_color="#4a6cf7"),
+    InstructionSpec("点击元素", "点击元素", "网页自动化", "instructions.网页自动化.点击元素.点击元素", node_color="#4a6cf7"),
+    InstructionSpec("输入文本", "输入文本", "网页自动化", "instructions.网页自动化.输入文本.输入文本", node_color="#4a6cf7"),
+    InstructionSpec("获取文本", "获取文本", "网页自动化", "instructions.网页自动化.获取文本.获取文本", node_color="#4a6cf7"),
+    InstructionSpec("网页截图", "网页截图", "网页自动化", "instructions.网页自动化.网页截图.网页截图", node_color="#4a6cf7"),
+    InstructionSpec("等待元素出现", "等待元素出现", "网页自动化", "instructions.网页自动化.等待元素出现.等待元素出现", node_color="#4a6cf7"),
+    InstructionSpec("等待页面加载完成", "等待页面加载完成", "网页自动化", "instructions.网页自动化.等待页面加载完成.等待页面加载完成", node_color="#4a6cf7"),
+    InstructionSpec("诊断页面（排错）", "诊断页面(排错)", "网页自动化", "instructions.网页自动化.诊断页面（排错）.诊断页面（排错）", node_color="#98a2b3"),
+    InstructionSpec("坐标点击（可多点）", "坐标点击(可多点)", "网页自动化", "instructions.网页自动化.坐标点击（可多点）.坐标点击（可多点）", node_color="#4a6cf7"),
+    InstructionSpec("等待（秒）", "等待(秒)", "网页自动化", "instructions.网页自动化.等待（秒）.等待（秒）", node_color="#4a6cf7"),
+    InstructionSpec("按键", "按键", "网页自动化", "instructions.网页自动化.按键.按键", node_color="#4a6cf7"),
+    InstructionSpec("点击并全选复制", "点击并全选复制", "网页自动化", "instructions.网页自动化.点击并全选复制.点击并全选复制", node_color="#4a6cf7"),
+    InstructionSpec("点击并粘贴", "点击并粘贴", "网页自动化", "instructions.网页自动化.点击并粘贴.点击并粘贴", node_color="#4a6cf7"),
+    InstructionSpec("复制到剪贴板", "复制到剪贴板", "网页自动化", "instructions.网页自动化.复制到剪贴板.复制到剪贴板", node_color="#e67e22"),
+    InstructionSpec("粘贴到网页元素", "粘贴到网页元素", "网页自动化", "instructions.网页自动化.粘贴到网页元素.粘贴到网页元素", node_color="#4a6cf7"),
+    InstructionSpec("提取文本到表格", "提取文本到表格", "网页自动化", "instructions.网页自动化.提取文本到表格.提取文本到表格", node_color="#e67e22"),
+    InstructionSpec("拾取元素", "拾取元素", "网页自动化", "instructions.网页自动化.拾取元素.拾取元素", node_color="#4a6cf7"),
+    InstructionSpec("抓取文本", "抓取文本", "数据抓取", "instructions.数据抓取.抓取文本.抓取文本", node_color="#e67e22"),
+    InstructionSpec("抓取属性", "抓取属性", "数据抓取", "instructions.数据抓取.抓取属性.抓取属性", node_color="#e67e22"),
+    InstructionSpec("抓取列表", "抓取列表", "数据抓取", "instructions.数据抓取.抓取列表.抓取列表", node_color="#e67e22"),
+    InstructionSpec("抓取导出Excel", "抓取导出Excel", "数据抓取", "instructions.数据抓取.抓取导出Excel.抓取导出Excel", node_color="#e67e22"),
     _spec("终止流程", "流程", "#eb5757"),
     _spec("运行项目", "流程", "#5b6fdc"),
     _spec("报错跳转", "流程", "#d99653"),
@@ -82,8 +124,8 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
 )
 
 _SPEC_BY_ID = {spec_.type_id: spec_ for spec_ in INSTRUCTION_SPECS}
-if len(INSTRUCTION_SPECS) != 52 or len(_SPEC_BY_ID) != 52:
-    raise RuntimeError("指令注册表必须包含 52 个唯一 type_id")
+if len(INSTRUCTION_SPECS) != len(_SPEC_BY_ID):
+    raise RuntimeError("指令注册表存在重复 type_id")
 
 
 def get_instruction_spec(type_id: str) -> InstructionSpec:

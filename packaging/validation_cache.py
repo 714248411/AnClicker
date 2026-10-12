@@ -30,7 +30,7 @@ def fingerprint(context, stage):
             continue
         record(path, 'release/' + relative.as_posix())
     for path in (context.project_root / 'packaging').iterdir():
-        if path.suffix in ('.py', '.spec'):
+        if path.suffix in ('.py', '.spec', '.manifest'):
             record(path, 'code/' + path.name)
     record(context.project_root / 'info.py', 'code/info.py')
     return {'schema': 1, 'stage': stage, 'context': {k: str(v) for k, v in asdict(context).items()},

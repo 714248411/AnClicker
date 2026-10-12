@@ -5,10 +5,10 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 import pytest
-from PySide6.QtCore import QPoint, QPointF, QTimer, Qt
-from PySide6.QtGui import QColor, QImage, QPainter
-from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QWidget, QGraphicsScene
+from qt_compat.QtCore import QPoint, QPointF, QTimer, Qt
+from qt_compat.QtGui import QColor, QImage, QPainter
+from qt_compat.QtTest import QTest
+from qt_compat.QtWidgets import QApplication, QDialog, QWidget, QGraphicsScene
 
 from instructions.common import actions
 from instructions.common.editor import _PointSelectionDialog

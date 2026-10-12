@@ -7,7 +7,7 @@ from threading import Event
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from PySide6.QtCore import QMutex, QThread, QWaitCondition, Signal
+from qt_compat.QtCore import QMutex, QThread, QWaitCondition, Signal
 
 from graph_repository import GraphRepository, GraphValidationError
 from instructions.models import CommandRecord, ExecutionContext
@@ -416,6 +416,10 @@ class CommandThread(QThread):
     def _execute_one(
         self, command_: CommandRecord, context_: ExecutionContext
     ):
+        pending_ = command_.parameters.get('_待补充参数')
+        if pending_:
+            self.send_message.emit(f"跳过待补充指令 #{command_.id} {command_.type_id}：" + '、'.join(str(v) for v in pending_))
+            return None
         group_ = command_.parameters.get("录制批次")
         if group_:
             offset_ = max(0.0, float(command_.parameters.get("录制时间", 0)))

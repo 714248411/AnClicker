@@ -21,9 +21,9 @@ from time import time as current_time
 from typing import Optional
 
 import openpyxl
-from PySide6.QtCore import QTimer, Signal, Slot, QUrl, Qt
-from PySide6.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QTimer, Signal, Slot, QUrl, Qt
+from qt_compat.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
+from qt_compat.QtWidgets import (
     QApplication,
     QDialog,
     QFileDialog,
@@ -110,7 +110,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.workspace = InstructionWorkspace(self.db.db_path, self)
         self._install_instruction_workspace()
         self.view_workspace = ViewWorkspace(self)
-        from PySide6.QtWidgets import QCheckBox, QWidget, QVBoxLayout
+        from qt_compat.QtWidgets import QCheckBox, QWidget, QVBoxLayout
         self.run_unconnected_checkbox = QCheckBox('运行未连接模块', self.groupBox_3)
         self.run_unconnected_checkbox.setObjectName('runUnconnectedCheckBox')
         self.run_unconnected_checkbox.setChecked(self.db.get_setting_value('运行未连接模块') != 'False')
@@ -238,7 +238,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             bar.set_update_applying(False)
 
     def prepare_for_update(self):
-        if (self.command_thread.isRunning() or self.view_workspace.recording_page.busy
+        if (self.command_thread.isRunning() or (self.view_workspace.recording_page.busy or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False))
+                or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'unsaved', False)
                 or getattr(self.workspace, '_instruction_test_active', False)
                 or (self.view_workspace.recording_page.drafts and not self.view_workspace.recording_page.written)
                 or QApplication.activeModalWidget() is not None):
@@ -456,7 +457,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
     def open_project_path(self, file_path):
         """One guarded entry point for recent selection, edited paths and drops."""
         thread = getattr(self, 'command_thread', None)
-        if (thread is not None and thread.isRunning()) or self.view_workspace.recording_page.busy:
+        if (thread is not None and thread.isRunning()) or (self.view_workspace.recording_page.busy or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False)):
             self.statusBar.showMessage('请先停止任务和录制，再切换项目。', 5000)
             self.add_recent_to_fileMenu()
             return
@@ -465,7 +466,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self.add_recent_to_fileMenu()
             return
         recording = self.view_workspace.recording_page
-        if recording.drafts and not recording.written:
+        if (recording.drafts and not recording.written) or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'unsaved', False):
             QMessageBox.warning(self, '录制尚未写入', '请先写入或清空录制，再切换项目。')
             self.add_recent_to_fileMenu()
             return
@@ -631,12 +632,25 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         if getattr(self, "_update_exit_requested", False):
             event.accept()
             return
+        cancel_update = False
         if hasattr(self, "auto_update") and not self.auto_update.shutdown():
-            QMessageBox.information(self, "正在更新", "正在检查或下载更新，请稍后退出。")
+            box = QMessageBox(self)
+            box.setWindowTitle('更新尚未完成')
+            box.setText('正在检查或下载更新。继续结束将停止本次更新并退出；等待将返回程序继续更新。')
+            finish_button = box.addButton('继续结束', QMessageBox.ButtonRole.DestructiveRole)
+            wait_button = box.addButton('等待', QMessageBox.ButtonRole.RejectRole)
+            box.setDefaultButton(wait_button)
+            box.exec()
+            if box.clickedButton() is not finish_button:
+                event.ignore()
+                return
+            cancel_update = True
+        recording = self.view_workspace.recording_page
+        if getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False):
+            self.statusBar.showMessage('请先停止网页录制，再退出。', 5000)
             event.ignore()
             return
-        recording = self.view_workspace.recording_page
-        if recording.busy or (recording.drafts and not recording.written):
+        if recording.busy or (recording.drafts and not recording.written) or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'unsaved', False):
             if QMessageBox.question(
                     self, "未保存的录制", "录制内容尚未全部写入，退出会丢弃未写入部分。确定退出吗？",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -668,8 +682,16 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             event.ignore()
             return
 
+        self.view_workspace._save_code()
+        if cancel_update and not self.auto_update.cancel_for_exit():
+            self.statusBar.showMessage('正在停止更新，请稍后再关闭。', 5000)
+            event.ignore()
+            return
         if self.db.get_bool_setting("退出提醒清空指令"):
             self.db.clear_all_ins()
+        web_recording = getattr(self.view_workspace, 'web_recording_page', None)
+        if web_recording is not None:
+            web_recording.shutdown()
         recording.shutdown()
         self._closing = True
         event.accept()
@@ -678,7 +700,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         """识别旧版备份，完整验证并另存新版后，事务性替换指令图。"""
         thread_ = getattr(self, 'command_thread', None)
         recording_ = getattr(self.view_workspace, 'recording_page', None)
-        if (thread_ is not None and thread_.isRunning()) or (recording_ is not None and recording_.busy):
+        if (thread_ is not None and thread_.isRunning()) or (recording_ is not None and recording_.busy) or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False):
             self.statusBar.showMessage('请先停止任务和录制，再导入项目。', 5000)
             return
         if file_path == "资源文件夹路径":
@@ -777,7 +799,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         :param run_mode: 运行模式（全部指令、单行指令、从当前行运行）
         :param info: 指令ID"""
 
-        if self.view_workspace.recording_page.busy:
+        if (self.view_workspace.recording_page.busy or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False)):
             self.statusBar.showMessage("请先停止键鼠录制，再运行任务。", 5000)
             return False
 

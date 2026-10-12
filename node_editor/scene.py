@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
-from PySide6.QtCore import QLineF, QPointF, QRectF, Signal, Qt
-from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen
-from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsScene
+from qt_compat.QtCore import QLineF, QPointF, QRectF, Signal, Qt
+from qt_compat.QtGui import QBrush, QColor, QPainterPath, QPen
+from qt_compat.QtWidgets import QGraphicsPathItem, QGraphicsScene
 
 from node_editor.items import EdgeItem, NodeItem
 from node_editor.specs import NodeDisplaySpec, normalize_specs
@@ -77,7 +77,7 @@ class NodeScene(QGraphicsScene):
         self._routing_edges = True
         try:
             from .routing_index import RoutingIndex
-            from PySide6.QtGui import QPainterPathStroker
+            from qt_compat.QtGui import QPainterPathStroker
             self._route_index = RoutingIndex()
             for node_ in self.nodes_by_id.values():
                 self._route_index.add(node_, node_.sceneBoundingRect().adjusted(-10, -10, 10, 10))

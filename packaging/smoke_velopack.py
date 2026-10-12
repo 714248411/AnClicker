@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import tempfile
 import uuid
 import zipfile
 
@@ -19,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app', type=Path, default=ROOT / 'dist/velopack' / APP_ID)
     args = parser.parse_args()
-    sandbox = ROOT / 'build/velopack-upgrade' / uuid.uuid4().hex
+    sandbox = Path(tempfile.mkdtemp(prefix='ac-upgrade-'))
     feed = sandbox / 'feed'
     portable = sandbox / 'portable'
     feed.mkdir(parents=True)

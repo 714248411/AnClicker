@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>世博自动化 Excel 编辑器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; background: #fff; display: flex; flex-direction: column; height: 100vh; }
+.header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-bottom: 1px solid #e0e0e0; background: #fafbfc; flex-shrink: 0; flex-wrap: wrap;
+}
+.header .title { font-weight: 700; color: #16a085; font-size: 13px; }
+.header .path { color: #999; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+.toolbar { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; align-items: center; }
+.toolbar button {
+  padding: 4px 8px; font-size: 12px; border: 1px solid #d0d8e8; background: #fff;
+  border-radius: 5px; cursor: pointer; color: #333; white-space: nowrap;
+}
+.toolbar button:hover { background: #eef2ff; border-color: #4a6cf7; }
+.toolbar button.primary { background: #16a085; color: #fff; border-color: #16a085; }
+.toolbar .sep { width: 1px; height: 16px; background: #e0e0e0; margin: 0 2px; align-self: center; }
+.zoom { font-size: 11px; color: #666; min-width: 34px; text-align: center; cursor: pointer; user-select: none; }
+
+/* 编辑栏：名称框 + 内容框（对齐 WPS） */
+.formulabar { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid #e0e0e0; background: #fff; flex-shrink: 0; }
+.formulabar #namebox {
+  width: 86px; text-align: center; font-size: 12px; color: #333; font-weight: 600;
+  border: 1px solid #d0d8e8; border-radius: 4px; padding: 3px 4px; background: #f7f9fc;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.formulabar .fx { font-size: 12px; color: #888; font-style: italic; }
+.formulabar #formula {
+  flex: 1; font-size: 12px; padding: 3px 6px; border: 1px solid #d0d8e8; border-radius: 4px;
+  font-family: Consolas, "Segoe UI", monospace;
+}
+
+.sheets { display: flex; align-items: center; gap: 2px; padding: 3px 8px; border-bottom: 1px solid #e0e0e0; background: #f5f6f7; flex-shrink: 0; overflow-x: auto; }
+.sheets .sheet-tab { padding: 3px 10px; font-size: 11px; cursor: pointer; border: 1px solid #d0d8e8; border-bottom: none; border-radius: 4px 4px 0 0; background: #fff; color: #555; white-space: nowrap; }
+.sheets .sheet-tab.active { color: #16a085; font-weight: 700; border-color: #16a085; }
+.sheets .sheet-add { padding: 3px 8px; font-size: 12px; cursor: pointer; border: none; background: transparent; color: #888; }
+.sheets .sheet-add:hover { color: #16a085; }
+
+.grid-wrap { flex: 1; overflow: auto; }
+.statusbar {
+  display: flex; gap: 16px; align-items: center; padding: 4px 12px;
+  border-top: 1px solid #e0e0e0; font-size: 12px; color: #666; background: #fafbfc; flex-shrink: 0;
+}
+.statusbar #excel-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statusbar #stat { color: #16a085; white-space: nowrap; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 46px; transform: translateX(-50%) translateY(8px);
+  background: rgba(30,41,59,.92); color: #fff; font-size: 12px; padding: 6px 14px;
+  border-radius: 14px; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; z-index: 9999;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="header">
+    <span class="title">📊 Excel</span>
+    <span class="path" id="path">未打开文件</span>
+    <div class="toolbar">
+      <button id="open" title="打开文件">打开</button>
+      <button id="save" title="保存" class="primary">💾 保存</button>
+      <button id="saveas" title="另存为">另存为</button>
+      <button id="fmt" title="选择保存格式（可多选，默认勾选一种）">格式：xlsx</button>
+      <span class="sep"></span>
+      <button id="undo" title="撤销 (Ctrl+Z)">↶ 撤销</button>
+      <button id="redo" title="重做 (Ctrl+Y)">↷ 重做</button>
+      <button id="find" title="查找替换 (Ctrl+F)">🔍 查找</button>
+      <span class="sep"></span>
+      <button id="copy" title="复制选中区域 (Ctrl+C)">复制</button>
+      <button id="paste" title="粘贴 (Ctrl+V)">粘贴</button>
+      <span class="sep"></span>
+      <button id="insrow" title="插入行">插行</button>
+      <button id="inscol" title="插入列">插列</button>
+      <button id="delrow" title="删除行">删行</button>
+      <button id="delcol" title="删除列">删列</button>
+      <span class="sep"></span>
+      <button id="readrange" title="读取选中区域">读区域</button>
+      <button id="getrows" title="获取行数">行数</button>
+      <span class="sep"></span>
+      <button id="popout-sheet" title="把当前工作表拖出为独立窗口">⤢ 拖出工作表</button>
+      <button id="embed" title="嵌入回主窗口" class="primary">⬅ 嵌入回去</button>
+      <span class="sep"></span>
+      <button id="zoom-out" title="缩小">－</button>
+      <span class="zoom" id="zoom" title="双击恢复 100%">100%</span>
+      <button id="zoom-in" title="放大">＋</button>
+    </div>
+  </div>
+  <div class="formulabar">
+    <span id="namebox">A1</span>
+    <span class="fx">fx</span>
+    <input id="formula" placeholder="输入内容后回车写入当前单元格（Esc 取消）">
+  </div>
+  <div class="sheets" id="sheets"></div>
+  <div class="grid-wrap" id="grid"></div>
+  <div class="statusbar">
+    <span id="excel-path">未打开文件</span>
+    <span id="cellinfo">A1</span>
+    <span id="dim"></span>
+    <span id="stat"></span>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="lib/xlsx.full.min.js"></script>
+  <script src="formula.js"></script>
+  <script src="engine.js"></script>
+  <script src="excel-grid.js"></script>
+  <script src="excel-save-format.js"></script>
+  <script src="excel-standalone.js"></script>
+</body>
+</html>

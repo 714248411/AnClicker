@@ -388,6 +388,13 @@
                       </property>
                     </widget>
                   </item>
+                  <item>
+                    <widget class="QPushButton" name="auxiliary_8">
+                      <property name="text">
+                        <string>获取坐标</string>
+                      </property>
+                    </widget>
+                  </item>
                 </layout>
               </widget>
             </item>

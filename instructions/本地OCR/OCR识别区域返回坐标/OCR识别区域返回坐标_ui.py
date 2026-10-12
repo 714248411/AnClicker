@@ -3,23 +3,15 @@
 ################################################################################
 ## Form generated from reading UI file 'OCR识别区域返回坐标.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.2
+## Created by: Qt User Interface Compiler version 5.15.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QComboBox,
-    QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
-    QGroupBox, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QSizePolicy, QSpacerItem, QSpinBox,
-    QVBoxLayout, QWidget)
+from qt_compat.QtCore import *
+from qt_compat.QtGui import *
+from qt_compat.QtWidgets import *
+
 
 class Ui_InstructionEditor(object):
     def setupUi(self, InstructionEditor):
@@ -198,6 +190,11 @@ class Ui_InstructionEditor(object):
 
         self.parameterLayout_7.addWidget(self.parameter_7)
 
+        self.auxiliary_7 = QPushButton(self.parameterContainer_7)
+        self.auxiliary_7.setObjectName(u"auxiliary_7")
+
+        self.parameterLayout_7.addWidget(self.auxiliary_7)
+
 
         self.parameterFormLayout.setWidget(7, QFormLayout.FieldRole, self.parameterContainer_7)
 
@@ -331,7 +328,7 @@ class Ui_InstructionEditor(object):
 
         self.rootLayout.addWidget(self.parameterGroupBox)
 
-        self.verticalSpacer = QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.rootLayout.addItem(self.verticalSpacer)
 
@@ -385,7 +382,7 @@ class Ui_InstructionEditor(object):
 
         self.footerLayout.addWidget(self.testButton)
 
-        self.footerSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.footerSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.footerLayout.addItem(self.footerSpacer)
 
@@ -439,6 +436,7 @@ class Ui_InstructionEditor(object):
 
         self.parameterLabel_7.setText(QCoreApplication.translate("InstructionEditor", u"\u5c4f\u5e55\u951a\u70b9 x,y\uff08\u7a7a\u4e3a\u8bc6\u522b\u8303\u56f4\u4e2d\u5fc3\uff09", None))
         self.parameter_7.setText("")
+        self.auxiliary_7.setText(QCoreApplication.translate("InstructionEditor", u"\u83b7\u53d6\u5750\u6807", None))
         self.parameterLabel_8.setText(QCoreApplication.translate("InstructionEditor", u"\u5ffd\u7565\u82f1\u6587\u5927\u5c0f\u5199", None))
         self.parameter_8.setText(QCoreApplication.translate("InstructionEditor", u"\u542f\u7528", None))
         self.parameterLabel_9.setText(QCoreApplication.translate("InstructionEditor", u"\u5ffd\u7565\u7a7a\u767d\u5b57\u7b26", None))

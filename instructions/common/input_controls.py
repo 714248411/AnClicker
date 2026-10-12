@@ -1,9 +1,9 @@
 """Focused key capture and text-only clipboard compatibility for editors."""
 import sys
 
-from PySide6.QtCore import QEvent, Qt
-from PySide6.QtGui import QKeySequence, QTextDocument
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QEvent, Qt
+from qt_compat.QtGui import QKeySequence, QTextDocument
+from qt_compat.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QLabel, QMenu,
     QPlainTextEdit, QVBoxLayout, QWidget,
 )

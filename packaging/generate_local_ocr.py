@@ -16,7 +16,7 @@ def prop(element, name, tag, value):
 
 def generate():
     template = ROOT / 'instructions/获取变量/OCR识别/OCR识别.ui'
-    uic = Path(sys.executable).parent / ('pyside6-uic.exe' if sys.platform == 'win32' else 'pyside6-uic')
+    uic = Path(sys.executable).parent / ('pyside2-uic.exe' if sys.platform == 'win32' else 'pyside6-uic')
     for name in OCR_TYPES:
         folder = ROOT / 'instructions/本地OCR' / name
         folder.mkdir(parents=True, exist_ok=True)
@@ -63,7 +63,7 @@ def generate():
             else:
                 prop(widget, 'text', 'string', field.default)
             auxiliary = {'区域': '框选区域', '变量': '设置变量', '图像路径': '选择图片',
-                         '点击位置': '获取坐标'}
+                         '点击位置': '获取坐标', '中心锚点': '获取坐标'}
             if field.key in auxiliary:
                 button = ET.SubElement(ET.SubElement(layout, 'item'), 'widget',
                                        {'class': 'QPushButton', 'name': f'auxiliary_{i}'})
@@ -72,6 +72,8 @@ def generate():
         ET.indent(tree)
         tree.write(path, encoding='utf-8', xml_declaration=True)
         subprocess.run([str(uic), str(path), '-o', str(folder/f'{name}_ui.py')], check=True)
+        generated = folder/f'{name}_ui.py'
+        generated.write_text(generated.read_text(encoding='utf-8').replace('from PySide2.', 'from qt_compat.').replace('from PySide6.', 'from qt_compat.'), encoding='utf-8')
         source = f'''"""{name}：独立拖拽指令，共享离线 OCR 引擎。"""
 from instructions.common.local_ocr_instruction import LocalOcrEditor, LocalOcrExecutor, fields_for
 from .{name}_ui import Ui_InstructionEditor

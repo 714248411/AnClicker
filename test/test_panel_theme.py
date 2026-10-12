@@ -1,5 +1,5 @@
 import pytest
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtWidgets import QApplication
 from test.test_hidden_stop import host
 
 @pytest.mark.parametrize('mode',['light','dark'])

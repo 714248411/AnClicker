@@ -6,9 +6,9 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import QPointF
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QDialog
+from qt_compat.QtCore import QPointF
+from qt_compat.QtGui import QPixmap
+from qt_compat.QtWidgets import QApplication, QDialog
 from instructions.键鼠.图像点击.图像点击 import InstructionEditor
 from instructions.common.image_click_editor import ImagePositionDialog
 from instructions.models import ExecutionContext, InstructionDraft

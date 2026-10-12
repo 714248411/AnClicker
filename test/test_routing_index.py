@@ -1,5 +1,5 @@
 import unittest
-from PySide6.QtCore import QRectF
+from qt_compat.QtCore import QRectF
 from node_editor.routing_index import RoutingIndex
 
 

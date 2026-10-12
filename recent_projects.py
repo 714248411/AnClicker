@@ -2,8 +2,8 @@
 import os
 from pathlib import PureWindowsPath, PurePosixPath
 
-from PySide6.QtCore import QObject, QEvent, Qt, Signal, QTimer
-from PySide6.QtWidgets import QComboBox, QWidget, QVBoxLayout, QLabel, QApplication
+from qt_compat.QtCore import QObject, QEvent, Qt, Signal, QTimer
+from qt_compat.QtWidgets import QComboBox, QWidget, QVBoxLayout, QLabel, QApplication
 
 
 def short_path(path):

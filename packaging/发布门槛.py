@@ -40,6 +40,8 @@ def allow_project_artifact(relative_path: PurePosixPath) -> bool:
 
 def validate_project_release(context: ReleaseContext) -> None:
     """业务项目在此增加数据库迁移、插件或业务协议等专属检查。"""
+    from windows_compatibility import validate_native_runtime
+    validate_native_runtime(context.app_dir)
     # The sole database exception is a generated, empty seed, never user storage.
     import sqlite3
     database = context.app_dir / 'defaults' / '命令集.db'
@@ -131,7 +133,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
         report.unlink(missing_ok=True)
         subprocess.run(
             [str(executable), "--release-smoke"], cwd=sandbox, env=environment,
-            check=True, timeout=45,
+            check=True, timeout=120 if full_checks else 45,
         )
         if launcher:
             deadline = time.monotonic() + 45
@@ -159,6 +161,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
             or result.get("window_visible") is not True
             or result.get("window_chrome_valid") is not True
             or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and result.get("full_checks") is not True)
+            or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and not result.get("rpa_validation", {}).get("web_recording"))
             or result.get("version") != context.version
             or result.get("update_config") != update_source_config()
             or Path(result.get("data_root", "")).resolve() != data_dir.resolve()

@@ -2,9 +2,9 @@
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QApplication, QDialog
+from qt_compat.QtCore import QPoint, QRect, QRectF, Qt
+from qt_compat.QtGui import QColor, QImage, QPainter, QPainterPath, QPen
+from qt_compat.QtWidgets import QApplication, QDialog
 
 
 def edge_rectangles(image):

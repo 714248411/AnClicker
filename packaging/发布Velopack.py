@@ -261,6 +261,11 @@ class QiniuUploader:
         if not access or not secret:
             raise ReleaseError('发布必须设置 QINIU_ACCESS_KEY 和 QINIU_SECRET_KEY')
         import qiniu
+        # The form-upload path ignores the regions scheme and uses this SDK default.
+        # Force HTTPS for small packages and the mutable feed as well.
+        from qiniu.config import set_default
+        from qiniu.region import LegacyRegion
+        set_default(default_zone=LegacyRegion(scheme="https"))
         self.sdk = qiniu
         self.auth = qiniu.Auth(access, secret)
         self.config = config

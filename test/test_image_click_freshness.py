@@ -132,7 +132,7 @@ def test_no_default_move_pause_between_confirmation_and_click(screen):
 
 
 def test_pause_invalidates_frame_even_when_resumed_before_match_returns(screen):
-    from PySide6.QtCore import QMutex, QWaitCondition
+    from qt_compat.QtCore import QMutex, QWaitCondition
     from main_work import CommandThread
     context = ExecutionContext()
     worker = SimpleNamespace(start_state=True, is_paused=False, _active_context=context,
@@ -149,7 +149,7 @@ def test_pause_invalidates_frame_even_when_resumed_before_match_returns(screen):
 
 
 def test_pause_wait_after_capture_forces_new_frame(screen):
-    from PySide6.QtCore import QMutex, QWaitCondition
+    from qt_compat.QtCore import QMutex, QWaitCondition
     from main_work import CommandThread
     context = ExecutionContext()
     worker = SimpleNamespace(start_state=True, is_paused=False, _active_context=context,

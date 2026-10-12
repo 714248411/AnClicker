@@ -1,6 +1,6 @@
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QDialog, QMessageBox
+from qt_compat.QtCore import Qt, QUrl
+from qt_compat.QtGui import QDesktopServices
+from qt_compat.QtWidgets import QDialog, QMessageBox
 from functions import create_system_hotkey, global_hotkeys_supported, is_hotkey_valid
 from 数据库操作 import DatabaseOperation
 from Window.setting_ui import Ui_Setting

@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from unittest.mock import patch, Mock
 import pytest
 from openpyxl import Workbook, load_workbook
-from PySide6.QtWidgets import QApplication, QWidget
-from PySide6.QtCore import QPointF
+from qt_compat.QtWidgets import QApplication, QWidget
+from qt_compat.QtCore import QPointF
 from graph_repository import GraphRepository, GraphValidationError
 from instructions.models import InstructionDraft, ExecutionContext
 from instructions.registry import get_instruction_spec, INSTRUCTION_SPECS
@@ -209,8 +209,8 @@ def test_jump_editors_roundtrip_modes_and_variable_dropdown(setup):
 @pytest.mark.parametrize('cross_body',[False,True])
 def test_arrow_anchor_stays_outside_target_and_follows_incoming_direction(app,diamond,cross_body):
     import math
-    from PySide6.QtGui import QColor,QPainterPath
-    from PySide6.QtWidgets import QGraphicsScene
+    from qt_compat.QtGui import QColor,QPainterPath
+    from qt_compat.QtWidgets import QGraphicsScene
     from node_editor.items import NodeItem,EdgeItem
     scene=QGraphicsScene()
     source=NodeItem('a',1,'文本输入','A',QColor('#336699'))
@@ -239,8 +239,8 @@ def test_arrow_anchor_stays_outside_target_and_follows_incoming_direction(app,di
 @pytest.mark.parametrize('direction',[(0,-1),(0,1),(-1,-1),(1,1)])
 def test_arrow_top_bottom_diagonal_entries(app,diamond,direction):
     import math
-    from PySide6.QtGui import QColor,QPainterPath
-    from PySide6.QtWidgets import QGraphicsScene
+    from qt_compat.QtGui import QColor,QPainterPath
+    from qt_compat.QtWidgets import QGraphicsScene
     from node_editor.items import NodeItem,EdgeItem
     scene=QGraphicsScene()
     source=NodeItem('a',1,'文本输入','A',QColor('#336699'))

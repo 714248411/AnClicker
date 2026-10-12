@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="bxJ1JzjwCJkU5yKKqcsvuT">
+<head data-page-node-id="TCXY1FXpYiidC6pAMQClG5">
+<meta charset="UTF-8" data-page-node-id="iCLcB0Bw6aEQ3riQowmjoO">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="TimHMY3aUeL56UvSY1GUuN">
+<title>世博自动化</title>
+<link rel="stylesheet" href="style.css" data-page-node-id="hgrwaK0ACGgCSNqB74eeXC">
+</head>
+<body data-page-node-id="BS1id9GT9Zr27B5k1ly0To">
+  <!-- 顶部菜单栏 -->
+  <header class="topbar" data-page-node-id="ewtJLoM5q2AqwHcQ3pltsp">
+    <div class="topbar-left" data-page-node-id="rFp50D4xfE34YnBVHapqaH">
+      <span class="logo" data-page-node-id="oXFoT6IGGXVNXDzYxkv26c">⚡ 世博自动化</span>
+      <span class="app-name" data-page-node-id="7ECvMdzglowIBQN2b4SWpd">未命名流程</span>
+      <span class="dot" data-page-node-id="Y0NGlBfsozSKA71CNQir0u">●</span>
+    </div>
+    <div class="topbar-center" data-page-node-id="NbgYk2ZqMrqHjphaPemVZT">
+      <button class="tb-btn" id="btn-save" title="保存" data-page-node-id="dW6a0kpgDwUwxoxql1iWO0">保存</button>
+      <button class="tb-btn" id="btn-open" title="打开" data-page-node-id="gk7tCMwjI15DtKN5UrzIvE">打开</button>
+      <button class="tb-btn" id="btn-export" title="导出为双击即可运行的程序" data-page-node-id="exportBtn">📦 导出程序</button>
+      <button class="tb-btn" id="btn-undo" title="撤销" data-page-node-id="EByU3CEfG9lsjqSs6nJxjF">撤销</button>
+      <button class="tb-btn" id="btn-redo" title="前进" data-page-node-id="w65M4GkSlRxiqnhMs6GZIM">前进</button>
+      <button class="tb-btn" id="btn-browser-open" title="新建浏览器窗口（可同时打开多个）" data-page-node-id="browserOpenBtn">🌐 浏览器</button>
+      <button class="tb-btn" id="btn-excel" title="Excel 编辑器（每个表格一个窗口，可同时打开多个）" data-page-node-id="excelBtn">📊 Excel</button>
+      <button class="tb-btn" id="btn-flow-to-sheet" title="把当前流程写进一张「流程编排」表格，可以直接在表格里改流程" data-page-node-id="flowToSheetBtn">📋 流程→表格</button>
+      <button class="tb-btn" id="btn-sheet-to-flow" title="把「流程编排」表格里改好的内容应用回流程" data-page-node-id="sheetToFlowBtn">📋 表格→流程</button>
+      <div class="record-menu-wrap" id="record-menu-wrap">
+        <button class="tb-btn" id="btn-record" title="录制" data-page-node-id="ga1329oYtAjYprZ1D4ogzq">⏺ 录制 ▾</button>
+        <div class="record-menu" id="record-menu">
+          <div class="record-menu-item" id="record-web">🌐 录制网页</div>
+          <div class="record-menu-item" id="record-win">🖥 录制电脑操作</div>
+          <div class="record-menu-item" id="record-table">📊 录制表格</div>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-right" data-page-node-id="igoa121vP7uPFwFSkFDRS0">
+      <div class="run-group">
+        <button class="tb-btn tb-btn-run" id="btn-run" data-page-node-id="dOQ6jEBfmfowB9lrsInoUS">▶ 运行</button>
+        <button class="tb-btn tb-btn-run-menu" id="btn-run-menu" title="运行方式">↓</button>
+        <div class="run-menu" id="run-menu">
+          <div class="run-menu-item" data-mode="all">▶ 从头运行</div>
+          <div class="run-menu-item" data-mode="from-selected">⤵ 从选中步骤开始运行</div>
+        </div>
+      </div>
+      <button class="tb-btn tb-btn-stop" id="btn-stop" disabled data-page-node-id="MwspVAtom07TEKM29d0MYw">■ 停止</button>
+      <button class="tb-btn" id="btn-debug" title="调试" data-page-node-id="HE9Bf5rln0OGdKWHs7z8Uc">调试</button>
+    </div>
+  </header>
+
+  <!-- 主体三栏 -->
+  <div class="main" data-page-node-id="AJhWU8NJpSqnOCkNj54hl5">
+    <!-- 左侧：指令区 -->
+    <aside class="panel-left" data-page-node-id="CTtjen1Q9jrbPwBoaf7sa9">
+      <div class="panel-header" data-page-node-id="CeJB2WCXui3B06rk0FBFrg">
+        <div class="panel-header-row">
+          <span data-page-node-id="RWm4mEaHnFDxh7WCUvjlkA">指令</span>
+          <button id="btn-collapse-left" class="collapse-btn" title="收起/展开指令面板">«</button>
+        </div>
+        <input type="text" id="search-cmd" placeholder="搜索指令" class="search-input" data-page-node-id="9QgwFJQyOccjPQXkbZalF9">
+      </div>
+      <div class="cmd-list" id="cmd-list" data-page-node-id="1CwOkDunV3VE0mvjpQa660"></div>
+    </aside>
+    <div class="panel-split" id="split-left" title="拖动调整指令面板宽度"></div>
+
+    <!-- 中间：流程编排区 -->
+    <section class="panel-center" data-page-node-id="cfbyVDADhyKCy2nB4Ef4j2">
+      <div class="flow-header" data-page-node-id="a3Hrirvt4h7EEckdqCmmGs">
+        <span class="flow-title" data-page-node-id="fS6GsVEroimiSzaBiQtdr6">流程编排</span>
+        <div class="flow-tabs" data-page-node-id="5oFg4aKD1a4PHXxRdfH4ks">
+          <span class="tab" id="btn-add-flow" data-page-node-id="REXRzoVfPsQBeQdSxZVrjX">+ 子流程</span>
+        </div>
+      </div>
+      <div class="flow-canvas" id="flow-canvas" data-page-node-id="EJvuwHpFEc4cHwz6ivFEYr">
+        <div class="flow-empty" id="flow-empty" data-page-node-id="ypLq6YFvh8LzmrmUfm3bFt">
+          <p data-page-node-id="1V8K11edqMAE93ii5MRYoF">从左侧拖拽指令到这里，搭建自动化流程</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右侧：属性区 -->
+    <div class="panel-split" id="split-right" title="拖动调整属性面板宽度"></div>
+    <aside class="panel-right" data-page-node-id="HoPBKANLveGhjUnBueYFoS">
+      <div class="panel-header" data-page-node-id="1ZLVGRGk7xJSs5KH4tZuEw"><span data-page-node-id="0bl1SRmu7MomMzixLMNn7f">属性</span></div>
+      <div class="prop-body" id="prop-body" data-page-node-id="5ZbFLTbQK4wbuvhOZjJs00">
+        <div class="prop-empty" data-page-node-id="gLRrO9ZAKLEH6HeOMgvBy7">选中一条指令查看属性</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 底部任务栏（多标签切换） -->
+  <div class="taskbar" id="taskbar">
+    <div class="taskbar-items" id="taskbar-items"></div>
+    <button class="taskbar-add" id="taskbar-add-browser" title="新建浏览器窗口（独立登录会话，可同时登不同账号）">＋ 网页</button>
+    <button class="taskbar-add" id="taskbar-clear-browser" title="清空所有浏览器登录数据（多账号切换前清理残留的登录状态）">🧹 清空登录</button>
+    <button class="taskbar-add" id="taskbar-add-excel" title="新建 Excel 标签">＋ 表格</button>
+  </div>
+
+  <!-- 底部功能栏 -->
+  <div class="vsplit" id="split-bottom" title="拖动调整日志/数据面板高度"></div>
+  <footer class="bottombar" data-page-node-id="wckgC7NkQDOEjAIvo3gxgp">
+    <div class="bottom-tabs" data-page-node-id="R8LDhblHEy9gsrwAUXdRPn">
+      <span class="btab active" data-tab="log" data-page-node-id="9tTvp0i8WuHCP68tfDEc47">运行日志</span>
+      <span class="btab" data-tab="vars" data-page-node-id="SOrMmAS464NEd6MrovmXKo">数据表格</span>
+      <span class="btab" data-tab="error" data-page-node-id="C95dAC8ZQzyRc6ijPYcisC">错误列表</span>
+      <span style="flex:1"></span>
+      <button id="btn-copy-log" title="复制全部日志" style="padding:4px 12px;margin:3px 8px;font-size:12px;border:1px solid #d0d8e8;background:#f5f7fa;border-radius:5px;cursor:pointer">📋 复制日志</button>
+      <button id="btn-clear-log" title="清空日志" style="padding:4px 12px;margin:3px 0;font-size:12px;border:1px solid #d0d8e8;background:#f5f7fa;border-radius:5px;cursor:pointer">清空</button>
+    </div>
+    <div class="bottom-body" id="bottom-body" data-page-node-id="hZPqVxlcTW6icG69DeudbF">
+      <div id="log-view" class="bottom-view active" data-page-node-id="13Ch0qTzNCnZzha78WOC2K"></div>
+      <div id="vars-view" class="bottom-view" data-page-node-id="YB6YkjM87292NyLeHJYhZe"></div>
+      <div id="error-view" class="bottom-view" data-page-node-id="xLj8COFVfq7Lz1JxunBRjd"></div>
+    </div>
+  </footer>
+
+  <!-- 浏览器已改为独立窗口，无需内嵌模态框 -->
+
+  <!-- Excel 编辑器（独立模态窗口） -->
+  <div id="excel-modal" class="excel-modal hidden">
+    <div class="excel-modal-header">
+      <div class="excel-title">
+        <span style="font-weight:700;color:#16a085">📊 Excel 编辑器</span>
+        <span id="excel-sheet-name" style="color:#999;font-size:12px"></span>
+      </div>
+      <div class="excel-toolbar">
+        <button id="excel-new" title="新建">新建</button>
+        <button id="excel-open" title="打开">打开</button>
+        <button id="excel-save" title="保存">保存</button>
+        <button id="excel-saveas" title="另存为">另存为</button>
+        <button id="excel-fmt" title="选择保存格式（可多选，默认勾选一种）">格式：xlsx</button>
+        <span class="excel-sep"></span>
+        <button id="excel-undo" title="撤销 (Ctrl+Z)">↶ 撤销</button>
+        <button id="excel-redo" title="重做 (Ctrl+Y)">↷ 重做</button>
+        <button id="excel-find" title="查找替换 (Ctrl+F)">🔍 查找</button>
+        <span class="excel-sep"></span>
+        <button id="excel-copy" title="复制选中区域">复制</button>
+        <button id="excel-paste" title="粘贴(选择性粘贴)">粘贴</button>
+        <span class="excel-sep"></span>
+        <button id="excel-insrow" title="在选中行上方插入行">插行</button>
+        <button id="excel-inscol" title="在选中列左侧插入列">插列</button>
+        <button id="excel-delrow" title="删除选中行">删行</button>
+        <button id="excel-delcol" title="删除选中列">删列</button>
+        <span class="excel-sep"></span>
+        <button id="excel-readrange" title="读取选中区域到变量">读区域</button>
+        <button id="excel-getrows" title="获取行数到变量">行数</button>
+      </div>
+      <div class="excel-actions">
+        <button id="excel-close" title="关闭">✕</button>
+      </div>
+    </div>
+    <div class="excel-sheets" id="excel-sheets"></div>
+    <div class="excel-formulabar">
+      <span id="excel-namebox" title="当前单元格/选区">A1</span>
+      <span class="fx">fx</span>
+      <input id="excel-formula" placeholder="输入内容后回车写入当前单元格（Esc 取消）">
+    </div>
+    <div class="excel-grid-wrap" id="excel-grid-wrap"></div>
+    <div class="excel-statusbar">
+      <span id="excel-path">未打开文件</span>
+      <span id="excel-cell-info">A1</span>
+      <span id="excel-dim"></span>
+      <span id="excel-stat"></span>
+    </div>
+  </div>
+
+  <!-- 自定义右键菜单 -->
+  <div id="ctx-menu" class="ctx-menu hidden">
+    <div class="ctx-item" id="ctx-popout" data-page-node-id="ctxPopout">⤢ 拖拽出来</div>
+    <div class="ctx-item" id="ctx-fullscreen" data-page-node-id="ctxFullscreen">⛶ 全屏</div>
+    <div class="ctx-item" id="ctx-embed" data-page-node-id="ctxEmbed">⬅ 嵌入回窗口</div>
+  </div>
+
+  <script src="lib/xlsx.full.min.js"></script>
+  <script src="formula.js"></script>
+  <script src="commands.js"></script>
+  <script src="engine.js"></script>
+  <script src="excel-grid.js"></script>
+  <script src="excel-save-format.js"></script>
+  <script src="excel-saveas.js"></script>
+  <script src="flow-sheet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

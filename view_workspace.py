@@ -6,9 +6,9 @@ import hashlib
 import json
 import os
 
-from PySide6.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
-from PySide6.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
+from qt_compat.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
+from qt_compat.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QDialog,
@@ -36,6 +36,7 @@ from instructions.registry import iter_instruction_specs
 from node_editor.palette import INSTRUCTION_MIME_TYPE
 from functions import RESOURCE_FOLDER
 from recording_view import RecordingView
+from web_recording_view import WebRecordingView
 
 
 MAIN_VIEW = 0
@@ -44,6 +45,7 @@ FLOW_VIEW = 2
 CODE_VIEW = 3
 NAVIGATION_VIEW = 4
 RECORDING_VIEW = 5
+WEB_RECORDING_VIEW = 6
 CODE_SETTING = "多功能代码"
 CODE_GRAPH_SIGNATURE_SETTING = "多功能流程签名"
 TASK_NAME_SETTING = "任务名称"
@@ -284,6 +286,8 @@ class ViewWorkspace:
         self.tabs.addTab(self.code_page, "多功能")
         self.tabs.addTab(self.navigation_page, "导航")
         self.tabs.addTab(self.recording_page, "录制")
+        self.web_recording_page = WebRecordingView(self.window)
+        self.tabs.addTab(self.web_recording_page, "网页录制")
 
     def _build_main_view(self) -> QWidget:
         page = QWidget()
@@ -553,6 +557,10 @@ class ViewWorkspace:
         header.addWidget(self.code_status)
         header.addStretch(1)
         header.addWidget(regenerate)
+        self.write_code_button = QPushButton("写入表格与流程图")
+        self.write_code_button.setToolTip("按代码更新当前流程；遗漏参数填入默认值，写入后可在表格中修改。")
+        self.write_code_button.clicked.connect(self.write_code_to_flow)
+        header.addWidget(self.write_code_button)
         layout.addLayout(header)
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.command_list = QListWidget()
@@ -563,13 +571,16 @@ class ViewWorkspace:
             item.setData(Qt.ItemDataRole.UserRole, spec.type_id)
             self.command_list.addItem(item)
         self.command_list.itemDoubleClicked.connect(self._insert_command_hint)
-        self.code_editor = QPlainTextEdit()
-        self.code_editor.setPlaceholderText("在这里维护当前任务的多功能代码……")
+        from guided_code_editor import GuidedCodeEditor
+        self.code_editor = GuidedCodeEditor()
+        hint = QLabel("中文输入提示：↑↓选择，Tab / 回车插入，Esc关闭；Ctrl+空格查看下一步。模板参数可继续修改。")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
         self.code_editor.textChanged.connect(self._schedule_code_save)
         splitter.addWidget(self.command_list)
         splitter.addWidget(self.code_editor)
         splitter.setStretchFactor(1, 1)
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)
         return page
 
     def _build_navigation(self) -> None:
@@ -610,6 +621,7 @@ class ViewWorkspace:
             ("多功能", "Ctrl+4", self.show_code),
             ("导航", "Ctrl+5", self.show_navigation),
             ("录制", "Ctrl+6", self.show_recording),
+            ("网页录制", "Ctrl+7", self.show_web_recording),
             ("设置变量", "Ctrl+Shift+V", self.show_variables),
         ):
             action = QAction(label, self.window)
@@ -634,6 +646,8 @@ class ViewWorkspace:
         self.tabs.setCurrentIndex(CODE_VIEW)
     def show_navigation(self): self.tabs.setCurrentIndex(NAVIGATION_VIEW)
     def show_recording(self): self.tabs.setCurrentIndex(RECORDING_VIEW)
+
+    def show_web_recording(self): self.tabs.setCurrentIndex(WEB_RECORDING_VIEW)
 
     # Backward-compatible aliases for integrations that used the earlier names.
     def show_beginner(self): self.show_navigation()
@@ -825,7 +839,7 @@ class ViewWorkspace:
 
     def _table_mutation_allowed(self):
         thread = getattr(self.window, 'command_thread', None)
-        if (thread is not None and thread.isRunning()) or self.recording_page.busy:
+        if (thread is not None and thread.isRunning()) or self.recording_page.busy or self.web_recording_page.busy:
             self.window.statusBar.showMessage('请先停止运行或录制，再修改表格。', 3000)
             return False
         return True
@@ -876,7 +890,7 @@ class ViewWorkspace:
             QMessageBox.warning(self.window, '粘贴失败', str(error))
 
     def _select_table_ids(self, ids):
-        from PySide6.QtWidgets import QTableWidgetSelectionRange
+        from qt_compat.QtWidgets import QTableWidgetSelectionRange
         self.command_table.clearSelection()
         for row in range(self.command_table.rowCount()):
             if self.command_table.item(row, 0).data(Qt.ItemDataRole.UserRole) in ids:
@@ -933,6 +947,34 @@ class ViewWorkspace:
             if validation_error is None
             else "已同步流程草稿，可按连线优先、其余按添加顺序运行"
         )
+
+    def write_code_to_flow(self) -> None:
+        window = self.window
+        if (window.command_thread.isRunning() or self.recording_page.busy
+                or self.web_recording_page.busy
+                or getattr(window.workspace, '_instruction_test_active', False)
+                or getattr(window, '_update_preparing', False)):
+            window.statusBar.showMessage('请先停止任务、录制或指令测试。', 4000)
+            return
+        try:
+            from instruction_code import prepare_instruction_conversion
+            from instruction_conversion_dialog import InstructionConversionDialog
+            plan = prepare_instruction_conversion(self.code_editor.toPlainText())
+            dialog = InstructionConversionDialog(plan, window)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            ids = window.workspace.repository.write_instruction_code(plan.entries)
+        except Exception as error:
+            QMessageBox.warning(window, '写入失败，原流程未改变', str(error))
+            return
+        self._code_dirty = False
+        window.workspace.clear_connection_history()
+        window.workspace.reload_graph()
+        window.workspace.graphFinalized.emit(False)
+        self._sync_code_if_needed(force=True)
+        self.refresh_all()
+        self.code_status.setText(f'已写入 {len(ids)} 条指令；可在表格中修改参数')
+        window.statusBar.showMessage('表格与流程图已同步；缺省参数已补齐，可双击表格修改。', 5000)
 
     def regenerate_code(self) -> None:
         self._sync_code_if_needed(force=True)
@@ -1044,7 +1086,7 @@ class ViewWorkspace:
 
     def _insert_command_hint(self, item: QListWidgetItem) -> None:
         type_id = item.data(Qt.ItemDataRole.UserRole)
-        self.code_editor.insertPlainText(f'{type_id}({{}}, 重复次数=1, 异常处理="提示异常并暂停")\n')
+        self.code_editor.insert_command(type_id)
         self.code_editor.setFocus()
 
     def _schedule_code_save(self) -> None:
@@ -1158,9 +1200,10 @@ class ViewWorkspace:
             QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
             QTableWidget#commandTable {{ background-color: {c['surface']}; alternate-background-color: {c['surface2']}; border: none; }}
             QTableWidget#commandTable::item {{ background-color: transparent; color: {c['text']}; border: none; padding: 5px; }}
-            QTableWidget#commandTable::item:alternate {{ background-color: {c['surface2']}; }}
+            QTableWidget#commandTable::item:alternate:!selected {{ background-color: {c['surface2']}; }}
             QTableWidget#commandTable::item:hover:!selected {{ background-color: {c['surface3']}; border-bottom: 1px solid {c['accent']}; }}
             QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: none; border-radius: 10px; padding: 8px; }}
+            QTableWidget#commandTable::item:selected, QTableWidget#commandTable::item:selected:alternate {{ background-color: {c['accent2']}; color: white; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
             QHeaderView {{ background: {c['surface2']}; color: {c['accent']}; }}
             QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}

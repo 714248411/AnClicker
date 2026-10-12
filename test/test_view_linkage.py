@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtGui import QColor, QPainterPathStroker
-from PySide6.QtWidgets import QApplication, QLabel, QPlainTextEdit, QTableWidget
+from qt_compat.QtGui import QColor, QPainterPathStroker
+from qt_compat.QtWidgets import QApplication, QLabel, QPlainTextEdit, QTableWidget
 
 from graph_repository import END_NODE_ID, START_NODE_ID, GraphRepository
 from instructions.models import InstructionDraft

@@ -6,8 +6,8 @@ import weakref
 
 import math
 
-from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import (
+from qt_compat.QtCore import QLineF, QPointF, QRectF, Qt
+from qt_compat.QtGui import (
     QBrush,
     QColor,
     QFont,
@@ -18,7 +18,7 @@ from PySide6.QtGui import (
     QPen,
     QPolygonF,
 )
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject, QGraphicsPathItem
+from qt_compat.QtWidgets import QGraphicsItem, QGraphicsObject, QGraphicsPathItem
 
 from node_editor.style import (
     EDGE_COLOR,

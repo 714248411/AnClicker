@@ -108,6 +108,7 @@ class LocalOcrEditor(SchemaInstructionEditor):
             self._controls['引擎'].currentTextChanged.connect(self._engine_changed)
             self._engine_changed(self._controls['引擎'].currentText())
         self._simplify_settings()
+        self._align_match_options()
         if '点击来源' in self._controls:
             self._controls['点击来源'].currentTextChanged.connect(self._click_source_changed)
             self._click_source_changed()
@@ -125,15 +126,19 @@ class LocalOcrEditor(SchemaInstructionEditor):
         variable_mode = self._controls['点击来源'].currentText() == '前序OCR变量'
         keep = {'点击来源', '变量', '第几个', '动作', '点击位置'}
         for index, field in enumerate(self.FIELDS):
+            if field.key in {'忽略大小写', '忽略空白'}:
+                continue
             container = getattr(self.ui, f'parameterContainer_{index}')
             form = container.parentWidget().layout()
             form.setRowVisible(container, not variable_mode or field.key in keep)
+        if hasattr(self, 'ocr_match_options'):
+            self.ocr_advanced_panel.layout().setRowVisible(self.ocr_match_options, not variable_mode)
         for index, field in enumerate(self.FIELDS):
             if field.key == '变量':
                 getattr(self.ui, f'parameterLabel_{index}').setText('读取坐标变量 *' if variable_mode else '保存到变量 *')
 
     def _simplify_settings(self):
-        from PySide6.QtWidgets import QLabel, QPushButton, QFormLayout, QWidget
+        from qt_compat.QtWidgets import QLabel, QPushButton, QFormLayout, QWidget
         basic = {'引擎', '区域', '目标文字', '匹配方式', '第几个', '识别后',
                  '找到后', '等待超时', '内容来源', '粘贴前等待', '点击来源'}
         if self.TYPE_ID == 'OCR点击识别区域':
@@ -175,8 +180,13 @@ class LocalOcrEditor(SchemaInstructionEditor):
                 control.setPlaceholderText('例如：确定' if field.required else '留空选择范围内的文字框')
             if field.key not in basic:
                 container = getattr(self.ui, f'parameterContainer_{index}')
-                row = form.takeRow(container)
-                advanced.addRow(row.labelItem.widget(), row.fieldItem.widget())
+                # Remove the layout items before removing the empty row: Qt 5
+                # has no takeRow, and removeRow alone deletes the controls.
+                row_index = form.getWidgetPosition(container)[0]
+                form.removeWidget(label)
+                form.removeWidget(container)
+                form.removeRow(row_index)
+                advanced.addRow(label, container)
                 self._ocr_advanced_keys.add(field.key)
         position = self.ui.rootLayout.indexOf(self.ui.parameterGroupBox) + 1
         self.ui.rootLayout.insertWidget(position, self.ocr_advanced_button)
@@ -188,6 +198,33 @@ class LocalOcrEditor(SchemaInstructionEditor):
                       for f in self.FIELDS if f.key in self._ocr_advanced_keys)
         if changed:
             self.ocr_advanced_button.setText('高级设置 ▸（已有自定义配置）')
+
+    def _align_match_options(self):
+        if '忽略大小写' not in self._controls:
+            return
+        from qt_compat.QtWidgets import QWidget, QHBoxLayout
+        form = self.ocr_advanced_panel.layout()
+        self.ocr_match_options = QWidget(self.ocr_advanced_panel)
+        row = QHBoxLayout(self.ocr_match_options)
+        row.setContentsMargins(0, 0, 0, 0)
+        insert_at = None
+        for key, title in (('忽略大小写', '忽略英文大小写'), ('忽略空白', '忽略空白字符')):
+            index = next(i for i, f in enumerate(self.FIELDS) if f.key == key)
+            container = getattr(self.ui, f'parameterContainer_{index}')
+            label = getattr(self.ui, f'parameterLabel_{index}')
+            position = form.getWidgetPosition(container)[0]
+            if insert_at is None:
+                insert_at = position
+            form.removeWidget(container)
+            form.removeWidget(label)
+            form.removeRow(position)
+            label.hide()
+            control = self._controls[key]
+            control.setText(title)
+            row.addWidget(container)
+            if key == '忽略大小写':
+                row.addStretch(1)
+        form.insertRow(insert_at, self.ocr_match_options)
 
     def _toggle_advanced(self, expanded):
         self.ocr_advanced_panel.setVisible(expanded)
@@ -202,8 +239,8 @@ class LocalOcrEditor(SchemaInstructionEditor):
 
     def _run_auxiliary(self, key):
         if key == '区域':
-            from PySide6.QtCore import QTimer
-            from PySide6.QtWidgets import QDialog, QMessageBox
+            from qt_compat.QtCore import QTimer
+            from qt_compat.QtWidgets import QDialog, QMessageBox
             from smart_capture import SmartCaptureDialog
             owner = self.parentWidget().window() if self.parentWidget() else None
             visible = owner is not None and owner.isVisible()

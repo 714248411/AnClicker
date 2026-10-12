@@ -24,7 +24,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="anclicker-startup-") as folder:
         env = dict(os.environ, ANCLICKER_DATA_DIR=folder,
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",
-                   QT_QPA_PLATFORM="offscreen")
+                   QT_QPA_PLATFORM="windows" if sys.platform == "win32" else "offscreen")
         for attempt in range(2):
             env['QT_SCALE_FACTOR'] = '1' if attempt == 0 else '2'
             report = Path(folder) / "startup-ready.json"
@@ -41,7 +41,7 @@ def main():
                 detail = error_log.read_text(encoding="utf-8") if error_log.exists() else "No readiness report"
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
-            if not ready["ready"] or ready["views"] != 6 or not ready.get("window_chrome_valid"):
+            if not ready["ready"] or ready["views"] != 7 or not ready.get("window_chrome_valid"):
                 raise RuntimeError(f"Main window incomplete: {ready}")
             if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
                 raise RuntimeError(f"Packaged version does not match release: {ready}")

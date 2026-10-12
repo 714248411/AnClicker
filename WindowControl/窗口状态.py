@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QObject, QSize, QTimer, Qt
-from PySide6.QtGui import QGuiApplication, QScreen
-from PySide6.QtWidgets import QDialog, QWidget
+from qt_compat.QtCore import QEvent, QObject, QSize, QTimer, Qt
+from qt_compat.QtGui import QGuiApplication, QScreen
+from qt_compat.QtWidgets import QDialog, QWidget
 
 
 class WindowStateController(QObject):

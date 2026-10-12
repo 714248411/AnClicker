@@ -1161,6 +1161,50 @@ class GraphRepository:
                 return str(edge[0]), str(edge[1])
         raise ValueError("split_edge 必须包含 source 和 target")
 
+    def write_instruction_code(self, entries) -> list[int]:
+        """Atomically reconcile code commands, retaining existing node IDs and branches."""
+        records = [(old_id, self._normalize_draft(draft)) for old_id, draft in entries]
+        if not records:
+            raise ValueError('没有可写入的指令')
+        if any(not self._is_known_type(record[0]) for _, record in records):
+            raise ValueError('代码包含未知指令')
+        with self._transaction(validate_graph=False) as connection:
+            existing = {row[0] for row in connection.execute('SELECT ID FROM 命令')}
+            old_edges = self._edge_records(connection)
+            linear = (all(edge.kind == 0 for edge in old_edges)
+                      and len({edge.source for edge in old_edges}) == len(old_edges)
+                      and len({edge.target for edge in old_edges}) == len(old_edges))
+            offset = connection.execute('SELECT COALESCE(MAX(排序), -1) FROM 命令').fetchone()[0] + len(records) + 1
+            connection.execute('UPDATE 命令 SET 排序=排序+?', (offset,))
+            retained, result, new_nodes = set(), [], []
+            for order, (old_id, record) in enumerate(records):
+                kind, params, repeat, policy, note = record
+                if old_id in existing:
+                    if old_id in retained:
+                        raise ValueError('指令编号重复')
+                    retained.add(old_id)
+                    connection.execute('UPDATE 命令 SET 类型标识=?, 参数JSON=?, 重复次数=?, 异常处理=?, 备注=?, 排序=? WHERE ID=?', (*record, order, old_id))
+                    result.append(old_id)
+                else:
+                    cursor = connection.execute('INSERT INTO 命令(类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?)', (*record, order))
+                    command_id, node_id = int(cursor.lastrowid), uuid.uuid4().hex
+                    connection.execute("INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) VALUES (?, ?, 'instruction', ?, ?)", (node_id, command_id, 160 + (order % 6) * 280, 160 + (order // 6) * 180))
+                    result.append(command_id)
+                    new_nodes.append(node_id)
+            for command_id in existing - retained:
+                connection.execute('DELETE FROM 命令 WHERE ID=?', (command_id,))
+            # Remove dangling edges explicitly for databases without cascades.
+            connection.execute("DELETE FROM 节点 WHERE 节点类型='instruction' AND 命令ID NOT IN (SELECT ID FROM 命令)")
+            connection.execute('DELETE FROM 节点连接 WHERE 源节点ID NOT IN (SELECT 节点ID FROM 节点) OR 目标节点ID NOT IN (SELECT 节点ID FROM 节点)')
+            connection.execute('DELETE FROM flow_edge_metadata WHERE source_id NOT IN (SELECT 节点ID FROM 节点) OR target_id NOT IN (SELECT 节点ID FROM 节点)')
+            if not retained or linear:
+                connection.execute('DELETE FROM 节点连接')
+                connection.execute('DELETE FROM flow_edge_metadata')
+                nodes_by_command = {row[0]: row[1] for row in connection.execute('SELECT 命令ID, 节点ID FROM 节点 WHERE 命令ID IS NOT NULL')}
+                chain = [START_NODE_ID, *(nodes_by_command[command_id] for command_id in result), END_NODE_ID]
+                connection.executemany('INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)', zip(chain, chain[1:]))
+        return result
+
     def append_recording(self, drafts: Sequence[InstructionDraft], *, connect=True) -> list[int]:
         """Append one recording atomically without changing existing links."""
         normalized = [self._normalize_draft(draft) for draft in drafts]

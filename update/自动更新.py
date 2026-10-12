@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import velopack
-from PySide6.QtCore import QCoreApplication, QThread, QTimer, Signal
+from qt_compat.QtCore import QCoreApplication, QThread, QTimer, Signal
 
 from update.config import update_url
+from update.process_worker import run_isolated, UpdateCancelled
 
 LOGGER = logging.getLogger(__name__)
 UpdateManagerFactory = Callable[[str], Any]
@@ -75,12 +76,23 @@ class CheckUpdateThread(QThread):
             self.check_skipped.emit("此构建未配置自更新地址。")
             return
         try:
+            if self.manager_factory is velopack.UpdateManager:
+                event, value = run_isolated(self, 'check', self.source_url)
+                if event == 'pending':
+                    self.pending_update_found.emit(value)
+                elif event == 'found':
+                    self.update_found.emit(value)
+                else:
+                    self.no_update.emit()
+                return
             manager_ = self.manager_factory(self.source_url)
             pending_update_ = manager_.get_update_pending_restart()
             if pending_update_ is not None:
                 self.pending_update_found.emit(pending_update_)
                 return
             update_info_ = manager_.check_for_updates()
+        except UpdateCancelled:
+            return
         except Exception as exc:
             self.check_failed.emit(f"{type(exc).__name__}: {exc}")
             return
@@ -128,11 +140,17 @@ class DownloadUpdateThread(QThread):
 
     def run(self) -> None:
         try:
+            if self.manager_factory is velopack.UpdateManager:
+                run_isolated(self, 'download', self.source_url, self.update_info, self._handle_velopack_progress)
+                self.download_finished.emit(self.update_info)
+                return
             manager_ = self.manager_factory(self.source_url)
             manager_.download_updates(
                 self.update_info,
                 progress_callback=self._handle_velopack_progress,
             )
+        except UpdateCancelled:
+            return
         except Exception as exc:
             self.download_failed.emit(f"{type(exc).__name__}: {exc}")
             return

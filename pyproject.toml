@@ -2,12 +2,14 @@
 name = "an-clicker"
 dynamic = ["version"]
 description = "Cross-platform visual automation workspace for Windows, macOS, and Linux"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.11"
 dependencies = [
     "rapidocr-onnxruntime==1.4.4",
     "onnxruntime==1.20.1",
-    "PySide6",
-    "pysidesix-frameless-window==0.8.1",
+    "PySide2==5.15.2.1; sys_platform == 'win32'",
+    "PySide2-Frameless-Window==0.8.1; sys_platform == 'win32'",
+    "PySide6==6.8.2.1; sys_platform != 'win32'",
+    "pysidesix-frameless-window==0.8.1; sys_platform != 'win32'",
     "pyttsx4",
     "pymsgbox",
     "pyautogui",
@@ -15,18 +17,19 @@ dependencies = [
     "mouse; sys_platform != 'darwin'",
     "keyboard; sys_platform != 'darwin'",
     "pynput==1.7.7",
-    "pandas",
-    "pillow",
+    "numpy==1.26.4",
+    "pandas==2.2.3",
+    "pillow==11.0.0",
     "openpyxl",
     "requests",
     "system_hotkey; sys_platform != 'darwin'",
     "pygments",
-    "opencv-python",
+    "opencv-python==4.10.0.84",
     "baidu-aip",
     "chardet",
-    "pyinstaller",
+    "pyinstaller==6.12.0",
     "python-dateutil",
-    "psutil",
+    "psutil==6.1.0",
     "velopack==1.2.0; sys_platform == 'win32'",
 ]
 

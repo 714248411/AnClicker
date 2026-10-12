@@ -236,7 +236,7 @@ class GraphRepositoryTests(unittest.TestCase):
 
     def test_snapshot_loads_directly_into_node_editor_widget(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        from PySide6.QtWidgets import QApplication
+        from qt_compat.QtWidgets import QApplication
         from node_editor.widget import NodeEditorWidget
 
         application = QApplication.instance() or QApplication([])

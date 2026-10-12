@@ -31,7 +31,7 @@ def export_portable(source: Path, version: str) -> Path:
     version = version.removeprefix('v')
     if not re.fullmatch(r'[0-9A-Za-z][0-9A-Za-z._-]*', version):
         raise ValueError('Invalid portable version')
-    destination = source.parent / 'delivery' / f'{APP_ID}-v{version}-Portable.zip'
+    destination = source.parent / 'delivery' / f'{APP_ID}-v{version}-win.zip'
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         raise FileExistsError(destination)

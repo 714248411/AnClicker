@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any
 import re
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QCursor
-from PySide6.QtWidgets import (
+from qt_compat.QtCore import QPoint, QRect, Qt, Signal
+from qt_compat.QtGui import QCursor
+from qt_compat.QtWidgets import (
     QApplication,
     QAbstractSpinBox,
     QCheckBox,
@@ -348,7 +348,7 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
             if manager.exec() == QDialog.DialogCode.Accepted:
                 self._refresh_variables(manager.selected_name or str(current_))
             return
-        if key_ in {"坐标", "开始位置", "结束位置", "点击位置", "悬停位置"}:
+        if key_ in {"坐标", "开始位置", "结束位置", "点击位置", "悬停位置", "中心锚点"}:
             self._select_screen_point(key_, control_)
             return
         self.auxiliary_requested.emit(key_, control_)

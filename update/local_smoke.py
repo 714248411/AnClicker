@@ -20,10 +20,14 @@ def run(app, window):
             db.execute("INSERT INTO velopack_retention VALUES ('preserved')")
         sentinel = data / 'images' / 'retention.txt'
         sentinel.write_text('preserved', encoding='utf-8')
-        update = manager.check_for_updates()
+        from update.process_worker import run_isolated
+        class Probe:
+            def isInterruptionRequested(self):
+                return False
+        _, update = run_isolated(Probe(), 'check', str(feed))
         if update is None:
             raise RuntimeError('Local feed has no newer release')
-        manager.download_updates(update)
+        run_isolated(Probe(), 'download', str(feed), update)
         marker.write_text(json.dumps({'from': version, 'downloaded': True}), encoding='utf-8')
         # Exercise the actual title-button preparation path, including silent
         # editor persistence and the production updater exit logic.

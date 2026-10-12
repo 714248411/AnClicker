@@ -29,7 +29,7 @@ class InstructionEditor(SchemaInstructionEditor):
 
     def __init__(self, parent=None, draft=None, context=None):
         super().__init__(parent, draft, context)
-        from PySide6.QtWidgets import QButtonGroup, QCheckBox, QHBoxLayout, QLabel, QWidget
+        from qt_compat.QtWidgets import QButtonGroup, QCheckBox, QHBoxLayout, QLabel, QWidget
         holder = QWidget(self)
         layout = QHBoxLayout(holder)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -51,7 +51,7 @@ class InstructionEditor(SchemaInstructionEditor):
         self._update_mode()
 
     def _update_mode(self, *_):
-        from PySide6.QtCore import QSignalBlocker
+        from qt_compat.QtCore import QSignalBlocker
         mode = self._controls['类型'].currentText()
         for value, button in self.mode_buttons.items():
             with QSignalBlocker(button):

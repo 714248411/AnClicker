@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox
+from qt_compat.QtCore import Signal
+from qt_compat.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox
 
 from graph_repository import GraphRepository
 from instruction_workspace import InstructionWorkspace
@@ -252,7 +252,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
             window_ = Main_window()
         self.assertFalse(hasattr(window_, "tableWidget"))
         self.assertFalse(hasattr(window_, "groupBox_4"))
-        self.assertEqual(len(window_.workspace.palette.specs()), 52)
+        self.assertEqual(len(window_.workspace.palette.specs()), 94)
         self.assertEqual(
             [
                 window_.gridLayout_4.indexOf(window_.instructionPaletteHost),

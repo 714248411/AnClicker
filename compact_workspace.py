@@ -1,6 +1,6 @@
 """Small, resizable execution console using the original controls and log."""
-from PySide6.QtCore import QObject, QEvent, Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLayout
+from qt_compat.QtCore import QObject, QEvent, Qt
+from qt_compat.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLayout
 
 
 class CompactWorkspace(QObject):

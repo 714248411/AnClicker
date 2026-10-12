@@ -5,7 +5,7 @@
 ## 交付要求与边界
 
 - 只生成绿色便携 ZIP，不生成 Setup 或 MSI。构建必须使用 `--noInst`，资产清单必须包含 Portable，不能包含 Installer。
-- 用户交付文件为 `delivery/AnClicker-v<版本>-Portable.zip`。完整解压后双击根目录 `An Clicker.exe`，不要单独移动 EXE 或 `current`。
+- 用户交付文件为 `delivery/AnClicker-v<版本>-win.zip`。完整解压后双击根目录 `An Clicker.exe`，不要单独移动 EXE 或 `current`。
 - Full、可选 Delta、更新索引和内部 Portable 文件用于更新与构建管理，不作为普通用户安装入口。内部文件名保持 Velopack 原样，不直接改名破坏资产引用。
 - `build_velopack.py` 只做本地构建；`发布Velopack.py` 恢复历史七牛 Kodo 直传。只有用户明确授权生产发布时，才执行 `publish --yes` 或 `build --publish --yes`。不要照抄其他项目的凭据、项目标识或云端清理逻辑。
 - 保留已有用户改动、数据及历史产物；不得为打包执行仓库回退或清空已有输出目录。新建独立输出目录，失败重试也使用新目录。
@@ -32,20 +32,20 @@
 
 ## 准备环境
 
-使用 Windows x64、项目 `.venv` 和已安装的 .NET SDK。当前项目要求 Python >= 3.10；已有可用环境无需重复重建。
+使用 Windows x64、Python 3.10.11、项目 `.venv` 和已安装的 .NET SDK。Windows 构建固定为 PySide2 5.15.2.1，不能复用此前 Python 3.12 / PySide6 环境。最低系统目标为 Windows 10 1607；支持声明仍须目标系统实测。
 
 ```powershell
 Set-Location D:\PycharmProjects\AnClicker
 git status --short
 uv lock --check
 dotnet --version
-.\.venv\Scripts\python.exe -c "import PySide6, PyInstaller, velopack"
+.\.venv\Scripts\python.exe -c "import qt_compat, PyInstaller, velopack; assert qt_compat.BINDING == 'PySide2'"
 ```
 
 仅在环境缺失或依赖不完整时执行：
 
 ```powershell
-uv sync --locked
+uv sync --locked --python 3.10.11 --group release
 dotnet tool restore
 ```
 
@@ -53,7 +53,7 @@ dotnet tool restore
 
 ## 构建与验证命令
 
-项目已移除 `test` 测试脚本；构建时仍须执行下述打包验收和本地升级验证。
+先执行 `python -m pytest test`。Windows Qt 5 的窗口交互回归须使用 `$env:QT_QPA_PLATFORM='windows'`（offscreen 插件不能替代原生窗口消息测试）。随后执行下述打包验收和本地升级验证。
 
 使用带版本和时间的全新输出目录，并保存日志：
 
@@ -76,7 +76,7 @@ if ($LASTEXITCODE -ne 0) { throw '构建或验收失败，不得交付' }
 if ($LASTEXITCODE -ne 0) { throw '本地升级验证失败，不得声称升级验收通过' }
 ```
 
-该脚本使用刚构建的 `dist/velopack/AnClicker`，在 `build/velopack-upgrade/<唯一标识>` 创建 0.0.1 和 0.0.2 测试包，通过本地目录更新源验证升级。测试包不得交付或上传；它们的版本不改变正式应用版本。
+该脚本使用刚构建的 `dist/velopack/AnClicker`，在系统临时目录 `ac-upgrade-<唯一标识>` 创建 0.0.1 和 0.0.2 测试包，通过本地目录更新源验证升级。测试包不得交付或上传；它们的版本不改变正式应用版本。
 
 ## 必须通过的检查
 
@@ -99,10 +99,10 @@ if ($LASTEXITCODE -ne 0) { throw '本地升级验证失败，不得声称升级�
 
 ## 交付与生产发布
 
-向用户提供本次 `$releaseOutput/delivery/AnClicker-v<版本>-Portable.zip` 的真实路径，并报告版本、测试结果、启动与升级验证结果，以及是否上传。可用以下命令记录交付哈希：
+向用户提供本次 `$releaseOutput/delivery/AnClicker-v<版本>-win.zip` 的真实路径，并报告版本、测试结果、启动与升级验证结果，以及是否上传。可用以下命令记录交付哈希：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath "$releaseOutput/delivery/AnClicker-v$releaseVersion-Portable.zip"
+Get-FileHash -Algorithm SHA256 -LiteralPath "$releaseOutput/delivery/AnClicker-v$releaseVersion-win.zip"
 ```
 
 构建生成 `validation-startup.json`，发布准备生成 `validation-publish.json`，记录实际验收所对应的文件清单、大小、SHA-256、版本、路径、更新源和验证代码。它们是本地验收缓存，不是签名证明，不得手工编造或从其他产物复制；不会上传到七牛。
@@ -164,3 +164,19 @@ Portable、delivery、assets、RELEASES 和本地测试包不上传；历史远�
 - 点击“新版本”直接准备更新和重启，不询问保存、不导出 Excel、不刷新最近文件菜单。仅静默落盘待保存的代码；正在执行、录制、单条测试或未处理录制仍须先结束/处理，避免数据丢失。
 - 本地升级探针现在点击真实标题栏按钮，覆盖准备、更新器启动及退出路径。启动更新器失败时留在原程序并恢复按钮；仅更新退出跳过普通退出的清空指令流程。
 - 本次优化不修改既有线上版本；需要发布时递增版本后重新构建。旧版已经运行的客户端无法通过服务端索引改变其更新前保存逻辑。
+
+## v1.4.3 配置整合
+
+历史 `AnClicker七牛云环境变量配置.txt` 中桶 `ytsoftware-velopack`、区域 `z0`、目录 `an-clicker/win-x64` 与本项目一致。文件中的测试域名 `https://tm0gx0ycx.hd-bkt.clouddn.com` 在 2026-10-09 核验时存在证书主机名不匹配，不能覆盖项目的正式 HTTPS 域名。构建、客户端和发布统一使用 `info.py` 中的 `https://updates.ytsoftware.cn`，不要关闭 TLS 校验。
+
+历史配置文件含凭据，不得复制到源码或分发包。构建及只读公网检查无需 AK/SK；发布时由维护者将凭据注入发布进程环境，并保证 `QINIU_PUBLIC_BASE_URL` 与 `info.py` 一致。旧脚本不应整段执行，以免永久环境变量重新指向测试域名。
+
+## 从外部凭据文件发布当前已验收版本
+
+`tools/release_workflow.py publish <外部配置文件路径>` 仅解析白名单中的七牛单引号字面量配置，不执行文件中的 PowerShell。桶、区域和目录必须与 `info.py` 一致；正式域名以项目配置为准。AK/SK 只注入上传子进程环境，不设置永久环境变量，也不复制配置文件。此辅助脚本绑定本次已验收输出目录，后续版本应更新为对应已验收目录。
+
+上传仍经过 `packaging/发布Velopack.py` 的版本、哈希、启动、公网访问和 CDN 验证。分享源码时不要附带外部凭据文件。
+
+## v1.4.9 更新中退出
+
+检查和下载在独立子进程运行，普通关闭先询问“继续结束”或“等待”。继续结束先保存多功能代码，然后停止本次检查/下载子进程，不触碰已安装版本，不提前标记更新就绪。本地升级探针同时覆盖打包后的检查/下载子进程。

@@ -2,8 +2,8 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from unittest.mock import patch
 import pytest
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QDialog, QWidget
+from qt_compat.QtCore import QTimer
+from qt_compat.QtWidgets import QApplication, QDialog, QWidget
 from instructions.registry import get_instruction_spec
 from instruction_workspace import InstructionWorkspace
 from 数据库操作 import DatabaseOperation

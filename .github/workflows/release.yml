@@ -38,8 +38,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: pip
+          python-version: "3.10.11"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
       - name: Install Linux desktop libraries
         if: runner.os == 'Linux'
         run: |
@@ -51,15 +53,15 @@ jobs:
             libxcb-render-util0 libxcb-xinerama0 libxkbcommon-x11-0
           Xvfb :99 -screen 0 1920x1080x24 >/tmp/anclicker-xvfb.log 2>&1 &
       - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+        run: uv sync --locked --group release
       - name: Build native application
-        run: python -m PyInstaller --clean -y packaging/main.spec
+        run: uv run --locked --group release python -m PyInstaller --clean -y packaging/main.spec
       - name: Verify packaged first and second startup
         # Test a real first launch and a second launch before publishing.
         # Import errors and error dialogs must fail the release, not count as readiness.
-        run: python packaging/smoke_release.py
+        run: uv run --locked --group release python packaging/smoke_release.py
       - name: Package verified application
-        run: python packaging/build_release.py --version "${{ github.ref_name }}"
+        run: uv run --locked --group release python packaging/build_release.py --version "${{ github.ref_name }}"
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.artifact }}

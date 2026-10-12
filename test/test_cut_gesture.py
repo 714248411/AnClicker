@@ -1,9 +1,9 @@
 from unittest.mock import Mock
 from time import monotonic
 import pytest
-from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QMouseEvent, QFocusEvent, QKeyEvent, QPainterPath
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QEvent, QPointF, Qt
+from qt_compat.QtGui import QMouseEvent, QFocusEvent, QKeyEvent, QPainterPath
+from qt_compat.QtWidgets import QApplication
 from test.test_connection_history import host, flow
 from test.test_connection_context import layout, context
 

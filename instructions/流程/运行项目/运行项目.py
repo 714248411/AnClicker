@@ -1,8 +1,8 @@
 """One command calls a project without replacing the open workspace."""
 from pathlib import Path
 
-from PySide6.QtCore import QEvent
-from PySide6.QtWidgets import QFileDialog
+from qt_compat.QtCore import QEvent
+from qt_compat.QtWidgets import QFileDialog
 
 from instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor, actions
 from .运行项目_ui import Ui_InstructionEditor

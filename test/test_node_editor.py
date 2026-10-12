@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QMimeData, QPointF, Qt
-from PySide6.QtGui import QDropEvent, QKeyEvent
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QMimeData, QPointF, Qt
+from qt_compat.QtGui import QDropEvent, QKeyEvent
+from qt_compat.QtWidgets import QApplication
 
 from node_editor import INSTRUCTION_MIME_TYPE, InstructionPalette, NodeEditorWidget
 from node_editor.palette import TYPE_ID_ROLE

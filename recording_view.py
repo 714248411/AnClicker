@@ -3,9 +3,9 @@ import json
 import time
 import sys
 
-from PySide6.QtCore import Signal, QTimer
-from PySide6.QtGui import QShortcut, QKeySequence
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+from qt_compat.QtCore import Signal, QTimer
+from qt_compat.QtGui import QShortcut, QKeySequence
+from qt_compat.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                                QCheckBox, QSpinBox, QDoubleSpinBox, QTableWidget, QTableWidgetItem,
                                QHeaderView, QAbstractItemView, QMessageBox)
 from input_recording import RecordingBuffer, GlobalInputRecorder, events_to_drafts, recording_at_speed
@@ -152,7 +152,7 @@ class RecordingView(QWidget):
             return
         if self.busy:
             return
-        if self.window.command_thread.isRunning():
+        if self.window.command_thread.isRunning() or getattr(getattr(getattr(self.window, "view_workspace", None), "web_recording_page", None), "busy", False):
             QMessageBox.warning(self, "无法录制", "请先停止正在运行的任务。")
             return
         if self.drafts and not self.written and QMessageBox.question(

@@ -2,8 +2,8 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
-from PySide6.QtCore import QPointF, QRectF
-from PySide6.QtWidgets import QApplication
+from qt_compat.QtCore import QPointF, QRectF
+from qt_compat.QtWidgets import QApplication
 from node_editor.scene import NodeScene
 from node_editor.view import NodeView
 
