@@ -112,7 +112,7 @@ a = Analysis(
     ] + instruction_datas + collect_data_files('rapidocr_onnxruntime', excludes=['models/**']),
     hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
                    *collect_submodules('pynput'), *collect_submodules('rapidocr_onnxruntime'),
-                   'local_ocr_worker', 'onnxruntime'],
+                   'local_ocr_worker', 'onnxruntime', 'tkinter'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
