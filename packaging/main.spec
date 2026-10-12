@@ -194,7 +194,7 @@ if sys.platform == 'darwin':
 # framework directory symlinks that Electron needs at startup.
 if sys.platform != 'win32':
     import shutil
-    runtime_parent = (Path(DISTPATH) / f'{APP_ID}.app' / 'Contents' / 'Frameworks'
+    runtime_parent = (Path(DISTPATH) / f'{APP_ID}.app' / 'Contents' / 'Resources'
                       if sys.platform == 'darwin' else Path(DISTPATH) / APP_ID)
     shutil.copytree(rpa_runtime, runtime_parent / 'runtime' / 'electron',
                     symlinks=True, dirs_exist_ok=True)
