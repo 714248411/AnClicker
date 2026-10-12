@@ -29,7 +29,8 @@ else:
     name=f'electron-v{VERSION}-{system}-{arch}.zip'
     base=f'https://github.com/electron/electron/releases/download/v{VERSION}/'
     checksums=urllib.request.urlopen(base+'SHASUMS256.txt',timeout=60).read().decode()
-    expected=next(line.split()[0] for line in checksums.splitlines() if line.split()[-1]==name)
+    expected=next(line.split()[0] for line in checksums.splitlines()
+                  if len(line.split()) == 2 and line.split()[-1].lstrip('*') == name)
     with tempfile.TemporaryDirectory() as temp:
         archive=Path(temp)/name
         urllib.request.urlretrieve(base+name,archive)
