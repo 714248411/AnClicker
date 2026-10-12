@@ -38,8 +38,8 @@ else:
             raise SystemExit('Electron checksum mismatch')
         target.mkdir(parents=True,exist_ok=True)
         with zipfile.ZipFile(archive) as z:
-            for entry in z.infolist():
-                resolved=(target/entry.filename).resolve()
+            for member in z.infolist():
+                resolved=(target/member.filename).resolve()
                 if not resolved.is_relative_to(target.resolve()):
                     raise SystemExit('Invalid archive path')
             if sys.platform == 'win32':
