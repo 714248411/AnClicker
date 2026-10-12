@@ -81,6 +81,7 @@ def main() -> int:
     }
     with zipfile.ZipFile(archive_path_, "w", allowZip64=True) as archive_:
         add_tree(archive_, source_, source_.name)
+        archive_.write(PROJECT_ROOT / 'packaging/PLATFORM_GUIDE.md', '平台使用说明.md')
         tool_prefix = '旧版数据迁移工具/'
         archive_.writestr(tool_prefix + '使用说明.txt',
             ('此文件夹与 AnClicker 主程序文件夹保持并列，请完整解压压缩包。\n'
