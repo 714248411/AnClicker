@@ -24,7 +24,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix="anclicker-startup-") as folder:
         env = dict(os.environ, ANCLICKER_DATA_DIR=folder,
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",
-                   QT_QPA_PLATFORM="windows" if sys.platform == "win32" else "offscreen")
+                   QT_QPA_PLATFORM=("windows" if sys.platform == "win32" else
+                                    "cocoa" if sys.platform == "darwin" else "xcb"))
         for attempt in range(2):
             env['QT_SCALE_FACTOR'] = '1' if attempt == 0 else '2'
             report = Path(folder) / "startup-ready.json"
