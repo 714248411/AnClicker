@@ -251,6 +251,8 @@ def main():
                             "qt_platform": app.platformName(), "style": app.style().objectName(),
                             "windows_build": sys.getwindowsversion().build if sys.platform == 'win32' else None},
                 "views": main_window.tabWidget.count(),
+                "view_labels": [main_window.tabWidget.tabText(i)
+                                for i in range(main_window.tabWidget.count())],
                 "database": main_window.db.db_path,
                 "editor_validation": editor_validation,
                 "migration_validation": migration_validation,

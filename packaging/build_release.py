@@ -45,6 +45,12 @@ def add_tree(archive_: zipfile.ZipFile, source_: Path, prefix_: str) -> None:
     for path_ in sorted(source_.rglob("*")):
         relative_ = path_.relative_to(source_)
         archive_name_ = Path(prefix_) / relative_
+        if path_.is_symlink():
+            info_ = zipfile.ZipInfo(archive_name_.as_posix())
+            info_.create_system = 3
+            info_.external_attr = (stat.S_IFLNK | 0o777) << 16
+            archive_.writestr(info_, os.readlink(path_))
+            continue
         if path_.is_dir():
             continue
         info_ = zipfile.ZipInfo.from_file(path_, archive_name_.as_posix())
@@ -75,6 +81,7 @@ def main() -> int:
     }
     with zipfile.ZipFile(archive_path_, "w", allowZip64=True) as archive_:
         add_tree(archive_, source_, source_.name)
+        archive_.write(PROJECT_ROOT / 'packaging/PLATFORM_GUIDE.md', '平台使用说明.md')
         tool_prefix = '旧版数据迁移工具/'
         archive_.writestr(tool_prefix + '使用说明.txt',
             ('此文件夹与 AnClicker 主程序文件夹保持并列，请完整解压压缩包。\n'

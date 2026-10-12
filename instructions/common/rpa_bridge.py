@@ -33,11 +33,21 @@ class RpaBridge:
     def _start(self):
         if self.process is not None and self.process.poll() is None:
             return
-        executable = Path(os.environ.get('ANCLICKER_ELECTRON', ROOT / 'runtime/electron/electron.exe'))
+        runtime_entry = ('Electron.app/Contents/MacOS/Electron' if sys.platform == 'darwin'
+                         else 'electron.exe' if sys.platform == 'win32' else 'electron')
+        runtime_root = (ROOT.parent / 'Resources' if sys.platform == 'darwin'
+                        and getattr(sys, 'frozen', False) else ROOT)
+        executable = Path(os.environ.get('ANCLICKER_ELECTRON', runtime_root / 'runtime/electron' / runtime_entry))
         if not executable.is_file():
             raise RuntimeError('缺少自动化运行时，请运行 tools/setup_rpa_runtime.py 或设置 ANCLICKER_ELECTRON')
         environment = dict(os.environ)
         environment.pop('ELECTRON_RUN_AS_NODE', None)
+        if sys.platform == 'linux' and getattr(sys, 'frozen', False):
+            original = environment.get('LD_LIBRARY_PATH_ORIG')
+            if original:
+                environment['LD_LIBRARY_PATH'] = original
+            else:
+                environment.pop('LD_LIBRARY_PATH', None)
         environment['ANCLICKER_RPA_DATA'] = str(Path(os.environ.get('ANCLICKER_DATA_DIR', Path.home() / '.anclicker')) / self.profile_name)
         self.stream = None
         self.socket = None
@@ -50,9 +60,12 @@ class RpaBridge:
         environment['ANCLICKER_RPA_PORT'] = str(listener.getsockname()[1])
         environment['ANCLICKER_RPA_TOKEN'] = token
         try:
-            self.process = subprocess.Popen([str(executable), str(ROOT / 'integrations/yingdao')],
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                env=environment, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            log_path = Path(environment['ANCLICKER_RPA_DATA']) / 'engine-startup.log'
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open('ab') as engine_log:
+                self.process = subprocess.Popen([str(executable), str(ROOT / 'integrations/yingdao')],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=engine_log,
+                    env=environment, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
             self.socket, _ = listener.accept()
             self.socket.settimeout(30)
             self.stream = self.socket.makefile('rw', encoding='utf-8', newline='\n')

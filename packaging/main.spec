@@ -58,7 +58,7 @@ rpa_root = Path(project_root) / 'integrations' / 'yingdao'
 rpa_runtime = Path(project_root) / 'runtime' / 'electron'
 if not rpa_runtime.is_dir():
     raise RuntimeError('Missing RPA runtime; run tools/setup_rpa_runtime.py before packaging')
-for folder in (rpa_root, rpa_runtime):
+for folder in ((rpa_root, rpa_runtime) if sys.platform == 'win32' else (rpa_root,)):
     for resource in folder.rglob('*'):
         if resource.is_file() and resource.suffix not in {'.log', '.pyc'}:
             instruction_datas.append((str(resource), str(resource.parent.relative_to(project_root))))
@@ -112,7 +112,7 @@ a = Analysis(
     ] + instruction_datas + collect_data_files('rapidocr_onnxruntime', excludes=['models/**']),
     hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
                    *collect_submodules('pynput'), *collect_submodules('rapidocr_onnxruntime'),
-                   'local_ocr_worker', 'onnxruntime'],
+                   'local_ocr_worker', 'onnxruntime', 'tkinter'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -188,3 +188,17 @@ if sys.platform == 'darwin':
             'NSHumanReadableCopyright': COPYRIGHT,
         },
     )
+
+# Keep Electron's native framework layout and signatures intact on Unix.
+# Passing its libraries through Analysis rewrites dependencies and drops
+# framework directory symlinks that Electron needs at startup.
+if sys.platform != 'win32':
+    import shutil
+    runtime_parent = (Path(DISTPATH) / f'{APP_ID}.app' / 'Contents' / 'Resources'
+                      if sys.platform == 'darwin' else Path(DISTPATH) / APP_ID)
+    shutil.copytree(rpa_runtime, runtime_parent / 'runtime' / 'electron',
+                    symlinks=True, dirs_exist_ok=True)
+    if sys.platform == 'darwin':
+        import subprocess
+        subprocess.run(['codesign', '--force', '--sign', '-',
+                        str(Path(DISTPATH) / f'{APP_ID}.app')], check=True)
