@@ -19,7 +19,7 @@ if action == 'publish' and len(sys.argv) > 2:
     from info import UPDATE_CONFIG
     from publishing_credentials import publishing_environment
     env = publishing_environment(sys.argv[2], env, UPDATE_CONFIG)
-output=root/'release/win-1.5.2-20261012-verified'
+output=root/'release/win-1.5.3-20261013-verified'
 if action=='build':
     command=[sys.executable,str(root/'packaging/发布Velopack.py'),'build','--output',str(output)]
 elif action=='upgrade':

@@ -24,6 +24,28 @@ INSTRUCTION_MIME_TYPE = "application/x-clicker-instruction"
 TYPE_ID_ROLE = Qt.ItemDataRole.UserRole
 
 
+class _InstructionSearchEdit(QLineEdit):
+    def createStandardContextMenu(self):
+        menu = super().createStandardContextMenu()
+        translations = {'Undo': '撤销', 'Redo': '重做', 'Cut': '剪切',
+                        'Copy': '复制', 'Paste': '粘贴', 'Delete': '删除',
+                        'Select All': '全选'}
+        for action in menu.actions():
+            label, separator, shortcut = action.text().partition('\t')
+            translated = translations.get(label.replace('&', '').strip())
+            if translated:
+                action.setText(translated + (separator + shortcut if separator else ''))
+        from context_menu_style import style_context_menu
+        style_context_menu(menu, self)
+        return menu
+
+    def contextMenuEvent(self, event):
+        menu = self.createStandardContextMenu()
+        menu.exec(event.globalPos())
+        menu.deleteLater()
+        event.accept()
+
+
 class _WrappingInstructionDelegate(QStyledItemDelegate):
     def _document(self, option, index, width):
         styled = QStyleOptionViewItem(option)
@@ -135,7 +157,7 @@ class InstructionPalette(QWidget):
 
     def __init__(self, specs_=None, parent_=None):
         super().__init__(parent_)
-        self.search_edit = QLineEdit(self)
+        self.search_edit = _InstructionSearchEdit(self)
         self.search_edit.setObjectName("instructionSearchEdit")
         self.search_edit.setPlaceholderText("自动展开可进行的下一步操作")
         self.tree = _InstructionTree(self)

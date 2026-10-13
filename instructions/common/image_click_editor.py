@@ -136,7 +136,8 @@ class ImageClickEditorMixin:
         hint = QLabel('操作说明：将图像统一保存至资源文件夹，添加文件夹后即可选择。')
         hint.setWordWrap(True); hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
-        self.folder_label = QLabel(); self.folder_label.setWordWrap(True)
+        self.folder_label = QLabel(); self.folder_label.setWordWrap(False)
+        self.folder_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.folder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.folder_label)
         row = QHBoxLayout()
@@ -230,7 +231,7 @@ class ImageClickEditorMixin:
         self.ui.parameter_2.setText('自动略过' if self.skip_check.isChecked() else str(self.timeout_spin.value()))
 
     def _refresh_image_names(self, folder, select=True):
-        self.folder_label.setText(f'当前文件夹：\n{folder}')
+        self.folder_label.setText(f'当前文件夹：{folder}')
         self.folder_label.setToolTip(folder)
         previous = self.image_combo.currentText()
         path = Path(folder)

@@ -1,7 +1,7 @@
 """Shared window chrome for the platform's selected Qt binding."""
 import math
 import sys
-from qt_compat.QtCore import QLineF, QRect, QRectF, QSize, Qt
+from qt_compat.QtCore import QLineF, QRect, QRectF, QSize, Qt, QVariantAnimation
 from qt_compat.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from qt_compat.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QWidget
 from info import APP_NAME, CURRENT_VERSION
@@ -113,6 +113,28 @@ class UpdateNoticeButton(QPushButton):
         self.badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.hide()
 
+    def pulse(self):
+        old=getattr(self, '_pulse_animation', None)
+        if old is not None: old.stop();old.deleteLater()
+        self._pulse_animation=QVariantAnimation(self)
+        self._pulse_animation.setDuration(1100)
+        self._pulse_animation.setStartValue(0.0)
+        self._pulse_animation.setKeyValueAt(0.35,1.0)
+        self._pulse_animation.setEndValue(0.0)
+        def frame(value):
+            self._pulse_level=float(value);self.update()
+        self._pulse_animation.valueChanged.connect(frame)
+        self._pulse_animation.start()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        level=getattr(self,'_pulse_level',0)
+        if level:
+            painter=QPainter(self);painter.setRenderHint(QPainter.Antialiasing)
+            painter.setPen(QPen(QColor(106,130,255,int(255*level)),2))
+            painter.setBrush(QColor(106,130,255,int(65*level)))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),6,6)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.badge.move(self.width() - 9, 1)
@@ -186,9 +208,9 @@ class WindowTitleBar(StandardTitleBar):
             child = child.parentWidget()
         return super().canDrag(pos)
 
-    def show_update(self, version, notes=''):
+    def show_update(self, version, notes='', ready=True):
         self._ready_version, self._ready_notes = str(version), str(notes)
-        self.updateButton.setToolTip(f'新版本 {version} 已准备完成，点击后直接重启更新。\n\n{notes}')
+        self.updateButton.setToolTip((f'新版本 {version} 已准备完成，点击后重启更新。' if ready else f'发现新版本 {version}，点击选择更新。') + f'\n\n{notes}')
         self.set_update_applying(False)
         self.updateButton.show()
 

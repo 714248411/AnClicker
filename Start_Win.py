@@ -235,7 +235,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return
         bar = self.view_workspace.title_bar
         bar.set_update_applying(True)
-        if not self.auto_update.apply_ready_update():
+        if not self.auto_update.activate_update_entry():
             bar.set_update_applying(False)
 
     def prepare_for_update(self):

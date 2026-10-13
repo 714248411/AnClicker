@@ -2,7 +2,7 @@
 import base64
 import json
 
-from qt_compat.QtCore import QObject, QEvent, Qt, QMimeData, QTimer, QByteArray, QSize
+from qt_compat.QtCore import QObject, QEvent, Qt, QMimeData, QTimer, QByteArray, QSize, QPoint, QRect
 from qt_compat.QtGui import QDrag, QCursor
 from qt_compat.QtWidgets import (QApplication, QDockWidget, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMenu, QScrollArea, QFrame, QDialog)
@@ -25,11 +25,13 @@ class DropZone(QLabel):
         self.hide()
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat(PANEL_MIME): event.acceptProposedAction()
+        if self.manager.editable and event.mimeData().hasFormat(PANEL_MIME): event.acceptProposedAction()
 
     def dropEvent(self, event):
+        if not self.manager.editable:
+            event.ignore(); self.manager.hide_targets(); return
         key = bytes(event.mimeData().data(PANEL_MIME)).decode('utf-8')
-        if self.manager.move_panel(key, self.key): event.acceptProposedAction()
+        if self.manager.drop_on_target(key, self.key): event.acceptProposedAction()
         self.manager.hide_targets()
 
 
@@ -56,7 +58,8 @@ class PanelTitle(QLabel):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.dock.manager.float_panel(self.dock.key, not self.dock.isFloating())
+            if self.dock.manager.editable or not self.dock.isFloating():
+                self.dock.manager.float_panel(self.dock.key, not self.dock.isFloating())
             event.accept()
         else: event.ignore()
 
@@ -70,16 +73,19 @@ class PanelDock(QDockWidget):
         super().__init__(title, manager.host)
         self.manager, self.key = manager, key
         self.setObjectName('panelDock_' + key)
+        self.setProperty('instructionParameter', key.startswith('parameters_'))
         self.setAllowedAreas(Qt.AllDockWidgetAreas)
         self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
         self._embedded_title = PanelTitle(self)
         self.setTitleBarWidget(self._embedded_title)
+        self._title_drag_filter = PanelDragFilter(manager, self._embedded_title, key)
         if key.startswith('parameters_'):
             self.topLevelChanged.connect(self._parameter_window_chrome)
         self.setMinimumSize(0, 0)
         self.setToolTip('拖动标题停靠到上、下、左、右栏；右击标题可选择并排、堆叠或返回中栏')
         self.dockLocationChanged.connect(lambda *_: manager.schedule_save())
         self.topLevelChanged.connect(lambda *_: manager.schedule_save())
+        self.topLevelChanged.connect(lambda *_: manager.configure_dock(self))
 
     def _parameter_window_chrome(self, floating):
         features = QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
@@ -89,6 +95,7 @@ class PanelDock(QDockWidget):
         title.setText(self.windowTitle() if floating else '')
         title.close_button.setVisible(floating)
         self.setFeatures(features)
+        self.manager.configure_dock(self)
 
     def contextMenuEvent(self, event):
         self.manager.panel_menu(self.key, event.globalPos())
@@ -133,7 +140,8 @@ class PanelDragFilter(QObject):
             on_title = not self.header_only or (event.pos().y() <= 28 and event.pos().x() <= watched.fontMetrics().horizontalAdvance(watched.title()) + 30)
             if on_title:
                 dock = self.manager.ensure_dock(self.key)
-                if dock is not None: self.manager.float_panel(self.key, not dock.isFloating())
+                if dock is not None and (self.manager.editable or not dock.isFloating()):
+                    self.manager.float_panel(self.key, not dock.isFloating())
                 self.origin = None
                 return True
         if kind == QEvent.ContextMenu and self.context_menu:
@@ -141,6 +149,9 @@ class PanelDragFilter(QObject):
             if key and key not in FIXED_PANELS:
                 self.manager.panel_menu(key, event.globalPos())
                 return True
+        if not self.manager.editable:
+            self.origin = None
+            return False
         if kind == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
             if self.header_only and (event.pos().y() > 28 or event.pos().x() > watched.fontMetrics().horizontalAdvance(watched.title()) + 30):
                 self.origin = None
@@ -155,7 +166,7 @@ class PanelDragFilter(QObject):
                 self.origin = None
                 drag = QDrag(watched)
                 mime = QMimeData(); mime.setData(PANEL_MIME, key.encode('utf-8')); drag.setMimeData(mime)
-                self.manager.show_targets()
+                self.manager.show_targets(key)
                 guard = DragCancelGuard()
                 QApplication.instance().installEventFilter(guard)
                 try:
@@ -206,6 +217,7 @@ class DockWorkspace(QObject):
         self.docks, self.placeholders, self.parameters = {}, {}, {}
         self.restoring, self.suspended = True, False
         self.controls_horizontal = False
+        self.editable = self.window.db.get_setting_value('可编辑视图') != 'False'
         self.host = QMainWindow()
         self.host.setObjectName('dockWorkspace')
         self.host.setDockOptions(QMainWindow.AllowNestedDocks | QMainWindow.AllowTabbedDocks | QMainWindow.AnimatedDocks)
@@ -229,6 +241,11 @@ class DockWorkspace(QObject):
                         PanelDragFilter(self, self.window.groupBox_3, 'controls', header_only=True),
                         PanelDragFilter(self, self.window.workspace.palette.search_edit, 'palette', context_menu=False)]
         self.targets = [DropZone(self, key) for key in LABELS]
+        self.target_panel = None
+        self.dragged_panel = None
+        self.target_timer = QTimer(self)
+        self.target_timer.setInterval(40)
+        self.target_timer.timeout.connect(lambda: self.update_targets(QCursor.pos()))
         self.save_timer = QTimer(self); self.save_timer.setSingleShot(True); self.save_timer.setInterval(250)
         self.save_timer.timeout.connect(self.save)
         self.host.installEventFilter(self)
@@ -244,16 +261,46 @@ class DockWorkspace(QObject):
         self.restoring = False
         self.update_controls_layout()
 
+    def configure_dock(self, dock):
+        if getattr(dock, '_programmatic_move', False): return
+        dock.setAllowedAreas(Qt.AllDockWidgetAreas if self.editable else Qt.NoDockWidgetArea)
+        features = QDockWidget.DockWidgetFloatable
+        if self.editable or dock.isFloating(): features |= QDockWidget.DockWidgetMovable
+        if dock.key.startswith('parameters_') and dock.isFloating(): features |= QDockWidget.DockWidgetClosable
+        dock.setFeatures(features)
+
+    def _set_floating(self, dock, floating):
+        # Explicit menu actions remain available while native drag docking is locked.
+        dock._programmatic_move = True
+        try:
+            dock.setAllowedAreas(Qt.AllDockWidgetAreas)
+            if not floating and self.host.dockWidgetArea(dock) == Qt.NoDockWidgetArea:
+                self.host.addDockWidget(Qt.RightDockWidgetArea, dock)
+            dock.setFloating(floating)
+        finally:
+            dock._programmatic_move = False
+            self.configure_dock(dock)
+
+    def set_editable(self, enabled):
+        self.editable = bool(enabled)
+        self.window.db.set_setting_value('可编辑视图', str(self.editable))
+        if not self.editable: self.hide_targets()
+        for dock in self.docks.values(): self.configure_dock(dock)
+
     def tab_key(self, index):
         keys = ['main','table','flow','code','recording','web_recording']
         return keys[index] if 0 <= index < len(keys) else None
 
-    def create_dock(self, key, title, widget, area):
+    def create_dock(self, key, title, widget, area, *, floating=False):
         dock = PanelDock(self, key, title)
         dock.setWidget(widget)
         self.docks[key] = dock
-        self.host.addDockWidget(AREAS[area], dock)
+        if floating:
+            dock.setFloating(True)
+        else:
+            self.host.addDockWidget(AREAS[area], dock)
         widget.show(); dock.show()
+        self.configure_dock(dock)
         return dock
 
     def ensure_dock(self, key):
@@ -278,6 +325,17 @@ class DockWorkspace(QObject):
         scroll.setMinimumSize(90, 60); scroll.setWidget(page)
         return self.create_dock(key, self.titles[key], scroll, 'right')
 
+    def move_palette_side(self, area):
+        """Keep the palette beside existing side panels instead of stacking it."""
+        palette = self.docks['palette']
+        candidates = [(key, dock) for key, dock in self.docks.items()
+                      if key != 'palette' and not dock.isFloating()
+                      and self.host.dockWidgetArea(dock) == AREAS[area]]
+        target = max(candidates, key=lambda item: item[1].height())[0] if candidates else None
+        width = palette.width()
+        if self.move_panel('palette', area, target=target, arrangement='horizontal'):
+            self.host.resizeDocks([palette], [width], Qt.Horizontal)
+
     def move_panel(self, key, area, target=None, arrangement='vertical'):
         if key == 'table' or self.suspended: return False
         if area == 'center':
@@ -285,7 +343,7 @@ class DockWorkspace(QObject):
         if area not in AREAS: return False
         dock = self.ensure_dock(key)
         if dock is None: return False
-        dock.setFloating(False)
+        self._set_floating(dock, False)
         self.host.addDockWidget(AREAS[area], dock)
         other = self.docks.get(target)
         if other is not None and other is not dock:
@@ -324,7 +382,7 @@ class DockWorkspace(QObject):
         if key in self.docks:
             dock = self.docks[key]
             menu.addAction('融入主窗体' if dock.isFloating() else '窗口化',
-                           lambda: self.float_panel(key, not dock.isFloating()))
+                           lambda checked=False, target=dock: self.float_panel(key, not target.isFloating()))
             menu.addAction('取消并收起' if key.startswith('parameters_') else '收起面板', dock.close)
         if key in self.placeholders: menu.addAction('返回中栏', lambda: self.return_center(key))
         available = [(k,d) for k,d in self.docks.items() if k != key and not d.isHidden() and not d.isFloating()]
@@ -349,7 +407,7 @@ class DockWorkspace(QObject):
             for key,area in (('palette','left'),('controls','right')):
                 dock=self.docks[key]
                 self.host.removeDockWidget(dock)
-                dock.setFloating(False)
+                self._set_floating(dock, False)
                 self.host.addDockWidget(AREAS[area],dock)
             self.view.palette_side='left'
             self.view.palette_collapsed=False
@@ -365,15 +423,66 @@ class DockWorkspace(QObject):
         self.save()
         self.window.statusBar.showMessage('已恢复默认视图；快捷指令顺序保持不变。',4000)
 
-    def show_targets(self):
-        w,h = self.host.width(),self.host.height()
-        rects = {'top':(w//3,8,w//3,64), 'bottom':(w//3,h-72,w//3,64),
-                 'left':(8,h//3,90,h//3), 'right':(w-98,h//3,90,h//3),
-                 'center':(w//2-60,h//2-35,120,70)}
+    def show_targets(self, dragged=None):
+        if not self.editable: return
+        self.dragged_panel = dragged
+        self.update_targets(QCursor.pos() if dragged else self.view.tabs.mapToGlobal(self.view.tabs.rect().center()))
+        if dragged: self.target_timer.start()
+
+    def update_targets(self, global_point):
+        if not self.editable: return
+        point = self.host.mapFromGlobal(global_point)
+        selected = None
+        rect = None
+        for key, dock in self.docks.items():
+            if key == self.dragged_panel or not dock.isVisible() or dock.isFloating(): continue
+            candidate = QRect(dock.mapTo(self.host, QPoint(0, 0)), dock.size())
+            if candidate.contains(point):
+                selected, rect = key, candidate
+                break
+        if rect is None:
+            central = self.view.tabs
+            candidate = QRect(central.mapTo(self.host, QPoint(0, 0)), central.size())
+            if candidate.contains(point): rect = candidate
+        self.target_panel = selected
+        if rect is None:
+            for target in self.targets: target.hide()
+            return
+        self.target_rect = rect
+        x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+        third_h, third_w = h // 3, w // 3
+        rects = {'top': (x, y, w, third_h),
+                 'bottom': (x, y + h - third_h, w, third_h),
+                 'left': (x, y + third_h, third_w, h - 2 * third_h),
+                 'right': (x + w - third_w, y + third_h, third_w, h - 2 * third_h),
+                 'center': (x + third_w, y + third_h, w - 2 * third_w, h - 2 * third_h)}
         for target in self.targets:
-            target.setGeometry(*rects[target.key]); target.show(); target.raise_()
+            target.setGeometry(*rects[target.key])
+            target.setText(('合为标签' if selected else '返回中栏') if target.key == 'center' else LABELS[target.key])
+            target.show(); target.raise_()
+
+    def drop_on_target(self, key, direction):
+        if not self.editable or key in FIXED_PANELS or key == self.target_panel: return False
+        other = self.docks.get(self.target_panel)
+        if other is None:
+            return self.move_panel(key, direction)
+        area = next((name for name, value in AREAS.items() if value == self.host.dockWidgetArea(other)), None)
+        if area is None: return False
+        orientation = Qt.Horizontal if direction in ('left', 'right') else Qt.Vertical
+        arrangement = 'tabs' if direction == 'center' else ('horizontal' if orientation == Qt.Horizontal else 'vertical')
+        if not self.move_panel(key, area, self.target_panel, arrangement): return False
+        dock = self.docks[key]
+        if direction in ('left', 'top'):
+            self.host.splitDockWidget(dock, other, orientation)
+        if direction != 'center':
+            extent = self.target_rect.width() if orientation == Qt.Horizontal else self.target_rect.height()
+            self.host.resizeDocks([dock, other], [max(1, extent // 2)] * 2, orientation)
+        return True
 
     def hide_targets(self):
+        self.target_timer.stop()
+        self.dragged_panel = None
+        self.target_panel = None
         for target in self.targets: target.hide()
 
     def sync_visibility(self):
@@ -421,16 +530,21 @@ class DockWorkspace(QObject):
         editor.setMinimumSize(0, 0)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame)
         scroll.setWidget(editor)
+        # Both scroll viewports must follow the theme, including exposed margins.
+        for area in [scroll] + editor.findChildren(QScrollArea):
+            area.setObjectName('parameterScroll')
+            area.viewport().setObjectName('parameterViewport')
         from adaptive_panels import AdaptivePanelSizer
         if hasattr(editor, '_panel_scaler'): editor._panel_scaler.rebind(scroll.viewport())
-        else: editor._panel_scaler = AdaptivePanelSizer(scroll.viewport(), editor, 600, reference_height=420)
-        dock = self.create_dock(key, '指令参数 · '+editor.windowTitle(), scroll, 'right')
+        else: editor._panel_scaler = AdaptivePanelSizer(scroll.viewport(), editor, 600, reference_height=420, base_pixels=12)
+        dock = self.create_dock(key, '指令参数 · '+editor.windowTitle(), scroll, 'right', floating=floating)
         title = editor.findChild(QLabel, 'titleLabel') or editor.findChild(QLabel)
         if title is not None:
             editor._drag_filter = PanelDragFilter(self, title, key)
-        controls = self.docks['controls']
-        self.host.splitDockWidget(dock, controls, Qt.Horizontal)
-        self.host.resizeDocks([dock,controls], [360,300], Qt.Horizontal)
+        if not floating:
+            controls = self.docks['controls']
+            self.host.splitDockWidget(dock, controls, Qt.Horizontal)
+            self.host.resizeDocks([dock,controls], [360,300], Qt.Horizontal)
         def finished(result):
             if key not in self.parameters: return
             if result == QDialog.Accepted:
@@ -447,7 +561,7 @@ class DockWorkspace(QObject):
 
     def update_controls_layout(self):
         dock = self.docks['controls']
-        horizontal = not self.suspended and not dock.isFloating() and self.host.dockWidgetArea(dock) == Qt.BottomDockWidgetArea
+        horizontal = not self.suspended and not dock.isFloating() and self.host.dockWidgetArea(dock) in (Qt.TopDockWidgetArea, Qt.BottomDockWidgetArea)
         if horizontal == self.controls_horizontal: return
         self.controls_horizontal = horizontal
         w = self.window
@@ -486,7 +600,7 @@ class DockWorkspace(QObject):
     def float_panel(self, key, floating):
         dock = self.ensure_dock(key)
         if dock is None: return
-        dock.setFloating(floating)
+        self._set_floating(dock, floating)
         if floating and key.startswith('parameters_'):
             editor = self.parameters[key]
             size = editor._original_popup_size
@@ -515,7 +629,7 @@ class DockWorkspace(QObject):
             self.view.table_splitter.insertWidget(1,self.pages['log'])
         for key,dock in self.docks.items():
             dock.setVisible(key == 'controls')
-        controls=self.docks['controls'];controls.setFloating(False)
+        controls=self.docks['controls'];self._set_floating(controls, False)
         self.host.addDockWidget(Qt.RightDockWidgetArea,controls)
 
     def resume(self):

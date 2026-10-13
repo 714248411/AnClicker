@@ -1,0 +1,144 @@
+name: Verify macOS and Linux packages
+on:
+  push:
+    branches: [codex/v1.5.3-platforms]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            artifact: macos-x64
+          - os: macos-15
+            artifact: macos-arm64
+          - os: ubuntu-24.04
+            artifact: linux-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      QT_QPA_PLATFORM: offscreen
+      DISPLAY: ':99'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb scrot xdotool unzip libegl1 libgl1 libopengl0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-shape0 libxkbcommon-x11-0 libnss3 libasound2t64 libgtk-3-0 tk8.6
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/anclicker-xvfb.log 2>&1 &
+          touch "$HOME/.Xauthority"
+      - name: Install locked dependencies and native runtime
+        run: |
+          export UV_PYTHON="$(command -v python)"
+          echo "UV_PYTHON=$UV_PYTHON" >> "$GITHUB_ENV"
+          python -c "import tkinter; print('Tcl/Tk', tkinter.TkVersion)"
+          uv sync --locked --group release
+          uv run --locked --group release python tools/setup_rpa_runtime.py
+      - name: Build native application
+        run: uv run --locked --group release python -m PyInstaller --clean -y packaging/main.spec
+      - name: Package application
+        run: uv run --locked --group release python packaging/build_release.py
+      - name: Verify delivered archive
+        run: |
+          mkdir extracted
+          unzip -q release/*.zip -d extracted
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
+          fi
+          uv run --locked --group release python packaging/smoke_release.py --dist extracted 2>&1 | tee release/verification-${{ matrix.artifact }}.txt
+          uv run --locked --group release python - <<'PY'
+          import hashlib, pathlib, platform, json
+          for p in pathlib.Path('release').glob('*.zip'):
+              p.with_suffix(p.suffix+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n')
+          pathlib.Path('release/platform-${{ matrix.artifact }}.json').write_text(json.dumps({'system':platform.platform(),'architecture':platform.machine(),'commit':'${{ github.sha }}','verification':'passed'},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.artifact }}
+          path: release/*
+          if-no-files-found: error
+  assemble:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: platform-artifacts
+      - run: python3 packaging/assemble_platforms.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-platform-packages
+          path: delivery/*
+  verify-final:
+    needs: assemble
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            artifact: macos-x64
+            package: mac
+            folder: Intel
+          - os: macos-15
+            artifact: macos-arm64
+            package: mac
+            folder: Apple-Silicon
+          - os: ubuntu-24.04
+            artifact: linux-x64
+            package: linux
+            folder: .
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      DISPLAY: ':99'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - uses: actions/download-artifact@v4
+        with:
+          name: final-platform-packages
+          path: delivery
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb scrot xdotool unzip libegl1 libgl1 libopengl0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-shape0 libxkbcommon-x11-0 libnss3 libasound2t64 libgtk-3-0
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/anclicker-xvfb.log 2>&1 &
+          touch "$HOME/.Xauthority"
+      - name: Verify final downloadable package
+        run: |
+          mkdir extracted reports
+          unzip -q delivery/AnClicker-v1.5.3-${{ matrix.package }}.zip -d extracted
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
+          fi
+          python packaging/smoke_release.py --dist extracted/${{ matrix.folder }} 2>&1 | tee reports/final-${{ matrix.artifact }}.txt
+          python - <<'PY'
+          import hashlib, json, pathlib, platform
+          p = pathlib.Path('delivery/AnClicker-v1.5.3-${{ matrix.package }}.zip')
+          pathlib.Path('reports/final-${{ matrix.artifact }}.json').write_text(json.dumps({
+              'system': platform.platform(), 'architecture': platform.machine(),
+              'commit': '${{ github.sha }}', 'package': p.name,
+              'sha256': hashlib.sha256(p.read_bytes()).hexdigest(), 'verification': 'passed'}, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-verification-${{ matrix.artifact }}
+          path: reports/*

@@ -145,7 +145,7 @@ def test_real_parameter_editor_scales_and_commits_to_original_command(host):
     assert editor.isVisible()
     dock.grab().save('validation/docking-parameters-small.png')
     dock.resize(800,700);pump()
-    assert editor._panel_scaler.last_size==13
+    assert editor._panel_scaler.last_size==12
     editor.repeat_count.setValue(3)
     editor._accept_if_valid();pump()
     assert repo.get_command(command.id).repeat_count==3

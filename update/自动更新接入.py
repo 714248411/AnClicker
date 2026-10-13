@@ -101,6 +101,9 @@ class AutoUpdateManager(QObject):
         self.show_check_message = False
         self.download_was_manual = False
         self._ready_update_info = None
+        self._available_update_info = None
+        self._update_prompt = None
+        self._install_after_download = False
         self.current_update_uses_delta = False
         self.download_result_handled = False
         self.download_status_text = ""
@@ -184,16 +187,18 @@ class AutoUpdateManager(QObject):
         if self._stopping:
             return
         self.mark_update_ready(update_info_)
-        if self.show_check_message:
-            self.show_manual_update_message(update_info_, ready=True)
+        self.show_manual_update_message(update_info_, ready=True)
 
     @Slot(object)
     def handle_update_info(self, update_info_: Any) -> None:
         if self._stopping:
             return
-        if self.show_check_message:
-            self.show_manual_update_message(update_info_, ready=False)
-        self.start_download(update_info_, is_manual=self.show_check_message)
+        self._available_update_info = update_info_
+        bar = getattr(getattr(self.main_window, 'view_workspace', None), 'title_bar', None)
+        if bar is not None:
+            version, notes = update_target_details(update_info_)
+            bar.show_update(version, notes, ready=False)
+        self.show_manual_update_message(update_info_, ready=False)
 
     def start_download(self, update_info_: Any, *, is_manual: bool = False) -> None:
         if self._stopping:
@@ -262,9 +267,13 @@ class AutoUpdateManager(QObject):
         thread_, self.download_thread = self.download_thread, None
         if thread_ is not None:
             thread_.deleteLater()
+        if self._install_after_download and self._ready_update_info is not None and not self._stopping:
+            self._install_after_download = False
+            QTimer.singleShot(0, self.apply_ready_update)
 
     @Slot(str)
     def handle_download_failure(self, message_: str) -> None:
+        self._install_after_download = False
         self.download_result_handled = True
         self.progress_animator.stop()
         LOGGER.warning("Velopack 更新下载或校验失败: %s", message_)
@@ -290,16 +299,44 @@ class AutoUpdateManager(QObject):
         self.update_ready.emit(version_, notes_)
 
     def show_manual_update_message(self, update_info_: Any, *, ready: bool) -> None:
-        version_, notes_ = update_target_details(update_info_)
-        if ready:
-            message_ = f"新版本 {version_ or '未知版本'} 的更新包已准备完成。"
-            message_ += "\n\n请点击标题栏中的“新版本”安装并重启。"
+        if self._stopping or getattr(self.main_window, '_closing', False): return
+        if self._update_prompt is not None and self._update_prompt.isVisible():
+            self._update_prompt.raise_(); return
+        from update.notice import UpdatePrompt, animate_to_entry
+        version, notes = update_target_details(update_info_)
+        prompt = UpdatePrompt(self.main_window, version, notes, ready)
+        self._update_prompt = prompt
+        def defer(pixmap, rect):
+            bar = getattr(getattr(self.main_window, 'view_workspace', None), 'title_bar', None)
+            if bar is not None:
+                bar.show_update(version, notes, ready=ready)
+                self._defer_animation = animate_to_entry(self.main_window, bar.updateButton, pixmap, rect)
+        def choose():
+            if ready:
+                self.apply_ready_update()
+            else:
+                self._install_after_download = True
+                self.start_download(update_info_, is_manual=True)
+        prompt.deferred.connect(defer)
+        prompt.update_requested.connect(choose)
+        def cleanup(*_):
+            if self._update_prompt is prompt: self._update_prompt = None
+            prompt.deleteLater()
+        prompt.finished.connect(cleanup)
+        prompt.show()
+        rect = prompt.frameGeometry();rect.moveCenter(self.main_window.frameGeometry().center())
+        prompt.move(rect.topLeft());prompt.raise_()
+
+    def activate_update_entry(self):
+        if self.download_thread is not None and self.download_thread.isRunning():
+            return False
+        if self._ready_update_info is not None:
+            return self.apply_ready_update()
+        if self._available_update_info is not None:
+            self.show_manual_update_message(self._available_update_info, ready=False)
         else:
-            message_ = f"发现新版本 {version_ or '未知版本'}。"
-            message_ += "\n\n更新包将在后台下载，状态栏会显示进度；准备完成后标题栏中的“新版本”将可用。"
-        if notes_:
-            message_ += f"\n\n更新内容：\n{notes_}"
-        QMessageBox.information(self.main_window, "检查更新", message_)
+            self.check_for_updates(show_message=True)
+        return False
 
     def apply_ready_update(self) -> bool:
         update_info_ = self._ready_update_info
@@ -356,6 +393,8 @@ class AutoUpdateManager(QObject):
 
     def cancel_for_exit(self) -> bool:
         self._stopping = True
+        self._install_after_download = False
+        if self._update_prompt is not None: self._update_prompt.accept()
         self.show_check_message = self.download_was_manual = False
         self.progress_animator.stop()
         threads = [t for t in (self.check_thread, self.download_thread) if t is not None]

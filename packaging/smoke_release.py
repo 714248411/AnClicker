@@ -24,14 +24,15 @@ def main():
     with tempfile.TemporaryDirectory(prefix="anclicker-startup-") as folder:
         env = dict(os.environ, ANCLICKER_DATA_DIR=folder,
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",
-                   QT_QPA_PLATFORM="windows" if sys.platform == "win32" else "offscreen")
+                   QT_QPA_PLATFORM=("windows" if sys.platform == "win32" else
+                                    "cocoa" if sys.platform == "darwin" else "xcb"))
         for attempt in range(2):
             env['QT_SCALE_FACTOR'] = '1' if attempt == 0 else '2'
             report = Path(folder) / "startup-ready.json"
             report.unlink(missing_ok=True)
             process = subprocess.Popen([str(executable), "--startup-smoke-test"], env=env, cwd=folder)
             try:
-                result = process.wait(timeout=90)
+                result = process.wait(timeout=240)
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
@@ -39,9 +40,14 @@ def main():
             if result != 0 or not report.exists():
                 error_log = Path(folder) / "logs/startup-error.log"
                 detail = error_log.read_text(encoding="utf-8") if error_log.exists() else "No readiness report"
+                for engine_log in Path(folder).glob('*/engine-startup.log'):
+                    detail += '\n' + engine_log.read_text(encoding='utf-8', errors='replace')[-6000:]
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
-            if not ready["ready"] or ready["views"] != 7 or not ready.get("window_chrome_valid"):
+            expected_views = ["主界面", "表格", "流程图", "多功能", "录制", "网页录制"]
+            if (not ready["ready"] or ready["views"] != len(expected_views)
+                    or ready.get("view_labels") != expected_views
+                    or not ready.get("window_chrome_valid")):
                 raise RuntimeError(f"Main window incomplete: {ready}")
             if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
                 raise RuntimeError(f"Packaged version does not match release: {ready}")
@@ -62,6 +68,10 @@ def main():
             if not ocr_checks.get('rapidocr') or not ocr_checks.get('isolated_worker'):
                 raise RuntimeError(f'Packaged offline OCR checks missing: {ready}')
             print(f'Offline OCR: {ocr_checks}')
+            rpa_checks = ready.get('rpa_validation', {})
+            if not all(rpa_checks.get(key) for key in ('excel', 'browser', 'screenshot', 'web_recording')):
+                raise RuntimeError(f'Packaged RPA checks missing: {ready}')
+            print(f'RPA: {rpa_checks}')
         result = subprocess.run([str(executable), '--migration-tool', '--startup-smoke-test'],
                                 env=env, cwd=folder, timeout=90)
         if result.returncode or not (Path(folder) / 'migration-ready.json').is_file():

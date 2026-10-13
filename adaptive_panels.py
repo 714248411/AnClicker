@@ -3,15 +3,17 @@ import re
 
 from qt_compat.QtCore import QObject, QEvent, QTimer
 from qt_compat.QtWidgets import QWidget, QLayout
+from interface_scale import original_style as unscaled_style
 
 
 class AdaptivePanelSizer(QObject):
-    def __init__(self, viewport, body, reference_width, palette=False, reference_height=340):
+    def __init__(self, viewport, body, reference_width, palette=False, reference_height=340, base_pixels=13):
         super().__init__(body)
         self.viewport, self.body, self.reference_width = viewport, body, reference_width
         self.palette = palette
+        self.base_pixels = base_pixels
         self.reference_height = reference_height
-        self.base_style = body.styleSheet()
+        self.base_style = unscaled_style(body)
         self.last_size = None
         self.minimums = {}
         self.layout_metrics = {}
@@ -42,13 +44,13 @@ class AdaptivePanelSizer(QObject):
         if not self.palette:
             horizontal = bool(self.body.property('horizontalControls'))
             ratio = min(1.0, width / (460 if horizontal else self.reference_width), height / (190 if horizontal else self.reference_height))
-        pixels = max(7, round(13 * ratio))
+        pixels = max(7, round(self.base_pixels * ratio))
         if pixels == self.last_size: return
         self.last_size = pixels
         scale = pixels / 13
         for child in self.body.findChildren(QWidget):
             if child not in self.minimums: self.minimums[child] = child.minimumSize()
-            if child not in self.child_styles: self.child_styles[child] = child.styleSheet()
+            if child not in self.child_styles: self.child_styles[child] = unscaled_style(child)
             original_style = self.child_styles[child]
             if 'font-size' in original_style:
                 child.setStyleSheet(re.sub(r'font-size\s*:\s*(\d+(?:\.\d+)?)(px|pt)',
@@ -72,6 +74,10 @@ class AdaptivePanelSizer(QObject):
             QTreeWidget::item {{ padding: {max(1,round(5*scale))}px; }}
             QLineEdit#instructionSearchEdit {{ padding: 1px 3px; }}
         ''')
+        owner = getattr(self.body, '_workspace_owner', self.body.window())
+        controller = getattr(getattr(owner, 'view_workspace', None), 'interface_scale', None)
+        if controller is not None:
+            controller.apply()
         if self.palette:
             from qt_compat.QtWidgets import QTreeWidget
             tree = self.body.findChild(QTreeWidget)

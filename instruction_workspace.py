@@ -194,7 +194,7 @@ class InstructionWorkspace(QObject):
             editor._pin_filter = ParameterPinFilter(editor)
             from adaptive_panels import AdaptivePanelSizer
             editor.setMinimumSize(260, 180)
-            editor._panel_scaler = AdaptivePanelSizer(editor, editor, 600, reference_height=420)
+            editor._panel_scaler = AdaptivePanelSizer(editor, editor, 600, reference_height=420, base_pixels=12)
             docking.pin_editor(editor, callback, key, floating=True)
             return None
         else:

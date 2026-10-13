@@ -331,6 +331,8 @@ class ViewWorkspace:
         from dock_workspace import DockWorkspace
         self.docking = DockWorkspace(self)
         self.docking.sync_visibility()
+        from interface_scale import InterfaceScale
+        self.interface_scale = InterfaceScale(self.window)
 
     def _normalize_existing_controls(self) -> None:
         """Remove legacy hard-coded colors so both themes stay coherent."""
@@ -717,7 +719,7 @@ class ViewWorkspace:
         self.palette_collapse_action.triggered.connect(self.toggle_palette)
         self.theme_action = QAction("切换浅色", self.window)
         self.theme_action.triggered.connect(self.toggle_theme)
-        self.controls_action = QAction('控制与操作', self.window)
+        self.controls_action = QAction('展开控制与操作' if self.controls_collapsed else '收起控制与操作', self.window)
         self.controls_action.setCheckable(True)
         self.controls_action.setChecked(not self.controls_collapsed)
         self.controls_action.toggled.connect(self.set_controls_visible)
@@ -730,13 +732,14 @@ class ViewWorkspace:
         self.window.toolBar.addAction(self.palette_side_action)
         self.window.toolBar.addAction(self.palette_collapse_action)
         self.window.toolBar.addAction(self.controls_action)
-        self.window.toolBar.addAction(self.donation_action)
+        self.window.menubar.addAction(self.donation_action)
         from window_chrome import install_title_bar
         self.title_bar = install_title_bar(self.window, self.theme_action)
         self.title_bar.apply_theme(self.theme_mode, self.THEMES[self.theme_mode])
         from compact_workspace import CompactWorkspace
         self.compact = CompactWorkspace(self)
         menu = QMenu("视图", self.window)
+        self.view_menu = menu
         view_actions = {}
         for label, shortcut, callback in (
             ("主界面", "Ctrl+1", self.show_main),
@@ -753,13 +756,27 @@ class ViewWorkspace:
             action.triggered.connect(callback)
             menu.addAction(action)
         self.window.menubar.insertMenu(self.window.menu_4.menuAction(), menu)
+        self.font_size_menu = QMenu('界面字号', self.window)
+        self.window.menubar.insertMenu(self.window.menu_4.menuAction(), self.font_size_menu)
+        for label, amount in [('字号+', 1), ('字号-', -1), ('字号恢复默认', None)]:
+            action = self.font_size_menu.addAction(label)
+            action.triggered.connect(lambda checked=False, step=amount: self.interface_scale.change(step))
         menu.addSeparator()
         self.window.menu_3.removeAction(self.window.actiong)
         self.window.actiong.setText('显示工具栏')
         menu.addAction(self.window.actiong)
         menu.addAction(self.controls_action)
-        self.restore_view_action = menu.addAction('恢复默认视图')
-        self.restore_view_action.triggered.connect(lambda: self.docking.reset_layout())
+        self.restore_view_action = QAction('恢复默认界面', self.window)
+        self.restore_view_action.triggered.connect(lambda: self.layout_presets.reset())
+        self.layout_menu = QMenu('界面方案', self.window)
+        self.window.menubar.insertMenu(menu.menuAction(), self.layout_menu)
+        from layout_presets import LayoutPresets
+        self.layout_presets = LayoutPresets(self, self.layout_menu)
+        self.editable_view_action = menu.addAction('可编辑视图')
+        self.editable_view_action.setCheckable(True)
+        self.editable_view_action.setChecked(self.window.db.get_setting_value('可编辑视图') != 'False')
+        self.editable_view_action.setToolTip('勾选可拖拽布局；取消后只能通过右键菜单内嵌面板')
+        self.editable_view_action.toggled.connect(lambda enabled: self.docking.set_editable(enabled))
         view_actions['显示工具栏'] = self.window.actiong
         guidance_action = QAction('中文编程提示', self.window)
         guidance_action.setCheckable(True)
@@ -767,11 +784,11 @@ class ViewWorkspace:
         guidance_action.setChecked(palette.guidance_enabled)
         guidance_action.toggled.connect(palette.set_guidance_enabled)
         palette.guidanceEnabledChanged.connect(guidance_action.setChecked)
-        menu.addAction(guidance_action)
+        self.window.menu_4.addAction(guidance_action)
         view_actions['中文编程提示'] = guidance_action
         menu.addSeparator()
         from view_shortcuts import install_view_shortcuts
-        install_view_shortcuts(self.window, menu, view_actions)
+        install_view_shortcuts(self.window, self.window.menu_4, view_actions)
         self.window.menubar.removeAction(self.window.menu_3.menuAction())
 
     def toggle_primary(self) -> None:
@@ -798,7 +815,7 @@ class ViewWorkspace:
 
     def toggle_palette_side(self) -> None:
         self.palette_side = "right" if self.palette_side == "left" else "left"
-        if hasattr(self, 'docking'): self.docking.move_panel('palette', self.palette_side)
+        if hasattr(self, 'docking'): self.docking.move_palette_side(self.palette_side)
         self._place_palette()
 
     def toggle_palette(self) -> None:
@@ -900,7 +917,7 @@ class ViewWorkspace:
         if hasattr(self, 'controls_scroll') and not self.compact.active:
             self.controls_scroll.setVisible(visible)
         if hasattr(self, 'docking'): self.docking.sync_visibility()
-        self.controls_action.setToolTip('收起控制与操作' if visible else '展开控制与操作')
+        self._update_view_actions()
 
     def _save_panel_sizes(self, *_):
         if getattr(getattr(self, 'compact', None), 'active', False): return
@@ -920,6 +937,8 @@ class ViewWorkspace:
         self.palette_collapse_action.setText(
             "展开指令栏" if self.palette_collapsed else "收起指令栏"
         )
+        self.controls_action.setText('展开控制与操作' if self.controls_collapsed else '收起控制与操作')
+        self.controls_action.setToolTip(self.controls_action.text())
         self.theme_action.setText("切换深色" if self.theme_mode == "light" else "切换浅色")
 
     def _remembered_pages(self):
@@ -1358,6 +1377,8 @@ class ViewWorkspace:
             QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
             QLabel {{ color: {c['text']}; }}
             QWidget#instructionEditorBody {{ background: {c['bg']}; color: {c['text']}; }}
+            QDockWidget[instructionParameter="true"], QScrollArea#parameterScroll,
+            QWidget#parameterViewport {{ background: {c['bg']}; color: {c['text']}; border: none; }}
             QWidget#tab, QWidget#editorView, QWidget#multifunctionView,
             QWidget#beginnerView, QStackedWidget {{ background: {c['bg']}; color: {c['text']}; }}
             QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
