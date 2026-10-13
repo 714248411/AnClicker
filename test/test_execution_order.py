@@ -55,9 +55,11 @@ class ExecutionOrderTests(unittest.TestCase):
         [self.add() for _ in range(3)]
         self.assertEqual(self.run_ids(run_unconnected=False), [])
 
-    def test_unconnected_toggle_off_still_runs_linked_chain(self):
+    def test_unconnected_toggle_off_skips_chain_not_reachable_from_start(self):
         a, b, c, d = [self.add() for _ in range(4)]
         self.repo.connect_nodes(self.node(c), self.node(b))
+        self.assertEqual(self.run_ids(run_unconnected=False), [])
+        self.repo.connect_nodes("start", self.node(c))
         self.assertEqual(self.run_ids(run_unconnected=False), [c, b])
 
     def test_table_reorder_updates_unlinked_execution_order(self):
@@ -134,3 +136,14 @@ class ExecutionOrderTests(unittest.TestCase):
         self.repo.connect_nodes(self.node(condition), self.node(yes))
         self.repo.connect_nodes(self.node(condition), self.node(no))
         self.assertEqual(self.run_ids(), [condition, yes, a, no])
+
+
+    def test_unconnected_off_does_not_run_unselected_condition_branch(self):
+        condition = self.repo.add_command(InstructionDraft('条件判断', {'条件': 'True'}), unconnected=True).id
+        yes, no = self.add(), self.add()
+        self.repo.connect_nodes('start', self.node(condition))
+        self.repo.connect_nodes(self.node(condition), self.node(yes), 1)
+        self.repo.connect_nodes(self.node(condition), self.node(no), 2)
+        self.repo.connect_nodes(self.node(yes), 'end')
+        self.repo.connect_nodes(self.node(no), 'end')
+        self.assertEqual(self.run_ids(run_unconnected=False), [condition, yes])

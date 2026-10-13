@@ -73,6 +73,7 @@ class Ui_InstructionEditor(object):
         self.parameter_1.addItem("")
         self.parameter_1.addItem("")
         self.parameter_1.addItem("")
+        self.parameter_1.addItem("")
         self.parameter_1.setObjectName(u"parameter_1")
 
         self.parameterFormLayout.setWidget(1, QFormLayout.FieldRole, self.parameter_1)
@@ -253,6 +254,7 @@ class Ui_InstructionEditor(object):
         self.parameter_1.setItemText(3, QCoreApplication.translate("InstructionEditor", u"\u53f3\u952e\u5355\u51fb", None))
         self.parameter_1.setItemText(4, QCoreApplication.translate("InstructionEditor", u"\u53f3\u952e\u53cc\u51fb", None))
         self.parameter_1.setItemText(5, QCoreApplication.translate("InstructionEditor", u"\u4ec5\u79fb\u52a8\u9f20\u6807", None))
+        self.parameter_1.setItemText(6, QCoreApplication.translate("InstructionEditor", "无操作", None))
 
         self.parameterLabel_2.setText(QCoreApplication.translate("InstructionEditor", u"\u672a\u627e\u5230\u56fe\u50cf", None))
         self.parameter_2.setText(QCoreApplication.translate("InstructionEditor", u"\u81ea\u52a8\u7565\u8fc7", None))

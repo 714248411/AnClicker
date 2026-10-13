@@ -59,7 +59,11 @@ class ScheduledWorker(CommandThread):
         except Exception as exc:
             error = str(exc) or type(exc).__name__
         finally:
-            release_recorded_inputs(context)
+            try:
+                release_recorded_inputs(context)
+            finally:
+                from background_runtime import close_background
+                close_background(context)
             self._active_context = None
             self.completed.emit(self.task['id'], error)
 
@@ -97,12 +101,13 @@ class TaskScheduler(QObject):
         self.window.db.set_setting_value(SETTING, json.dumps(self.tasks, ensure_ascii=False))
         self.changed.emit()
 
-    def add(self, task):
+    def _validate_task(self, task):
         task = dict(task)
         path = Path(task['path']).expanduser().resolve()
         if path.suffix.lower() != '.xlsx' or not path.is_file():
             raise ValueError('请选择存在的 .xlsx 项目文件。')
-        if datetime.fromisoformat(task['next_run']) <= datetime.now():
+        due = datetime.fromisoformat(task['next_run'])
+        if task.get('enabled', True) and due <= datetime.now():
             raise ValueError('请选择未来的执行时间。')
         if task['repeat'] not in ('仅一次', '每天', '工作日', '每周', '自定义'):
             raise ValueError('不支持的重复方式。')
@@ -113,8 +118,60 @@ class TaskScheduler(QObject):
             task['next_run'] = due.isoformat(timespec='seconds')
         if task['repeat'] == '自定义':
             task['interval_minutes'] = max(1, min(525600, int(task.get('interval_minutes', 60))))
-        task.update(id=uuid.uuid4().hex, path=str(path), enabled=True, status='等待执行')
+        task['path'] = str(path)
+        return task
+
+    def task_by_id(self, task_id):
+        task = next((item for item in self.tasks if item['id'] == task_id), None)
+        if task is None:
+            raise ValueError('该定时任务已不存在。')
+        return task
+
+    def add(self, task):
+        task = self._validate_task(task)
+        enabled = bool(task.get('enabled', True))
+        task.update(id=uuid.uuid4().hex, enabled=enabled,
+                    status='等待执行' if enabled else '未启用')
         self.tasks.append(task)
+        self.save()
+        return task['id']
+
+    def update_task(self, task_id, changes):
+        task = self.task_by_id(task_id)
+        if self.active and self.active['id'] == task_id:
+            raise ValueError('任务正在执行，请结束后再编辑。')
+        updated = self._validate_task(dict(task, **changes))
+        updated['id'] = task_id
+        updated['status'] = '等待执行' if updated.get('enabled', True) else '未启用'
+        # Discard the old queued occurrence after a schedule has been changed.
+        self.queue[:] = [item for item in self.queue if item['id'] != task_id]
+        task.clear()
+        task.update(updated)
+        self.save()
+        return task_id
+
+    def set_enabled(self, task_id, enabled):
+        task = self.task_by_id(task_id)
+        if bool(task.get('enabled', True)) == bool(enabled):
+            return
+        if enabled and datetime.fromisoformat(task['next_run']) <= datetime.now():
+            following = next_occurrence(task, datetime.now())
+            if following is None:
+                raise ValueError('单次任务时间已过去，请右击任务选择“编辑”，设置未来时间。')
+            task['next_run'] = following
+        task['enabled'] = bool(enabled)
+        if not enabled:
+            self.queue[:] = [item for item in self.queue if item['id'] != task_id]
+        if not (self.active and self.active['id'] == task_id):
+            task['status'] = '等待执行' if enabled else '未启用'
+        self.save()
+
+    def remove_task(self, task_id):
+        task = self.task_by_id(task_id)
+        if self.active and self.active['id'] == task_id:
+            raise ValueError('请先结束当前定时任务，再删除。')
+        self.queue[:] = [item for item in self.queue if item['id'] != task_id]
+        self.tasks.remove(task)
         self.save()
 
     def tick(self, now=None):

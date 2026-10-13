@@ -44,6 +44,10 @@ def _spec(name_: str, category_: str, color_: str) -> InstructionSpec:
 
 
 INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
+    *(_spec(name_, "后台功能", "#6979d8") for name_ in (
+        "绑定选择窗口", "解除后台绑定", "后台文字识别", "后台字库管理", "后台图色操作",
+        "后台键鼠操作", "后台窗口操作", "后台信息窗口", "后台内存操作", "后台汇编操作", "后台答题器",
+    )),
     *(_spec(name_, "键鼠", "#2f80ed") for name_ in (
         "图像点击", "多图点击", "坐标点击", "多坐标点击", "移动鼠标", "鼠标点击",
         "滚轮滑动", "按下键盘", "文本输入", "中键激活", "鼠标拖拽", "悬停后点击", "颜色判断",
@@ -108,6 +112,8 @@ INSTRUCTION_SPECS: tuple[InstructionSpec, ...] = (
     InstructionSpec("抓取属性", "抓取属性", "数据抓取", "instructions.数据抓取.抓取属性.抓取属性", node_color="#e67e22"),
     InstructionSpec("抓取列表", "抓取列表", "数据抓取", "instructions.数据抓取.抓取列表.抓取列表", node_color="#e67e22"),
     InstructionSpec("抓取导出Excel", "抓取导出Excel", "数据抓取", "instructions.数据抓取.抓取导出Excel.抓取导出Excel", node_color="#e67e22"),
+    _spec("暂不运行以下指令", "流程", "#64748b"),
+    _spec("暂不运行以上指令", "流程", "#64748b"),
     _spec("终止流程", "流程", "#eb5757"),
     _spec("运行项目", "流程", "#5b6fdc"),
     _spec("报错跳转", "流程", "#d99653"),

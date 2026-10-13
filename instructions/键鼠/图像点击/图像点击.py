@@ -15,7 +15,7 @@ class InstructionEditor(ImageClickEditorMixin, SchemaInstructionEditor):
     UI_CLASS = Ui_InstructionEditor
     FIELDS = (
         FieldSpec("图像路径", "图像路径", "path", "", required=True),
-        FieldSpec("动作", "鼠标动作", "choice", "左键单击", ("左键单击", "左键双击", "左键三击", "右键单击", "右键双击", "仅移动鼠标")),
+        FieldSpec("动作", "鼠标动作", "choice", "左键单击", ("左键单击", "左键双击", "左键三击", "右键单击", "右键双击", "仅移动鼠标", "无操作")),
         FieldSpec("异常", "未找到图像", "text", "自动略过"),
         FieldSpec("区域", "识别区域 x,y,w,h"),
         FieldSpec("灰度", "灰度识别", "bool", False),
@@ -42,5 +42,6 @@ class InstructionExecutor(InstructionExecutorBase):
                 return False
             raise FileNotFoundError("未找到指定图像")
         x_, y_ = position_
-        context.emit(f"图像点击：{x_},{y_}")
+        label_ = "图像识别（无操作）" if command.parameters.get("动作") == "无操作" else "图像点击"
+        context.emit(f"{label_}：{x_},{y_}")
         return (x_, y_)

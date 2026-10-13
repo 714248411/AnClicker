@@ -1580,6 +1580,17 @@ class GraphRepository:
         with self._connection() as connection:
             return self._is_plain_chain(connection)
 
+    def align_comment_marker_orders(self) -> bool:
+        """Align marker rows without rewiring edges or changing canvas positions."""
+        from flow_comments import aligned_marker_order
+        snapshot = self.snapshot()
+        order = aligned_marker_order(snapshot)
+        if order == [command.id for command in snapshot.commands]:
+            return False
+        with self._transaction(validate_graph=False) as connection:
+            self._set_command_orders(connection, order)
+        return True
+
     def reorder_table_commands(self, command_ids: Sequence[int]) -> bool:
         """Persist table order/layout; only rewire a complete ordinary chain."""
         ids = [int(item) for item in command_ids]

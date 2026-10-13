@@ -28,7 +28,8 @@ class ViewLinkageTests(unittest.TestCase):
         self.view = ViewWorkspace.__new__(ViewWorkspace)
         self.view.window = SimpleNamespace(
             db=self.database,
-            workspace=SimpleNamespace(repository=self.repository),
+            workspace=SimpleNamespace(repository=self.repository,
+                editor=SimpleNamespace(scene=NodeScene())),
         )
         self.view.command_table = QTableWidget(0, 7)
         self.view.table_state = QLabel()

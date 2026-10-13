@@ -1,0 +1,6029 @@
+{
+  "Ocr": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "文字识别"
+  },
+  "OcrEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "文字识别及位置"
+  },
+  "OcrInFile": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "识别图片文字"
+  },
+  "FindStr": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "查找文字"
+  },
+  "FindStrEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "查找全部文字位置"
+  },
+  "FindStrE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "FindStrE"
+  },
+  "FindStrFast": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "FindStrFast"
+  },
+  "FindStrFastEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "FindStrFastEx"
+  },
+  "FindStrFastE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "FindStrFastE"
+  },
+  "FindStrWithFont": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "font_name",
+        "type": 8,
+        "out": false,
+        "label": "font_name",
+        "default": ""
+      },
+      {
+        "name": "font_size",
+        "type": 3,
+        "out": false,
+        "label": "font_size",
+        "default": 0
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "FindStrWithFont"
+  },
+  "FindStrWithFontE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "font_name",
+        "type": 8,
+        "out": false,
+        "label": "font_name",
+        "default": ""
+      },
+      {
+        "name": "font_size",
+        "type": 3,
+        "out": false,
+        "label": "font_size",
+        "default": 0
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "FindStrWithFontE"
+  },
+  "FindStrWithFontEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "font_name",
+        "type": 8,
+        "out": false,
+        "label": "font_name",
+        "default": ""
+      },
+      {
+        "name": "font_size",
+        "type": 3,
+        "out": false,
+        "label": "font_size",
+        "default": 0
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "FindStrWithFontEx"
+  },
+  "GetWords": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "识别词组"
+  },
+  "GetWordsNoDict": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "无字库词组识别"
+  },
+  "GetWordResultCount": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "GetWordResultCount"
+  },
+  "GetWordResultPos": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "GetWordResultPos"
+  },
+  "GetWordResultStr": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "GetWordResultStr"
+  },
+  "GetResultCount": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "GetResultCount"
+  },
+  "GetResultPos": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "GetResultPos"
+  },
+  "SetExactOcr": {
+    "args": [
+      {
+        "name": "exact_ocr",
+        "type": 3,
+        "out": false,
+        "label": "exact_ocr",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetExactOcr"
+  },
+  "SetMinRowGap": {
+    "args": [
+      {
+        "name": "row_gap",
+        "type": 3,
+        "out": false,
+        "label": "row_gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetMinRowGap"
+  },
+  "SetMinColGap": {
+    "args": [
+      {
+        "name": "col_gap",
+        "type": 3,
+        "out": false,
+        "label": "col_gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetMinColGap"
+  },
+  "SetWordLineHeight": {
+    "args": [
+      {
+        "name": "line_height",
+        "type": 3,
+        "out": false,
+        "label": "line_height",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetWordLineHeight"
+  },
+  "SetWordGap": {
+    "args": [
+      {
+        "name": "word_gap",
+        "type": 3,
+        "out": false,
+        "label": "word_gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetWordGap"
+  },
+  "SetRowGapNoDict": {
+    "args": [
+      {
+        "name": "row_gap",
+        "type": 3,
+        "out": false,
+        "label": "row_gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetRowGapNoDict"
+  },
+  "SetColGapNoDict": {
+    "args": [
+      {
+        "name": "col_gap",
+        "type": 3,
+        "out": false,
+        "label": "col_gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetColGapNoDict"
+  },
+  "SetWordLineHeightNoDict": {
+    "args": [
+      {
+        "name": "line_height",
+        "type": 3,
+        "out": false,
+        "label": "line_height",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetWordLineHeightNoDict"
+  },
+  "SetWordGapNoDict": {
+    "args": [
+      {
+        "name": "word_gap",
+        "type": 3,
+        "out": false,
+        "label": "word_gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台文字识别",
+    "label": "SetWordGapNoDict"
+  },
+  "FetchWord": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "word",
+        "type": 8,
+        "out": false,
+        "label": "word",
+        "default": ""
+      }
+    ],
+    "return_type": 8,
+    "group": "后台文字识别",
+    "label": "FetchWord"
+  },
+  "SetPath": {
+    "args": [
+      {
+        "name": "path",
+        "type": 8,
+        "out": false,
+        "label": "目录",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "SetPath"
+  },
+  "SetDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "dict_name",
+        "type": 8,
+        "out": false,
+        "label": "字库路径",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "加载字库"
+  },
+  "UseDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "切换字库"
+  },
+  "GetNowDict": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "GetNowDict"
+  },
+  "AddDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "dict_info",
+        "type": 8,
+        "out": false,
+        "label": "dict_info",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "添加字库文字"
+  },
+  "ClearDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "清空字库"
+  },
+  "GetDictCount": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "GetDictCount"
+  },
+  "GetDictInfo": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      },
+      {
+        "name": "font_name",
+        "type": 8,
+        "out": false,
+        "label": "font_name",
+        "default": ""
+      },
+      {
+        "name": "font_size",
+        "type": 3,
+        "out": false,
+        "label": "font_size",
+        "default": 0
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台字库管理",
+    "label": "GetDictInfo"
+  },
+  "GetDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "font_index",
+        "type": 3,
+        "out": false,
+        "label": "font_index",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台字库管理",
+    "label": "GetDict"
+  },
+  "SaveDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "SaveDict"
+  },
+  "SetDictPwd": {
+    "args": [
+      {
+        "name": "pwd",
+        "type": 8,
+        "out": false,
+        "label": "密码",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "设置字库密码"
+  },
+  "SetExportDict": {
+    "args": [
+      {
+        "name": "index",
+        "type": 3,
+        "out": false,
+        "label": "索引",
+        "default": 0
+      },
+      {
+        "name": "dict_name",
+        "type": 8,
+        "out": false,
+        "label": "字库路径",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "SetExportDict"
+  },
+  "EncodeFile": {
+    "args": [
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      },
+      {
+        "name": "pwd",
+        "type": 8,
+        "out": false,
+        "label": "密码",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "EncodeFile"
+  },
+  "DecodeFile": {
+    "args": [
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      },
+      {
+        "name": "pwd",
+        "type": 8,
+        "out": false,
+        "label": "密码",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台字库管理",
+    "label": "DecodeFile"
+  },
+  "GetColor": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "读取 RGB 颜色"
+  },
+  "GetColorHSV": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "读取 HSV 颜色"
+  },
+  "GetColorBGR": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "GetColorBGR"
+  },
+  "CmpColor": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "比较颜色"
+  },
+  "GetAveRGB": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "区域 RGB 均值"
+  },
+  "GetAveHSV": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "区域 HSV 均值"
+  },
+  "RGB2BGR": {
+    "args": [
+      {
+        "name": "rgb_color",
+        "type": 8,
+        "out": false,
+        "label": "rgb_color",
+        "default": ""
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "RGB2BGR"
+  },
+  "BGR2RGB": {
+    "args": [
+      {
+        "name": "bgr_color",
+        "type": 8,
+        "out": false,
+        "label": "bgr_color",
+        "default": ""
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "BGR2RGB"
+  },
+  "FindColor": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "查找颜色"
+  },
+  "FindColorEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "查找全部颜色位置"
+  },
+  "FindColorE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindColorE"
+  },
+  "FindMultiColor": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "first_color",
+        "type": 8,
+        "out": false,
+        "label": "first_color",
+        "default": ""
+      },
+      {
+        "name": "offset_color",
+        "type": 8,
+        "out": false,
+        "label": "offset_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "多点找色"
+  },
+  "FindMultiColorEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "first_color",
+        "type": 8,
+        "out": false,
+        "label": "first_color",
+        "default": ""
+      },
+      {
+        "name": "offset_color",
+        "type": 8,
+        "out": false,
+        "label": "offset_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "多点找色全部位置"
+  },
+  "FindMultiColorE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "first_color",
+        "type": 8,
+        "out": false,
+        "label": "first_color",
+        "default": ""
+      },
+      {
+        "name": "offset_color",
+        "type": 8,
+        "out": false,
+        "label": "offset_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindMultiColorE"
+  },
+  "FindPic": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "delta_color",
+        "type": 8,
+        "out": false,
+        "label": "图片偏色",
+        "default": "000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "查找图片"
+  },
+  "FindPicEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "delta_color",
+        "type": 8,
+        "out": false,
+        "label": "图片偏色",
+        "default": "000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "查找全部图片位置"
+  },
+  "FindPicE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "delta_color",
+        "type": 8,
+        "out": false,
+        "label": "图片偏色",
+        "default": "000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindPicE"
+  },
+  "Capture": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "截图保存 BMP"
+  },
+  "CapturePng": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "截图保存 PNG"
+  },
+  "CaptureJpg": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      },
+      {
+        "name": "quality",
+        "type": 3,
+        "out": false,
+        "label": "quality",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "截图保存 JPG"
+  },
+  "CaptureGif": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      },
+      {
+        "name": "delay",
+        "type": 3,
+        "out": false,
+        "label": "delay",
+        "default": 0
+      },
+      {
+        "name": "time",
+        "type": 3,
+        "out": false,
+        "label": "time",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "录制区域动图"
+  },
+  "LoadPic": {
+    "args": [
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "LoadPic"
+  },
+  "FreePic": {
+    "args": [
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "FreePic"
+  },
+  "SetPicPwd": {
+    "args": [
+      {
+        "name": "pwd",
+        "type": 8,
+        "out": false,
+        "label": "密码",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "SetPicPwd"
+  },
+  "GetPicSize": {
+    "args": [
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "GetPicSize"
+  },
+  "MatchPicName": {
+    "args": [
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "MatchPicName"
+  },
+  "GetColorNum": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "GetColorNum"
+  },
+  "FindShape": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "offset_color",
+        "type": 8,
+        "out": false,
+        "label": "offset_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "FindShape"
+  },
+  "FindShapeE": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "offset_color",
+        "type": 8,
+        "out": false,
+        "label": "offset_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindShapeE"
+  },
+  "FindShapeEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "offset_color",
+        "type": 8,
+        "out": false,
+        "label": "offset_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindShapeEx"
+  },
+  "ImageToBmp": {
+    "args": [
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "bmp_name",
+        "type": 8,
+        "out": false,
+        "label": "bmp_name",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "ImageToBmp"
+  },
+  "FindColorBlock": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "count",
+        "type": 3,
+        "out": false,
+        "label": "count",
+        "default": 0
+      },
+      {
+        "name": "width",
+        "type": 3,
+        "out": false,
+        "label": "宽度",
+        "default": 0
+      },
+      {
+        "name": "height",
+        "type": 3,
+        "out": false,
+        "label": "高度",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "FindColorBlock"
+  },
+  "FindColorBlockEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      },
+      {
+        "name": "count",
+        "type": 3,
+        "out": false,
+        "label": "count",
+        "default": 0
+      },
+      {
+        "name": "width",
+        "type": 3,
+        "out": false,
+        "label": "宽度",
+        "default": 0
+      },
+      {
+        "name": "height",
+        "type": 3,
+        "out": false,
+        "label": "高度",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindColorBlockEx"
+  },
+  "FindPicSim": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "delta_color",
+        "type": 8,
+        "out": false,
+        "label": "图片偏色",
+        "default": "000000"
+      },
+      {
+        "name": "sim",
+        "type": 3,
+        "out": false,
+        "label": "最低颜色匹配率（0–100）",
+        "default": 90
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台图色操作",
+    "label": "FindPicSim"
+  },
+  "FindPicSimEx": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "delta_color",
+        "type": 8,
+        "out": false,
+        "label": "图片偏色",
+        "default": "000000"
+      },
+      {
+        "name": "sim",
+        "type": 3,
+        "out": false,
+        "label": "最低颜色匹配率（0–100）",
+        "default": 90
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台图色操作",
+    "label": "FindPicSimEx"
+  },
+  "MoveTo": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "移动至坐标"
+  },
+  "MoveR": {
+    "args": [
+      {
+        "name": "rx",
+        "type": 3,
+        "out": false,
+        "label": "rx",
+        "default": 0
+      },
+      {
+        "name": "ry",
+        "type": 3,
+        "out": false,
+        "label": "ry",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "相对移动"
+  },
+  "MoveToEx": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "w",
+        "type": 3,
+        "out": false,
+        "label": "w",
+        "default": 0
+      },
+      {
+        "name": "h",
+        "type": 3,
+        "out": false,
+        "label": "h",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台键鼠操作",
+    "label": "MoveToEx"
+  },
+  "LeftClick": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "鼠标左键单击"
+  },
+  "RightClick": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "鼠标右键单击"
+  },
+  "MiddleClick": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "鼠标中键单击"
+  },
+  "LeftDoubleClick": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "鼠标左键双击"
+  },
+  "LeftDown": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "按住左键"
+  },
+  "LeftUp": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "松开左键"
+  },
+  "RightDown": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "按住右键"
+  },
+  "RightUp": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "松开右键"
+  },
+  "WheelUp": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "滚轮向上"
+  },
+  "WheelDown": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "滚轮向下"
+  },
+  "KeyDown": {
+    "args": [
+      {
+        "name": "vk",
+        "type": 3,
+        "out": false,
+        "label": "vk",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "按住按键"
+  },
+  "KeyUp": {
+    "args": [
+      {
+        "name": "vk",
+        "type": 3,
+        "out": false,
+        "label": "vk",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "松开按键"
+  },
+  "KeyPress": {
+    "args": [
+      {
+        "name": "vk",
+        "type": 3,
+        "out": false,
+        "label": "vk",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "按一下按键"
+  },
+  "KeyDownChar": {
+    "args": [
+      {
+        "name": "key_str",
+        "type": 8,
+        "out": false,
+        "label": "按键名称",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "KeyDownChar"
+  },
+  "KeyUpChar": {
+    "args": [
+      {
+        "name": "key_str",
+        "type": 8,
+        "out": false,
+        "label": "按键名称",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "KeyUpChar"
+  },
+  "KeyPressChar": {
+    "args": [
+      {
+        "name": "key_str",
+        "type": 8,
+        "out": false,
+        "label": "按键名称",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "KeyPressChar"
+  },
+  "KeyPressStr": {
+    "args": [
+      {
+        "name": "key_str",
+        "type": 8,
+        "out": false,
+        "label": "按键名称",
+        "default": ""
+      },
+      {
+        "name": "delay",
+        "type": 3,
+        "out": false,
+        "label": "delay",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "KeyPressStr"
+  },
+  "SendString": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "发送文本"
+  },
+  "SendString2": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "发送文本（方式二）"
+  },
+  "SetMouseDelay": {
+    "args": [
+      {
+        "name": "type",
+        "type": 8,
+        "out": false,
+        "label": "类型",
+        "default": ""
+      },
+      {
+        "name": "delay",
+        "type": 3,
+        "out": false,
+        "label": "delay",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "SetMouseDelay"
+  },
+  "SetKeypadDelay": {
+    "args": [
+      {
+        "name": "type",
+        "type": 8,
+        "out": false,
+        "label": "类型",
+        "default": ""
+      },
+      {
+        "name": "delay",
+        "type": 3,
+        "out": false,
+        "label": "delay",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "SetKeypadDelay"
+  },
+  "MiddleDown": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "按住中键"
+  },
+  "MiddleUp": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台键鼠操作",
+    "label": "松开中键"
+  },
+  "EnumWindow": {
+    "args": [
+      {
+        "name": "parent",
+        "type": 3,
+        "out": false,
+        "label": "parent",
+        "default": 0
+      },
+      {
+        "name": "title",
+        "type": 8,
+        "out": false,
+        "label": "窗口标题",
+        "default": ""
+      },
+      {
+        "name": "class_name",
+        "type": 8,
+        "out": false,
+        "label": "窗口类名",
+        "default": ""
+      },
+      {
+        "name": "filter",
+        "type": 3,
+        "out": false,
+        "label": "筛选标记",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台窗口操作",
+    "label": "枚举窗口"
+  },
+  "EnumWindowByProcess": {
+    "args": [
+      {
+        "name": "process_name",
+        "type": 8,
+        "out": false,
+        "label": "process_name",
+        "default": ""
+      },
+      {
+        "name": "title",
+        "type": 8,
+        "out": false,
+        "label": "窗口标题",
+        "default": ""
+      },
+      {
+        "name": "class_name",
+        "type": 8,
+        "out": false,
+        "label": "窗口类名",
+        "default": ""
+      },
+      {
+        "name": "filter",
+        "type": 3,
+        "out": false,
+        "label": "筛选标记",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台窗口操作",
+    "label": "EnumWindowByProcess"
+  },
+  "EnumWindowSuper": {
+    "args": [
+      {
+        "name": "spec1",
+        "type": 8,
+        "out": false,
+        "label": "spec1",
+        "default": ""
+      },
+      {
+        "name": "flag1",
+        "type": 3,
+        "out": false,
+        "label": "flag1",
+        "default": 0
+      },
+      {
+        "name": "type1",
+        "type": 3,
+        "out": false,
+        "label": "type1",
+        "default": 0
+      },
+      {
+        "name": "spec2",
+        "type": 8,
+        "out": false,
+        "label": "spec2",
+        "default": ""
+      },
+      {
+        "name": "flag2",
+        "type": 3,
+        "out": false,
+        "label": "flag2",
+        "default": 0
+      },
+      {
+        "name": "type2",
+        "type": 3,
+        "out": false,
+        "label": "type2",
+        "default": 0
+      },
+      {
+        "name": "sort",
+        "type": 3,
+        "out": false,
+        "label": "sort",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台窗口操作",
+    "label": "EnumWindowSuper"
+  },
+  "FindWindow": {
+    "args": [
+      {
+        "name": "class_name",
+        "type": 8,
+        "out": false,
+        "label": "窗口类名",
+        "default": ""
+      },
+      {
+        "name": "title_name",
+        "type": 8,
+        "out": false,
+        "label": "title_name",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "查找窗口"
+  },
+  "FindWindowEx": {
+    "args": [
+      {
+        "name": "parent",
+        "type": 3,
+        "out": false,
+        "label": "parent",
+        "default": 0
+      },
+      {
+        "name": "class_name",
+        "type": 8,
+        "out": false,
+        "label": "窗口类名",
+        "default": ""
+      },
+      {
+        "name": "title_name",
+        "type": 8,
+        "out": false,
+        "label": "title_name",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "FindWindowEx"
+  },
+  "FindWindowByProcess": {
+    "args": [
+      {
+        "name": "process_name",
+        "type": 8,
+        "out": false,
+        "label": "process_name",
+        "default": ""
+      },
+      {
+        "name": "class_name",
+        "type": 8,
+        "out": false,
+        "label": "窗口类名",
+        "default": ""
+      },
+      {
+        "name": "title_name",
+        "type": 8,
+        "out": false,
+        "label": "title_name",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "FindWindowByProcess"
+  },
+  "FindWindowByProcessId": {
+    "args": [
+      {
+        "name": "process_id",
+        "type": 3,
+        "out": false,
+        "label": "process_id",
+        "default": 0
+      },
+      {
+        "name": "class_name",
+        "type": 8,
+        "out": false,
+        "label": "窗口类名",
+        "default": ""
+      },
+      {
+        "name": "title_name",
+        "type": 8,
+        "out": false,
+        "label": "title_name",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "FindWindowByProcessId"
+  },
+  "GetWindow": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "GetWindow"
+  },
+  "GetWindowState": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "读取窗口状态"
+  },
+  "GetWindowTitle": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 8,
+    "group": "后台窗口操作",
+    "label": "读取窗口标题"
+  },
+  "GetWindowClass": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 8,
+    "group": "后台窗口操作",
+    "label": "读取窗口类名"
+  },
+  "GetWindowProcessId": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "GetWindowProcessId"
+  },
+  "GetWindowProcessPath": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 8,
+    "group": "后台窗口操作",
+    "label": "GetWindowProcessPath"
+  },
+  "GetWindowRect": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x1",
+        "type": 12,
+        "out": true,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 12,
+        "out": true,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 12,
+        "out": true,
+        "label": "右下横坐标",
+        "default": 0
+      },
+      {
+        "name": "y2",
+        "type": 12,
+        "out": true,
+        "label": "右下纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "获取窗口矩形"
+  },
+  "GetClientRect": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x1",
+        "type": 12,
+        "out": true,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 12,
+        "out": true,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 12,
+        "out": true,
+        "label": "右下横坐标",
+        "default": 0
+      },
+      {
+        "name": "y2",
+        "type": 12,
+        "out": true,
+        "label": "右下纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "GetClientRect"
+  },
+  "GetClientSize": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "width",
+        "type": 12,
+        "out": true,
+        "label": "宽度",
+        "default": 0
+      },
+      {
+        "name": "height",
+        "type": 12,
+        "out": true,
+        "label": "高度",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "获取内容区大小"
+  },
+  "GetPointWindow": {
+    "args": [
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "GetPointWindow"
+  },
+  "GetMousePointWindow": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "GetMousePointWindow"
+  },
+  "ClientToScreen": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0,
+        "inout": true
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0,
+        "inout": true
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "ClientToScreen"
+  },
+  "ScreenToClient": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 12,
+        "out": true,
+        "label": "横坐标",
+        "default": 0,
+        "inout": true
+      },
+      {
+        "name": "y",
+        "type": 12,
+        "out": true,
+        "label": "纵坐标",
+        "default": 0,
+        "inout": true
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "ScreenToClient"
+  },
+  "SetWindowText": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "text",
+        "type": 8,
+        "out": false,
+        "label": "text",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "SetWindowText"
+  },
+  "SetWindowSize": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "width",
+        "type": 3,
+        "out": false,
+        "label": "宽度",
+        "default": 0
+      },
+      {
+        "name": "height",
+        "type": 3,
+        "out": false,
+        "label": "高度",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "调整窗口大小"
+  },
+  "SetClientSize": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "width",
+        "type": 3,
+        "out": false,
+        "label": "宽度",
+        "default": 0
+      },
+      {
+        "name": "height",
+        "type": 3,
+        "out": false,
+        "label": "高度",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "调整内容区大小"
+  },
+  "MoveWindow": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "移动窗口"
+  },
+  "SetWindowState": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "设置窗口状态"
+  },
+  "SetWindowTransparent": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "v",
+        "type": 3,
+        "out": false,
+        "label": "v",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台窗口操作",
+    "label": "SetWindowTransparent"
+  },
+  "CreateFoobarRect": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "w",
+        "type": 3,
+        "out": false,
+        "label": "w",
+        "default": 0
+      },
+      {
+        "name": "h",
+        "type": 3,
+        "out": false,
+        "label": "h",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "创建矩形信息窗口"
+  },
+  "CreateFoobarRoundRect": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "w",
+        "type": 3,
+        "out": false,
+        "label": "w",
+        "default": 0
+      },
+      {
+        "name": "h",
+        "type": 3,
+        "out": false,
+        "label": "h",
+        "default": 0
+      },
+      {
+        "name": "rw",
+        "type": 3,
+        "out": false,
+        "label": "rw",
+        "default": 0
+      },
+      {
+        "name": "rh",
+        "type": 3,
+        "out": false,
+        "label": "rh",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "创建圆角信息窗口"
+  },
+  "CreateFoobarEllipse": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "w",
+        "type": 3,
+        "out": false,
+        "label": "w",
+        "default": 0
+      },
+      {
+        "name": "h",
+        "type": 3,
+        "out": false,
+        "label": "h",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "创建椭圆信息窗口"
+  },
+  "CreateFoobarCustom": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "pic",
+        "type": 8,
+        "out": false,
+        "label": "pic",
+        "default": ""
+      },
+      {
+        "name": "trans_color",
+        "type": 8,
+        "out": false,
+        "label": "trans_color",
+        "default": ""
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "创建自定义信息窗口"
+  },
+  "FoobarFillRect": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarFillRect"
+  },
+  "FoobarDrawText": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "w",
+        "type": 3,
+        "out": false,
+        "label": "w",
+        "default": 0
+      },
+      {
+        "name": "h",
+        "type": 3,
+        "out": false,
+        "label": "h",
+        "default": 0
+      },
+      {
+        "name": "text",
+        "type": 8,
+        "out": false,
+        "label": "text",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "align",
+        "type": 3,
+        "out": false,
+        "label": "align",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "绘制文字"
+  },
+  "FoobarDrawPic": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "pic",
+        "type": 8,
+        "out": false,
+        "label": "pic",
+        "default": ""
+      },
+      {
+        "name": "trans_color",
+        "type": 8,
+        "out": false,
+        "label": "trans_color",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "绘制图片"
+  },
+  "FoobarDrawLine": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "style",
+        "type": 3,
+        "out": false,
+        "label": "style",
+        "default": 0
+      },
+      {
+        "name": "width",
+        "type": 3,
+        "out": false,
+        "label": "宽度",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarDrawLine"
+  },
+  "FoobarUpdate": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "刷新信息窗口"
+  },
+  "FoobarLock": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarLock"
+  },
+  "FoobarUnlock": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarUnlock"
+  },
+  "FoobarSetFont": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "font_name",
+        "type": 8,
+        "out": false,
+        "label": "font_name",
+        "default": ""
+      },
+      {
+        "name": "size",
+        "type": 3,
+        "out": false,
+        "label": "长度",
+        "default": 0
+      },
+      {
+        "name": "flag",
+        "type": 3,
+        "out": false,
+        "label": "选项标记",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarSetFont"
+  },
+  "FoobarTextRect": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "w",
+        "type": 3,
+        "out": false,
+        "label": "w",
+        "default": 0
+      },
+      {
+        "name": "h",
+        "type": 3,
+        "out": false,
+        "label": "h",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarTextRect"
+  },
+  "FoobarPrintText": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "text",
+        "type": 8,
+        "out": false,
+        "label": "text",
+        "default": ""
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarPrintText"
+  },
+  "FoobarClearText": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarClearText"
+  },
+  "FoobarTextLineGap": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "gap",
+        "type": 3,
+        "out": false,
+        "label": "gap",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarTextLineGap"
+  },
+  "FoobarTextPrintDir": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "dir",
+        "type": 3,
+        "out": false,
+        "label": "搜索方向（0–3）",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarTextPrintDir"
+  },
+  "FoobarSetSave": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      },
+      {
+        "name": "en",
+        "type": 3,
+        "out": false,
+        "label": "en",
+        "default": 0
+      },
+      {
+        "name": "header",
+        "type": 8,
+        "out": false,
+        "label": "header",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarSetSave"
+  },
+  "FoobarClose": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "关闭信息窗口"
+  },
+  "FoobarStartGif": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      },
+      {
+        "name": "repeat_limit",
+        "type": 3,
+        "out": false,
+        "label": "repeat_limit",
+        "default": 0
+      },
+      {
+        "name": "delay",
+        "type": 3,
+        "out": false,
+        "label": "delay",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarStartGif"
+  },
+  "FoobarStopGif": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "x",
+        "type": 3,
+        "out": false,
+        "label": "横坐标",
+        "default": 0
+      },
+      {
+        "name": "y",
+        "type": 3,
+        "out": false,
+        "label": "纵坐标",
+        "default": 0
+      },
+      {
+        "name": "pic_name",
+        "type": 8,
+        "out": false,
+        "label": "图片路径（多图用 | 分隔）",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarStopGif"
+  },
+  "FoobarSetTrans": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "trans",
+        "type": 3,
+        "out": false,
+        "label": "trans",
+        "default": 0
+      },
+      {
+        "name": "color",
+        "type": 8,
+        "out": false,
+        "label": "颜色/偏色（RGB 或 HSV）",
+        "default": "ffffff-000000"
+      },
+      {
+        "name": "sim",
+        "type": 5,
+        "out": false,
+        "label": "相似度（0–1）",
+        "default": 0.9
+      }
+    ],
+    "return_type": 3,
+    "group": "后台信息窗口",
+    "label": "FoobarSetTrans"
+  },
+  "ReadInt": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      }
+    ],
+    "return_type": 20,
+    "group": "后台内存操作",
+    "label": "读取整数"
+  },
+  "ReadFloat": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      }
+    ],
+    "return_type": 4,
+    "group": "后台内存操作",
+    "label": "读取单精度数值"
+  },
+  "ReadDouble": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      }
+    ],
+    "return_type": 5,
+    "group": "后台内存操作",
+    "label": "读取双精度数值"
+  },
+  "ReadString": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      },
+      {
+        "name": "len",
+        "type": 3,
+        "out": false,
+        "label": "len",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "读取字符串"
+  },
+  "ReadData": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "len",
+        "type": 3,
+        "out": false,
+        "label": "len",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "读取字节数据"
+  },
+  "WriteInt": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      },
+      {
+        "name": "v",
+        "type": 20,
+        "out": false,
+        "label": "v",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台内存操作",
+    "label": "写入整数"
+  },
+  "WriteFloat": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "v",
+        "type": 4,
+        "out": false,
+        "label": "v",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台内存操作",
+    "label": "写入单精度数值"
+  },
+  "WriteDouble": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "v",
+        "type": 5,
+        "out": false,
+        "label": "v",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台内存操作",
+    "label": "写入双精度数值"
+  },
+  "WriteString": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      },
+      {
+        "name": "v",
+        "type": 8,
+        "out": false,
+        "label": "v",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台内存操作",
+    "label": "写入字符串"
+  },
+  "WriteData": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr",
+        "type": 8,
+        "out": false,
+        "label": "地址表达式",
+        "default": ""
+      },
+      {
+        "name": "data",
+        "type": 8,
+        "out": false,
+        "label": "data",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台内存操作",
+    "label": "写入字节数据"
+  },
+  "FindInt": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "int_value_min",
+        "type": 20,
+        "out": false,
+        "label": "int_value_min",
+        "default": 0
+      },
+      {
+        "name": "int_value_max",
+        "type": 20,
+        "out": false,
+        "label": "int_value_max",
+        "default": 0
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "搜索整数"
+  },
+  "FindFloat": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "float_value_min",
+        "type": 4,
+        "out": false,
+        "label": "float_value_min",
+        "default": 0
+      },
+      {
+        "name": "float_value_max",
+        "type": 4,
+        "out": false,
+        "label": "float_value_max",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "搜索单精度数值"
+  },
+  "FindDouble": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "double_value_min",
+        "type": 5,
+        "out": false,
+        "label": "double_value_min",
+        "default": 0
+      },
+      {
+        "name": "double_value_max",
+        "type": 5,
+        "out": false,
+        "label": "double_value_max",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "搜索双精度数值"
+  },
+  "FindString": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "string_value",
+        "type": 8,
+        "out": false,
+        "label": "string_value",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "搜索字符串"
+  },
+  "FindData": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "data",
+        "type": 8,
+        "out": false,
+        "label": "data",
+        "default": ""
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "搜索字节数据"
+  },
+  "FindIntEx": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "int_value_min",
+        "type": 20,
+        "out": false,
+        "label": "int_value_min",
+        "default": 0
+      },
+      {
+        "name": "int_value_max",
+        "type": 20,
+        "out": false,
+        "label": "int_value_max",
+        "default": 0
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      },
+      {
+        "name": "step",
+        "type": 3,
+        "out": false,
+        "label": "step",
+        "default": 0
+      },
+      {
+        "name": "multi_thread",
+        "type": 3,
+        "out": false,
+        "label": "multi_thread",
+        "default": 0
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "FindIntEx"
+  },
+  "FindFloatEx": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "float_value_min",
+        "type": 4,
+        "out": false,
+        "label": "float_value_min",
+        "default": 0
+      },
+      {
+        "name": "float_value_max",
+        "type": 4,
+        "out": false,
+        "label": "float_value_max",
+        "default": 0
+      },
+      {
+        "name": "step",
+        "type": 3,
+        "out": false,
+        "label": "step",
+        "default": 0
+      },
+      {
+        "name": "multi_thread",
+        "type": 3,
+        "out": false,
+        "label": "multi_thread",
+        "default": 0
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "FindFloatEx"
+  },
+  "FindDoubleEx": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "double_value_min",
+        "type": 5,
+        "out": false,
+        "label": "double_value_min",
+        "default": 0
+      },
+      {
+        "name": "double_value_max",
+        "type": 5,
+        "out": false,
+        "label": "double_value_max",
+        "default": 0
+      },
+      {
+        "name": "step",
+        "type": 3,
+        "out": false,
+        "label": "step",
+        "default": 0
+      },
+      {
+        "name": "multi_thread",
+        "type": 3,
+        "out": false,
+        "label": "multi_thread",
+        "default": 0
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "FindDoubleEx"
+  },
+  "FindStringEx": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "string_value",
+        "type": 8,
+        "out": false,
+        "label": "string_value",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      },
+      {
+        "name": "step",
+        "type": 3,
+        "out": false,
+        "label": "step",
+        "default": 0
+      },
+      {
+        "name": "multi_thread",
+        "type": 3,
+        "out": false,
+        "label": "multi_thread",
+        "default": 0
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "FindStringEx"
+  },
+  "FindDataEx": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "addr_range",
+        "type": 8,
+        "out": false,
+        "label": "addr_range",
+        "default": ""
+      },
+      {
+        "name": "data",
+        "type": 8,
+        "out": false,
+        "label": "data",
+        "default": ""
+      },
+      {
+        "name": "step",
+        "type": 3,
+        "out": false,
+        "label": "step",
+        "default": 0
+      },
+      {
+        "name": "multi_thread",
+        "type": 3,
+        "out": false,
+        "label": "multi_thread",
+        "default": 0
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "FindDataEx"
+  },
+  "GetModuleBaseAddr": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "module_name",
+        "type": 8,
+        "out": false,
+        "label": "模块名称",
+        "default": ""
+      }
+    ],
+    "return_type": 20,
+    "group": "后台内存操作",
+    "label": "获取模块基址"
+  },
+  "IntToData": {
+    "args": [
+      {
+        "name": "int_value",
+        "type": 20,
+        "out": false,
+        "label": "int_value",
+        "default": 0
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "IntToData"
+  },
+  "FloatToData": {
+    "args": [
+      {
+        "name": "float_value",
+        "type": 4,
+        "out": false,
+        "label": "float_value",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "FloatToData"
+  },
+  "DoubleToData": {
+    "args": [
+      {
+        "name": "double_value",
+        "type": 5,
+        "out": false,
+        "label": "double_value",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "DoubleToData"
+  },
+  "StringToData": {
+    "args": [
+      {
+        "name": "string_value",
+        "type": 8,
+        "out": false,
+        "label": "string_value",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": 3,
+        "out": false,
+        "label": "类型",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台内存操作",
+    "label": "StringToData"
+  },
+  "AsmAdd": {
+    "args": [
+      {
+        "name": "asm_ins",
+        "type": 8,
+        "out": false,
+        "label": "MASM 语句",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台汇编操作",
+    "label": "添加 MASM 语句"
+  },
+  "AsmClear": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台汇编操作",
+    "label": "清空 MASM 语句"
+  },
+  "AsmCall": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      }
+    ],
+    "return_type": 20,
+    "group": "后台汇编操作",
+    "label": "执行 MASM"
+  },
+  "AsmCallEx": {
+    "args": [
+      {
+        "name": "hwnd",
+        "type": 3,
+        "out": false,
+        "label": "窗口句柄（@窗口为已绑定窗口）",
+        "default": "@窗口"
+      },
+      {
+        "name": "mode",
+        "type": 3,
+        "out": false,
+        "label": "模式",
+        "default": 0
+      },
+      {
+        "name": "base_addr",
+        "type": 8,
+        "out": false,
+        "label": "基地址",
+        "default": ""
+      }
+    ],
+    "return_type": 20,
+    "group": "后台汇编操作",
+    "label": "执行 MASM 并指定参数"
+  },
+  "Assemble": {
+    "args": [
+      {
+        "name": "base_addr",
+        "type": 20,
+        "out": false,
+        "label": "基地址",
+        "default": 0
+      },
+      {
+        "name": "is_64bit",
+        "type": 3,
+        "out": false,
+        "label": "64 位（0/1）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台汇编操作",
+    "label": "MASM 转机器码"
+  },
+  "DisAssemble": {
+    "args": [
+      {
+        "name": "asm_code",
+        "type": 8,
+        "out": false,
+        "label": "机器码",
+        "default": ""
+      },
+      {
+        "name": "base_addr",
+        "type": 20,
+        "out": false,
+        "label": "基地址",
+        "default": 0
+      },
+      {
+        "name": "is_64bit",
+        "type": 3,
+        "out": false,
+        "label": "64 位（0/1）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台汇编操作",
+    "label": "机器码转 MASM"
+  },
+  "AsmSetTimeout": {
+    "args": [
+      {
+        "name": "time_out",
+        "type": 3,
+        "out": false,
+        "label": "超时（毫秒）",
+        "default": 0
+      },
+      {
+        "name": "param",
+        "type": 3,
+        "out": false,
+        "label": "param",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台汇编操作",
+    "label": "设置汇编执行超时"
+  },
+  "FaqCapture": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "quality",
+        "type": 3,
+        "out": false,
+        "label": "quality",
+        "default": 0
+      },
+      {
+        "name": "delay",
+        "type": 3,
+        "out": false,
+        "label": "delay",
+        "default": 0
+      },
+      {
+        "name": "time",
+        "type": 3,
+        "out": false,
+        "label": "time",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "截取答题区域"
+  },
+  "FaqCaptureFromFile": {
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      },
+      {
+        "name": "file",
+        "type": 8,
+        "out": false,
+        "label": "文件路径",
+        "default": ""
+      },
+      {
+        "name": "quality",
+        "type": 3,
+        "out": false,
+        "label": "quality",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "载入答题图片"
+  },
+  "FaqRelease": {
+    "args": [
+      {
+        "name": "handle",
+        "type": 3,
+        "out": false,
+        "label": "handle",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "释放答题图像"
+  },
+  "FaqSend": {
+    "args": [
+      {
+        "name": "server",
+        "type": 8,
+        "out": false,
+        "label": "服务端地址",
+        "default": ""
+      },
+      {
+        "name": "handle",
+        "type": 3,
+        "out": false,
+        "label": "handle",
+        "default": 0
+      },
+      {
+        "name": "request_type",
+        "type": 3,
+        "out": false,
+        "label": "request_type",
+        "default": 0
+      },
+      {
+        "name": "time_out",
+        "type": 3,
+        "out": false,
+        "label": "超时（毫秒）",
+        "default": 0
+      }
+    ],
+    "return_type": 8,
+    "group": "后台答题器",
+    "label": "发送答题图片"
+  },
+  "FaqPost": {
+    "args": [
+      {
+        "name": "server",
+        "type": 8,
+        "out": false,
+        "label": "服务端地址",
+        "default": ""
+      },
+      {
+        "name": "handle",
+        "type": 3,
+        "out": false,
+        "label": "handle",
+        "default": 0
+      },
+      {
+        "name": "request_type",
+        "type": 3,
+        "out": false,
+        "label": "request_type",
+        "default": 0
+      },
+      {
+        "name": "time_out",
+        "type": 3,
+        "out": false,
+        "label": "超时（毫秒）",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "异步发送答题图片"
+  },
+  "FaqFetch": {
+    "args": [],
+    "return_type": 8,
+    "group": "后台答题器",
+    "label": "获取答题结果"
+  },
+  "FaqGetSize": {
+    "args": [
+      {
+        "name": "handle",
+        "type": 3,
+        "out": false,
+        "label": "handle",
+        "default": 0
+      }
+    ],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "获取答题图像大小"
+  },
+  "FaqCancel": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "取消答题任务"
+  },
+  "FaqCaptureString": {
+    "args": [
+      {
+        "name": "str",
+        "type": 8,
+        "out": false,
+        "label": "文字内容",
+        "default": ""
+      }
+    ],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "截取答题图像字符串"
+  },
+  "FaqIsPosted": {
+    "args": [],
+    "return_type": 3,
+    "group": "后台答题器",
+    "label": "查询答题提交状态"
+  },
+  "CaptureArray": {
+    "group": "后台图色操作",
+    "label": "获取图像数组",
+    "return_type": 12,
+    "args": [
+      {
+        "name": "x1",
+        "type": 3,
+        "out": false,
+        "label": "左上横坐标",
+        "default": 0
+      },
+      {
+        "name": "y1",
+        "type": 3,
+        "out": false,
+        "label": "左上纵坐标",
+        "default": 0
+      },
+      {
+        "name": "x2",
+        "type": 3,
+        "out": false,
+        "label": "右下横坐标",
+        "default": 100
+      },
+      {
+        "name": "y2",
+        "type": 3,
+        "out": false,
+        "label": "右下纵坐标",
+        "default": 100
+      }
+    ]
+  }
+}

@@ -7,6 +7,10 @@ import tempfile
 from pathlib import Path
 
 # Workers must not enter Velopack lifecycle hooks, Qt or the app singleton.
+if __name__ == '__main__' and '--background-dm-worker' in sys.argv:
+    from background_dm_worker import main as background_dm_main
+    raise SystemExit(background_dm_main())
+
 if __name__ == '__main__' and '--local-ocr-worker' in sys.argv:
     from local_ocr_worker import main as ocr_worker_main
     ocr_worker_main()

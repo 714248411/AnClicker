@@ -41,6 +41,9 @@ def send_windows_key(token, down):
 
 
 def key_event(context, key, down, gui):
+    if getattr(gui, "is_background", False) is True:
+        (gui.keyDown if down else gui.keyUp)(key)
+        return
     if key.startswith("win32:"):
         send_windows_key(key, down)
         return
@@ -63,7 +66,7 @@ def key_event(context, key, down, gui):
 
 
 def button_event(context, button, down, gui):
-    if button in {"left", "right", "middle"}:
+    if getattr(gui, "is_background", False) is True or button in {"left", "right", "middle"}:
         (gui.mouseDown if down else gui.mouseUp)(button=button, _pause=False)
     else:
         mouse, controller = mouse_controller(context)
@@ -74,5 +77,12 @@ def button_event(context, button, down, gui):
 
 
 def scroll_event(context, dx, dy):
+    from background_runtime import current_backend
+    backend = current_backend(context)
+    if backend is not None:
+        if dx:
+            raise ValueError("后台录制暂不支持水平滚轮，已阻止前台操作")
+        backend.scroll(dy)
+        return
     _, controller = mouse_controller(context)
     controller.scroll(dx, dy)

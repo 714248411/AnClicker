@@ -260,3 +260,27 @@ def test_arrow_top_bottom_diagonal_entries(app,diamond,direction):
     assert not body.contains(tip)
     assert body.contains(tip+QPointF(math.cos(angle)*5,math.sin(angle)*5))
     assert math.cos(angle)*dx+math.sin(angle)*dy < -.99
+
+
+@pytest.mark.parametrize('mode', ['连线节点', '当前项目行'])
+@pytest.mark.parametrize('missing', [False, True])
+def test_error_only_branch_not_scheduled_after_success(setup, mode, missing):
+    db, repo, worker = setup
+    left = [add(repo, 内容='left'+str(i)) for i in range(6)]
+    image = add(repo, 内容='image')
+    wait = add(repo, 内容='wait')
+    handler = add(repo, '报错跳转', 跳转方式=mode, 目标行=1)
+    repo.connect_nodes('start', image)
+    repo.connect_nodes(image, wait)
+    repo.connect_nodes(wait, 'end')
+    for a,b in zip(left, left[1:]): repo.connect_nodes(a,b)
+    repo.connect_nodes(left[-1], 'end')
+    repo.connect_nodes(image, handler)
+    if mode == '连线节点': repo.connect_nodes(handler, left[0])
+    worker.run_unconnected = False
+    log = []
+    for _ in range(3):
+        run(repo, worker, log, fail={'image'} if missing else ())
+    expected = ['image'] + (['left'+str(i) for i in range(6)] if missing else ['wait'])
+    assert log == expected * 3
+    worker._handle_command_error.assert_not_called()

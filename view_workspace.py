@@ -23,6 +23,7 @@ from qt_compat.QtWidgets import (
     QMenu,
     QMessageBox,
     QPlainTextEdit,
+    QTextEdit,
     QPushButton,
     QSplitter,
     QScrollArea,
@@ -30,6 +31,8 @@ from qt_compat.QtWidgets import (
     QStackedWidget,
     QTabBar,
     QTableWidget,
+    QStyledItemDelegate,
+    QStyle,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -55,6 +58,25 @@ WINDOW_TITLE_SETTING = "绑定窗口标题"
 THEME_SETTING = "界面主题"
 
 
+class CommentRowDelegate(QStyledItemDelegate):
+    """Paint comment cells explicitly: stylesheet item backgrounds override roles."""
+
+    def paint(self, painter, option, index):
+        background = index.data(Qt.ItemDataRole.BackgroundRole)
+        if background is None or option.state & QStyle.State_Selected:
+            return super().paint(painter, option, index)
+        painter.save()
+        painter.setClipRect(option.rect)
+        painter.fillRect(option.rect, background)
+        painter.setFont(option.font)
+        foreground = index.data(Qt.ItemDataRole.ForegroundRole)
+        painter.setPen(foreground if foreground is not None else option.palette.color(QPalette.Text))
+        rect = option.rect.adjusted(5, 0, -5, 0)
+        text = option.fontMetrics.elidedText(str(index.data() or ''), Qt.ElideRight, max(0, rect.width()))
+        painter.drawText(rect, Qt.AlignLeft | Qt.AlignVCenter, text)
+        painter.restore()
+
+
 class InstructionTableWidget(QTableWidget):
     """Command table that accepts instruction MIME drops from the palette."""
 
@@ -68,8 +90,11 @@ class InstructionTableWidget(QTableWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAcceptDrops(True)
+        self.setItemDelegate(CommentRowDelegate(self))
         self._row_press = None
         self.runtime_row = -1
+        self.comment_ranges = {}
+        self.collapsed_comments = set()
         self._drop_line = QFrame(self.viewport())
         self._drop_line.setStyleSheet('background: #5b6fdc;')
         self._drop_line.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -111,6 +136,29 @@ class InstructionTableWidget(QTableWidget):
             return
         event.accept()
 
+    def update_comment_ranges(self, snapshot):
+        from flow_comments import connected_fold_ranges
+        self.comment_ranges = connected_fold_ranges(snapshot)
+        self.collapsed_comments.intersection_update(self.comment_ranges)
+        self.apply_comment_folds()
+
+    def set_comment_collapsed(self, command_id, collapsed):
+        if command_id not in self.comment_ranges:
+            return
+        if collapsed:
+            self.collapsed_comments.add(command_id)
+        else:
+            self.collapsed_comments.discard(command_id)
+        self.apply_comment_folds()
+
+    def apply_comment_folds(self):
+        hidden = set()
+        for command_id in self.collapsed_comments:
+            hidden.update(self.comment_ranges.get(command_id, ()))
+        for row in range(self.rowCount()):
+            item = self.item(row, 0)
+            self.setRowHidden(row, item is not None and item.data(Qt.ItemDataRole.UserRole) in hidden)
+
     def contextMenuEvent(self, event):
         index = self.indexAt(event.pos())
         if index.isValid() and not self.selectionModel().isSelected(index):
@@ -119,6 +167,14 @@ class InstructionTableWidget(QTableWidget):
         menu = QMenu(self)
         from context_menu_style import style_context_menu
         style_context_menu(menu, self)
+        item = self.item(index.row(), 0) if index.isValid() else None
+        command_id = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        if command_id in self.comment_ranges:
+            expand = menu.addAction('展开下部指令', lambda: self.set_comment_collapsed(command_id, False))
+            collapse = menu.addAction('收缩下部指令', lambda: self.set_comment_collapsed(command_id, True))
+            expand.setEnabled(command_id in self.collapsed_comments)
+            collapse.setEnabled(command_id not in self.collapsed_comments and bool(self.comment_ranges[command_id]))
+            menu.addSeparator()
         count = len(self.selected_command_ids())
         copy = menu.addAction(f'复制选中指令（{count} 行）', self.copyRequested.emit)
         copy.setEnabled(count > 0)
@@ -657,8 +713,55 @@ class ViewWorkspace:
         layout.addWidget(tip)
         self.window.nodeEditorLayout.removeWidget(self.window.workspace.editor)
         self.window.workspace.editor.setParent(page)
-        layout.addWidget(self.window.workspace.editor, 1)
+        self.flow_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.flow_splitter.setChildrenCollapsible(False)
+        self.flow_splitter.setHandleWidth(4)
+        self.flow_splitter.addWidget(self.window.workspace.editor)
+        self.flow_log_panel = QFrame()
+        self.flow_log_panel.setObjectName("workspacePanel")
+        log_layout = QVBoxLayout(self.flow_log_panel)
+        log_layout.setContentsMargins(6, 4, 6, 4)
+        heading = QLabel("运行日志")
+        heading.setObjectName("sectionTitle")
+        log_layout.addWidget(heading)
+        self.flow_log = QTextEdit()
+        self.flow_log.setReadOnly(True)
+        self.flow_log.setDocument(self.window.textEdit.document())
+        self.flow_log.document().contentsChanged.connect(
+            lambda: self.flow_log.verticalScrollBar().setValue(self.flow_log.verticalScrollBar().maximum()))
+        log_layout.addWidget(self.flow_log)
+        self.flow_splitter.addWidget(self.flow_log_panel)
+        self.flow_splitter.setStretchFactor(0, 4)
+        self.flow_splitter.setStretchFactor(1, 1)
+        self.flow_log_panel.hide()
+        layout.addWidget(self.flow_splitter, 1)
         return page
+
+    def begin_runtime_view(self):
+        self._runtime_view_active = True
+        self.refresh_table()
+        view = self.window.workspace.editor.view
+        self._flow_view_before_run = (view.transform(), view.horizontalScrollBar().value(),
+                                     view.verticalScrollBar().value())
+        self.flow_log_panel.show()
+        height = max(300, self.flow_splitter.height())
+        self.flow_splitter.setSizes([int(height * .75), int(height * .25)])
+
+    def end_runtime_view(self):
+        self._runtime_view_active = False
+        self.flow_log_panel.hide()
+        for node in self.window.workspace.editor.scene.nodes_by_id.values():
+            node.runtime_active = False
+            node.update()
+        saved = getattr(self, '_flow_view_before_run', None)
+        if saved is not None:
+            view = self.window.workspace.editor.view
+            view.setTransform(saved[0])
+            def restore_scroll():
+                view.horizontalScrollBar().setValue(saved[1])
+                view.verticalScrollBar().setValue(saved[2])
+            QTimer.singleShot(0, restore_scroll)
+
 
     def _build_code_view(self) -> QWidget:
         page = QWidget()
@@ -834,6 +937,7 @@ class ViewWorkspace:
         self.theme_mode = "light" if self.theme_mode == "dark" else "dark"
         self.window.db.set_setting_value(THEME_SETTING, self.theme_mode)
         self._apply_theme()
+        self.refresh_table()
         self._update_view_actions()
 
     def show_donation(self) -> None:
@@ -976,6 +1080,7 @@ class ViewWorkspace:
         self._place_palette()
         if index == MAIN_VIEW: self.refresh_summary()
         elif index == TABLE_VIEW: self.refresh_table()
+        elif index == FLOW_VIEW: self.highlight_running_command(self.running_command_id)
         elif index == CODE_VIEW: self._load_code()
 
     def refresh_all(self) -> None:
@@ -1028,6 +1133,9 @@ class ViewWorkspace:
         table = self.command_table
         previous_rows = getattr(self, "_table_rows", [])
         if rows == previous_rows:
+            if hasattr(table, 'update_comment_ranges'):
+                table.update_comment_ranges(snapshot)
+            self._apply_comment_row_colors(snapshot)
             return
         order_changed = [r[0] for r in rows] != [r[0] for r in previous_rows]
         selected = [(table.item(index.row(), 0).data(Qt.ItemDataRole.UserRole), index.column())
@@ -1056,6 +1164,9 @@ class ViewWorkspace:
                             item.setData(Qt.ItemDataRole.UserRole, command_id)
                         if item.toolTip() != value:
                             item.setToolTip(value)
+                if hasattr(table, 'update_comment_ranges'):
+                    table.update_comment_ranges(snapshot)
+                self._apply_comment_row_colors(snapshot)
                 self._table_rows = rows
                 self._table_command_rows = {command_id: row for row, (command_id, _) in enumerate(rows)}
                 if order_changed:
@@ -1073,12 +1184,37 @@ class ViewWorkspace:
         finally:
             table.setUpdatesEnabled(updates_enabled)
 
+    def _apply_comment_row_colors(self, snapshot):
+        from flow_comments import snapshot_disabled_ids
+        disabled = snapshot_disabled_ids(snapshot)
+        dark = getattr(self, 'theme_mode', 'light') == 'dark'
+        background = QColor('#3c3c40' if dark else '#dedee3')
+        foreground = QColor('#d4d4d8' if dark else '#53535c')
+        table = self.command_table
+        for row in range(table.rowCount()):
+            first = table.item(row, 0)
+            inactive = first is not None and first.data(Qt.ItemDataRole.UserRole) in disabled
+            for column in range(table.columnCount()):
+                item = table.item(row, column)
+                if item is not None:
+                    item.setData(Qt.ItemDataRole.BackgroundRole, background if inactive else None)
+                    item.setData(Qt.ItemDataRole.ForegroundRole, foreground if inactive else None)
+
     def highlight_running_command(self, command_id, *, ensure_visible=True) -> None:
         """Follow stable command IDs without changing the editing selection."""
         try:
             self.running_command_id = int(command_id) if command_id is not None else None
         except (TypeError, ValueError):
             self.running_command_id = None
+        editor = self.window.workspace.editor
+        active = editor.scene.nodes_by_command_id.get(self.running_command_id)
+        for node in editor.scene.nodes_by_id.values():
+            marked = node is active and getattr(self, '_runtime_view_active', False)
+            if getattr(node, 'runtime_active', False) != marked:
+                node.runtime_active = marked
+                node.update()
+        if active is not None and getattr(self, '_runtime_view_active', False) and ensure_visible and self.tabs.currentIndex() == FLOW_VIEW:
+            editor.view.ensureVisible(active, 32, 32)
         table = self.command_table
         table.runtime_row = self._table_command_rows.get(self.running_command_id, -1)
         if ensure_visible and table.runtime_row >= 0 and self.tabs.currentIndex() == TABLE_VIEW:
@@ -1487,9 +1623,8 @@ class ViewWorkspace:
             QAbstractScrollArea, QAbstractScrollArea QWidget#qt_scrollarea_viewport,
             QTableWidget, QListWidget {{ background: {c['surface']}; color: {c['text']}; alternate-background-color: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 10px; gridline-color: {c['line']}; }}
             QTableWidget#commandTable {{ background-color: {c['surface']}; alternate-background-color: {c['surface2']}; border: none; }}
-            QTableWidget#commandTable::item {{ background-color: transparent; color: {c['text']}; border: none; padding: 5px; }}
-            QTableWidget#commandTable::item:alternate:!selected {{ background-color: {c['surface2']}; }}
-            QTableWidget#commandTable::item:hover:!selected {{ background-color: {c['surface3']}; border-bottom: 1px solid {c['accent']}; }}
+            QTableWidget#commandTable::item {{ border: none; padding: 5px; }}
+            QTableWidget#commandTable::item:hover:!selected {{ border-bottom: 1px solid {c['accent']}; }}
             QTextEdit#textEdit {{ background: {c['nav']}; color: {c['text']}; border: none; border-radius: 10px; padding: 8px; }}
             QTableWidget#commandTable::item:selected, QTableWidget#commandTable::item:selected:alternate {{ background-color: {c['accent2']}; color: white; }}
             QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}

@@ -38,6 +38,10 @@ def delegated(context: ExecutionContext, name: str, command):
 
 
 def pyautogui_module():
+    from background_runtime import current_backend
+    backend = current_backend()
+    if backend is not None:
+        return backend
     import pyautogui
     return pyautogui
 
@@ -192,6 +196,9 @@ def click_image(parameters: dict, context: ExecutionContext, *, min_search_time:
     candidate = locate_image(parameters, context, min_search_time=min_search_time)
     if candidate is None:
         return None
+    if parameter(parameters, "动作", default="左键单击") == "无操作":
+        # Detection-only instructions must never move the cursor or apply offsets.
+        return int(candidate.x), int(candidate.y)
     offset = parameter(parameters, "点击位置", default="(0,0)")
     if str(offset).replace(" ", "") in {"(随机,随机)", "随机,随机"}:
         dx, dy = image_random_offset(parameters, context)
@@ -299,7 +306,12 @@ def release_recorded_inputs(context):
     buttons = context.metadata.pop("recorded_buttons", set())
     if not keys and not buttons:
         return
-    gui = pyautogui_module()
+    from background_runtime import SESSION, ERROR
+    gui = context.metadata.get(SESSION)
+    if gui is None:
+        if context.metadata.get(ERROR):
+            return
+        gui = pyautogui_module()
     from recorded_input import key_event, button_event
     # A fail-safe screen corner must not prevent emergency key/button release.
     failsafe = gui.FAILSAFE

@@ -55,7 +55,7 @@ class InstructionExecutor(InstructionExecutorBase):
             return result_
         text_ = actions.substitute_variables(context, str(actions.parameter(command.parameters, "内容", "文本", default="")))
         gui_ = actions.pyautogui_module()
-        if actions.parameter(command.parameters, "手动输入", default=False):
+        if getattr(gui_, "is_background", False) is True or actions.parameter(command.parameters, "手动输入", default=False):
             gui_.write(text_)
         else:
             import pyperclip

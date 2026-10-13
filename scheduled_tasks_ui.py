@@ -1,10 +1,149 @@
 """Chinese scheduled-project settings, matching the compact rounded task card."""
-from datetime import datetime, timedelta
-from qt_compat.QtCore import Qt, QDateTime, QRectF, QPoint, Signal, QTimer, QEvent, QLocale
-from qt_compat.QtGui import QPainter, QColor, QPen, QTextCharFormat, QPalette
+from datetime import datetime
+from pathlib import Path
+from qt_compat.QtCore import Qt, QDateTime, QRectF, QPoint, QSize, Signal, Slot, QTimer, QEvent
+from qt_compat.QtGui import QPainter, QColor, QPen, QPalette, QIcon, QPixmap, QPainterPath
 from qt_compat.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QPlainTextEdit, QLineEdit, QMenu, QDateTimeEdit, QFileDialog, QMessageBox,
-    QWidget, QFormLayout, QListWidget, QCheckBox, QFrame, QSpinBox, QScrollArea, QSizePolicy, QCalendarWidget, QToolButton)
+    QPlainTextEdit, QLineEdit, QMenu, QFileDialog, QMessageBox,
+    QWidget, QFormLayout, QListWidget, QListWidgetItem, QFrame, QSpinBox, QScrollArea, QSizePolicy, QSplitter, QToolButton)
+
+
+class TaskCardLabel(QLabel):
+    """Keep the status and edit corner visible when a task title is long."""
+    def __init__(self, text, parent):
+        super().__init__(text, parent)
+        self.setToolTip(text)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setMinimumWidth(0)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setPen(self.palette().color(QPalette.WindowText))
+        text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, self.contentsRect().width())
+        painter.drawText(self.contentsRect(), Qt.AlignLeft | Qt.AlignVCenter, text)
+
+
+class ScheduleTaskCard(QWidget):
+    editRequested = Signal()
+
+    def __init__(self, title, details, *, enabled, editable, dark, parent=None):
+        super().__init__(parent)
+        self.setObjectName('scheduleTaskCard')
+        self._dark = dark
+        foreground = '#eef0f6' if dark else '#202534'
+        muted = '#b5bdcc' if dark else '#647084'
+        state_color = ('#90d9b0' if dark else '#287247') if enabled else muted
+        self.setStyleSheet(f'''
+            QWidget#scheduleTaskCard {{background:transparent;border:none;}}
+            QLabel {{background:transparent;color:{foreground};font-size:12px;padding:0;}}
+            QLabel#taskCardDetails {{color:{muted};font-size:11px;}}
+            QLabel#taskCardState {{color:{state_color};font-size:11px;}}
+            QToolButton {{background:transparent;color:{foreground};border:none;border-radius:4px;padding:0;font-size:13px;}}
+            QToolButton:hover {{background:rgba(125,140,180,40);}}
+            QToolButton:disabled {{color:{muted};}}
+        ''')
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 3, 8, 5)
+        layout.setSpacing(1)
+        top = QHBoxLayout()
+        top.setSpacing(4)
+        self.title_label = TaskCardLabel(title, self)
+        self.edit_button = QToolButton(self)
+        self.edit_button.setText('🖊')
+        self.edit_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.edit_button.setIconSize(QSize(16, 16))
+        self.edit_button.setFixedSize(20, 20)
+        self.edit_button.setAccessibleName(f'编辑任务：{title}')
+        self.edit_button.setToolTip('编辑任务' if editable else '任务正在执行，结束后可编辑')
+        self.edit_button.setEnabled(editable)
+        self.set_editing(False)
+        self.edit_button.clicked.connect(self.editRequested.emit)
+        top.addWidget(self.edit_button, 0, Qt.AlignLeft)
+        top.addWidget(self.title_label, 1)
+        layout.addLayout(top)
+        bottom = QHBoxLayout()
+        bottom.setSpacing(6)
+        self.details_label = TaskCardLabel(details, self)
+        self.details_label.setObjectName('taskCardDetails')
+        self.state_label = QLabel('开启' if enabled else '未开启', self)
+        self.state_label.setObjectName('taskCardState')
+        self.state_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.state_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        bottom.addWidget(self.details_label, 1)
+        bottom.addWidget(self.state_label, 0, Qt.AlignRight)
+        layout.addLayout(bottom)
+
+    def set_editing(self, editing):
+        editing = bool(editing and self.edit_button.isEnabled())
+        self.edit_button.setProperty('editing', editing)
+        color = ('#8db7ff' if self._dark else '#275fd4') if editing else ('#b5bdcc' if self._dark else '#647084')
+        # Draw a monochrome pen so color works even with native color-emoji fonts.
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.scale(2, 2)
+        painter.setPen(QPen(QColor(color), 1.2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        path = QPainterPath()
+        path.moveTo(2.5, 13.5)
+        for x, y in ((3.5, 9.5), (11, 2), (14, 5), (6.5, 12.5), (2.5, 13.5)):
+            path.lineTo(x, y)
+        path.moveTo(9, 4)
+        path.lineTo(12, 7)
+        painter.drawPath(path)
+        painter.end()
+        self.edit_button.setIcon(QIcon(pixmap))
+        self.edit_button.setStyleSheet('QToolButton {background:rgba(82,102,220,45);border-radius:4px;}' if editing else '')
+        self.edit_button.setToolTip('正在编辑，点击保存后退出编辑' if editing else
+                                   '编辑任务' if self.edit_button.isEnabled() else '任务正在执行，结束后可编辑')
+        self.edit_button.setAccessibleDescription('编辑状态' if editing else '非编辑状态')
+
+
+class ProjectPathEdit(QLineEdit):
+    """只接收单个本地项目或目录，不把 URL 文本混入现有路径。"""
+    directoryDropped = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setPlaceholderText('选择或拖入 .xlsx 项目文件 / 文件夹')
+        self.setToolTip('拖入项目文件直接填写路径；拖入文件夹后，从该目录选择项目。')
+
+    @staticmethod
+    def dropped_path(mime):
+        urls = mime.urls() if mime.hasUrls() else []
+        if len(urls) != 1 or not urls[0].isLocalFile():
+            return None
+        path = Path(urls[0].toLocalFile())
+        try:
+            if path.is_dir() or (path.suffix.lower() == '.xlsx' and path.is_file()):
+                return path
+        except OSError:
+            pass
+        return None
+
+    def dragEnterEvent(self, event):
+        if self.dropped_path(event.mimeData()) is not None:
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        self.dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        path = self.dropped_path(event.mimeData())
+        if path is None:
+            event.ignore()
+            return
+        event.setDropAction(Qt.CopyAction)
+        event.accept()
+        if path.is_dir():
+            self.directoryDropped.emit(str(path))
+        else:
+            self.setText(str(path))
 
 
 class RepeatSelector(QPushButton):
@@ -112,6 +251,8 @@ class ResizableDescription(QPlainTextEdit):
 
 
 class ScheduleDialog(QDialog):
+    projectReplacementRequested = Signal(str, str)
+
     def __init__(self, scheduler):
         super().__init__(scheduler.window)
         self.scheduler = scheduler
@@ -120,12 +261,34 @@ class ScheduleDialog(QDialog):
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self._drag_origin = None
-        self.resize(680, 490)
-        self.setMinimumSize(520, 440)
+        self._resize_start = None
+        self.setMouseTracking(True)
+        self._task_id = None
+        self._editing = True
+        self._replacement_pending = False
+        self.projectReplacementRequested.connect(self._replace_readonly_project, Qt.QueuedConnection)
+        self.resize(960, 500)
+        self.setMinimumSize(760, 410)
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 18, 20, 18)
-        title = QLabel('设置定时任务')
+        root = QHBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 12)
+        self.splitter = QSplitter(Qt.Horizontal, self)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setHandleWidth(3)
+        root.addWidget(self.splitter)
+        self._build_sidebar()
+        self.editor_panel = QWidget(self)
+        self.editor_panel.setObjectName('scheduleEditor')
+        self.editor_panel.setAttribute(Qt.WA_StyledBackground, True)
+        self.editor_panel.setAcceptDrops(True)
+        self.editor_panel.setMinimumWidth(500)
+        self.splitter.addWidget(self.editor_panel)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([230, 680])
+        layout = QVBoxLayout(self.editor_panel)
+        layout.setContentsMargins(16, 6, 8, 6)
+        title = QLabel('新建定时任务')
+        self.title_label = title
         title.setObjectName('scheduleTitle')
         header = QHBoxLayout()
         header.addWidget(title, 1)
@@ -138,7 +301,7 @@ class ScheduleDialog(QDialog):
         layout.addLayout(header)
         self.description = ResizableDescription(self)
         self.description.setPlaceholderText('说明…（可填写任务名称或用途）')
-        self.description.setFixedHeight(125)
+        self.description.setFixedHeight(self.description.two_line_height())
         self.description.heightRequested.connect(self._resize_description)
         layout.addWidget(self.description)
         card = QFrame()
@@ -151,26 +314,19 @@ class ScheduleDialog(QDialog):
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        self.path = QLineEdit()
-        self.path.setPlaceholderText('选择要运行的 .xlsx 项目文件')
+        self.path = ProjectPathEdit(self)
+        # Return from the native drop before opening a modal file picker.
+        self.path.directoryDropped.connect(self._browse_dropped_directory, Qt.QueuedConnection)
         browse = QPushButton('选择文件')
-        browse.clicked.connect(self.browse)
+        browse.clicked.connect(lambda: self.browse())
         row_layout.addWidget(self.path, 1)
         row_layout.addWidget(browse)
         form.addRow('项目文件', row)
         self.repeat = RepeatSelector(scheduler.window, self)
         self.repeat.addItems(['每天', '工作日', '每周', '自定义', '仅一次'])
         form.addRow('重复', self.repeat)
-        self.when = QDateTimeEdit(QDateTime.currentDateTime().addSecs(300))
-        self.when.setDisplayFormat('yyyy-MM-dd HH:mm:ss')
-        self.when.setCalendarPopup(True)
-        self.calendar = QCalendarWidget(self.when)
-        self.calendar.setLocale(QLocale(QLocale.Chinese, QLocale.China))
-        self.calendar.setFirstDayOfWeek(Qt.Monday)
-        self.calendar.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
-        self.calendar.setHorizontalHeaderFormat(QCalendarWidget.ShortDayNames)
-        self.calendar.setGridVisible(False)
-        self.when.setCalendarWidget(self.calendar)
+        from schedule_datetime import SegmentedDateTimeEdit
+        self.when = SegmentedDateTimeEdit(QDateTime.currentDateTime().addSecs(300), self)
         form.addRow('时间', self.when)
         self.interval = QSpinBox()
         self.interval.setRange(1, 525600)
@@ -187,7 +343,15 @@ class ScheduleDialog(QDialog):
         self.advanced_button = QPushButton('高级  ⌄')
         self.advanced_button.setCheckable(True)
         self.advanced_button.setFlat(True)
-        layout.addWidget(self.advanced_button, 0, Qt.AlignLeft)
+        self.advanced_button.setAutoDefault(False)
+        advanced_actions = QHBoxLayout()
+        advanced_actions.addWidget(self.advanced_button, 0, Qt.AlignLeft)
+        advanced_actions.addStretch()
+        self.save_button = QPushButton('保存')
+        self.save_button.setAutoDefault(False)
+        self.save_button.clicked.connect(lambda: self.save_task(self.enable_button.isChecked()))
+        advanced_actions.addWidget(self.save_button, 0, Qt.AlignRight)
+        layout.addLayout(advanced_actions)
         self.advanced = QWidget()
         self.advanced.setObjectName("scheduleAdvancedBody")
         advanced_layout = QVBoxLayout(self.advanced)
@@ -213,33 +377,28 @@ class ScheduleDialog(QDialog):
         self.advanced_scroll.viewport().setAutoFillBackground(False)
         self.advanced_scroll.hide()
         layout.addWidget(self.advanced_scroll)
-        self.entries = QListWidget()
-        self.entries.setFixedHeight(110)
-        self.entries.setObjectName("scheduleTaskList")
-        self.empty_tasks = QLabel("暂无定时任务，在上方选择项目和时间后点击创建。")
-        self.empty_tasks.setWordWrap(True)
-        advanced_layout.addWidget(self.empty_tasks)
-        advanced_layout.addWidget(self.entries, 1)
-        manage = QHBoxLayout()
-        toggle = QPushButton('启用 / 停用')
-        toggle.clicked.connect(self.toggle_task)
-        delete = QPushButton('删除任务')
-        delete.clicked.connect(self.delete_task)
-        manage.addWidget(toggle)
-        manage.addWidget(delete)
-        manage.addStretch()
-        advanced_layout.addLayout(manage)
         layout.addStretch()
         actions = QHBoxLayout()
         actions.addStretch()
-        cancel = QPushButton('取消')
-        cancel.clicked.connect(self.reject)
-        create = QPushButton('创建')
-        create.setObjectName('settingsSave')
-        create.clicked.connect(self.create_task)
-        actions.addWidget(cancel)
-        actions.addWidget(create)
+        self.disable_button = QPushButton('未开启')
+        self.disable_button.setCheckable(True)
+        self.disable_button.clicked.connect(lambda: self._choose_enabled(False))
+        self.enable_button = QPushButton('开启')
+        self.enable_button.setCheckable(True)
+        self.enable_button.clicked.connect(lambda: self._choose_enabled(True))
+        for button in (self.disable_button, self.enable_button):
+            button.setObjectName('scheduleStateButton')
+            button.setAutoDefault(False)
+        actions.addWidget(self.disable_button)
+        actions.addWidget(self.enable_button)
         layout.addLayout(actions)
+        # Disabled form controls still need to receive the gesture that unlocks
+        # details. Filter both their surfaces and parents for native Qt routing.
+        for widget in (self.editor_panel, self.description, self.form_card, self.advanced):
+            widget.installEventFilter(self)
+            if widget is not self.editor_panel:
+                for child in widget.findChildren(QWidget):
+                    child.installEventFilter(self)
         scheduler.changed.connect(self.refresh)
         from settings_theme import apply_settings_theme
         apply_settings_theme(self, scheduler.window)
@@ -248,7 +407,7 @@ class ScheduleDialog(QDialog):
         self._border = '#424248' if dark else '#dfe4eb'
         self.setStyleSheet(self.styleSheet() + (
             'QDialog {background:transparent;}'
-            'QPlainTextEdit, QListWidget, QDateTimeEdit {background:'+self._surface+';color:'+('#f1f1f3' if dark else '#202938')+';border:1px solid '+self._border+';border-radius:10px;padding:8px;}'
+            'QPlainTextEdit, QListWidget {background:'+self._surface+';color:'+('#f1f1f3' if dark else '#202938')+';border:1px solid '+self._border+';border-radius:10px;padding:8px;}'
             'QFrame#scheduleCard {border:1px solid '+('#424248' if dark else '#dfe4eb')+';border-radius:16px;}'
             'QLabel#scheduleTitle {font-size:18px;font-weight:600;}'
             'QPlainTextEdit {border-radius:16px;padding:12px;}'))
@@ -265,69 +424,39 @@ class ScheduleDialog(QDialog):
             'QWidget#scheduleAdvancedBody {background:'+self._surface+';border:none;}'
             'QListWidget#scheduleTaskList {padding:4px;}'
             'QListWidget#scheduleTaskList::item {padding:6px;border:none;}'
-            'QDateTimeEdit::drop-down {subcontrol-origin:padding;subcontrol-position:top right;width:24px;border:none;background:transparent;}'
             'QScrollBar:vertical {background:transparent;width:8px;margin:0;}'
             'QScrollBar::handle:vertical {background:'+self._border+';border-radius:4px;min-height:24px;}'
             'QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}'
             'QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent;}')
-        self.refresh()
-        self._style_calendar()
-
-    def _style_calendar(self):
-        dark = self.theme_mode == 'dark'
-        background = '#2c2c2c' if dark else '#ffffff'
-        text = '#ededf0' if dark else '#202938'
-        muted = '#a4a4ad' if dark else '#77808d'
-        hover = '#414149' if dark else '#edf1f6'
-        selected = '#446eae' if dark else '#e0ebfc'
-        self.calendar.setMinimumWidth(280)
-        self.calendar.layout().setContentsMargins(8, 8, 8, 8)
-        popup = self.calendar.window()
-        if popup is not self and popup is not self.scheduler.window:
-            popup.setObjectName("scheduleCalendarPopup")
-            popup.setWindowFlag(Qt.FramelessWindowHint, True)
-            popup.setWindowFlag(Qt.NoDropShadowWindowHint, True)
-            popup.setAttribute(Qt.WA_TranslucentBackground, True)
-            popup.setAutoFillBackground(False)
-            popup.setStyleSheet("QWidget#scheduleCalendarPopup {background:transparent; border:none;}")
-            from context_menu_style import _RoundedMenuBackground
-            popup._rounded_background = _RoundedMenuBackground(popup, background, self._border)
-            popup.installEventFilter(popup._rounded_background)
-        self.calendar.setStyleSheet(f'''
-            QCalendarWidget {{background:{background}; color:{text}; border:1px solid {self._border}; border-radius:10px; padding:6px;}}
-            QCalendarWidget QWidget#qt_calendar_navigationbar {{background:{background}; border:none;}}
-            QCalendarWidget QToolButton {{background:transparent; color:{text}; border:none; border-radius:5px;
-                padding:2px 6px; margin:0; min-width:0; min-height:0; font-size:12px;}}
-            QCalendarWidget QToolButton:hover {{background:{hover};}}
-            QCalendarWidget QToolButton::menu-indicator {{width:0; height:0;}}
-            QCalendarWidget QSpinBox {{background:{hover}; color:{text}; border:none; border-radius:4px; padding:2px; min-height:0; font-size:12px;}}
-            QCalendarWidget QAbstractItemView {{background:{background}; alternate-background-color:{background}; color:{text};
-                selection-background-color:{selected}; selection-color:{text}; border:none; outline:0; font-size:12px;}}
-            QCalendarWidget QAbstractItemView:disabled {{color:{muted};}}
+        self.setStyleSheet(self.styleSheet() + f'''
+            QFrame#scheduleSidebar {{background:{'#242424' if dark else '#f5f6fa'};border:none;border-radius:14px;}}
+            QSplitter::handle {{background:transparent;}}
+            QListWidget#scheduleTaskList {{background:transparent;border:none;padding:0;outline:0;}}
+            QListWidget#scheduleTaskList::item {{border:none;border-radius:7px;padding:0;margin:0;}}
+            QListWidget#scheduleTaskList::item:selected {{background:{'#3b4255' if dark else '#e2e7ff'};}}
+            QListWidget#scheduleTaskList::item:hover {{background:{'#34343b' if dark else '#eceef5'};}}
+            QWidget#scheduleDateTime {{background:{self._surface};border:1px solid {self._border};border-radius:10px;}}
+            QLineEdit#scheduleDateSection {{background:transparent;border:none;border-radius:2px;padding:2px 0;
+                selection-background-color:#176fd1;selection-color:white;}}
+            QLabel#scheduleDateSeparator {{padding:0;background:transparent;}}
+            QPushButton#scheduleStateButton:checked {{background:#5266dc;color:white;border-color:#5266dc;}}
         ''')
-        header = QTextCharFormat()
-        header.setForeground(QColor(muted))
-        header.setBackground(QColor(background))
-        self.calendar.setHeaderTextFormat(header)
-        weekend = QTextCharFormat()
-        weekend.setForeground(QColor(muted))
-        for day in (Qt.Saturday, Qt.Sunday):
-            self.calendar.setWeekdayTextFormat(day, weekend)
-        for name, label in (('qt_calendar_prevmonth', '‹'), ('qt_calendar_nextmonth', '›')):
-            button = self.calendar.findChild(QToolButton, name)
-            if button is not None:
-                from qt_compat.QtGui import QIcon
-                button.setIcon(QIcon())
-                button.setText(label)
-                button.setFixedSize(28, 26)
-                button.setStyleSheet("QToolButton {font-size:18px; padding:0;}")
-        for name in ('qt_calendar_monthbutton', 'qt_calendar_yearbutton'):
-            button = self.calendar.findChild(QToolButton, name)
-            if button is not None:
-                button.setFixedHeight(26)
-        from context_menu_style import style_context_menu
-        for menu in self.calendar.findChildren(QMenu):
-            style_context_menu(menu, self.scheduler.window)
+        self.sidebar.setStyleSheet(f'''
+            QFrame#scheduleSidebar {{background:{'#242424' if dark else '#f5f6fa'};border:none;border-radius:14px;}}
+            QLabel#scheduleTitle {{font-size:18px;font-weight:600;}}
+        ''')
+        self.entries.setStyleSheet(f'''
+            QListWidget {{background:transparent;border:none;padding:0;outline:0;}}
+            QListWidget::item {{border:none;border-radius:7px;padding:0;margin:0;}}
+            QListWidget::item:selected {{background:{'#3b4255' if dark else '#e2e7ff'};color:{'#eef0f6' if dark else '#202534'};}}
+            QListWidget::item:hover {{background:{'#34343b' if dark else '#eceef5'};}}
+        ''')
+        self.refresh()
+        if self.scheduler.tasks:
+            self.load_task(self.scheduler.tasks[0]['id'])
+        else:
+            self.new_task()
+        QTimer.singleShot(0, self.description._ensure_two_lines)
 
     def _resize_description(self, height):
         old_height = self.description.height()
@@ -384,72 +513,431 @@ class ScheduleDialog(QDialog):
         painter.end()
 
     def mousePressEvent(self, event):
+        edges = self._resize_edges(event.pos())
+        if event.button() == Qt.LeftButton and edges:
+            self._resize_start = (event.globalPos(), self.geometry(), edges)
+            self._drag_origin = None
+            self.grabMouse()
+            event.accept()
+            return
         if event.button() == Qt.LeftButton and event.pos().y() < 60:
             self._drag_origin = event.globalPos() - self.frameGeometry().topLeft()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        if self._resize_start is not None and event.buttons() & Qt.LeftButton:
+            start, original, edges = self._resize_start
+            delta = event.globalPos() - start
+            rect = original.adjusted(0, 0, 0, 0)
+            minimum = self.minimumSize().expandedTo(self.minimumSizeHint())
+            if edges & Qt.LeftEdge:
+                width = max(minimum.width(), min(self.maximumWidth(), original.width() - delta.x()))
+                rect.setLeft(original.right() - width + 1)
+            elif edges & Qt.RightEdge:
+                rect.setWidth(max(minimum.width(), min(self.maximumWidth(), original.width() + delta.x())))
+            if edges & Qt.TopEdge:
+                height = max(minimum.height(), min(self.maximumHeight(), original.height() - delta.y()))
+                rect.setTop(original.bottom() - height + 1)
+            elif edges & Qt.BottomEdge:
+                rect.setHeight(max(minimum.height(), min(self.maximumHeight(), original.height() + delta.y())))
+            self.setGeometry(rect)
+            event.accept()
+            return
+        self._set_resize_cursor(self._resize_edges(event.pos()))
         if self._drag_origin is not None and event.buttons() & Qt.LeftButton:
             self.move(event.globalPos() - self._drag_origin)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        if self._resize_start is not None and event.button() == Qt.LeftButton:
+            self._resize_start = None
+            self.releaseMouse()
+            if self.advanced_button.isChecked():
+                self._collapsed_height = max(self.minimumHeight(), self.height() - self.advanced_scroll.height() - self.layout().spacing())
+            else:
+                self._collapsed_height = self.height()
+            self._set_resize_cursor(self._resize_edges(event.pos()))
+            event.accept()
+            return
         self._drag_origin = None
         super().mouseReleaseEvent(event)
 
-    def browse(self):
-        path, _ = QFileDialog.getOpenFileName(self, '选择项目文件', '', '项目文件 (*.xlsx)')
+    def _resize_edges(self, position):
+        edges = Qt.Edge(0)
+        if not self.rect().contains(position):
+            return edges
+        if position.x() < 10:
+            edges |= Qt.LeftEdge
+        elif position.x() >= self.width() - 10:
+            edges |= Qt.RightEdge
+        if position.y() < 10:
+            edges |= Qt.TopEdge
+        elif position.y() >= self.height() - 10:
+            edges |= Qt.BottomEdge
+        return edges
+
+    def _set_resize_cursor(self, edges):
+        if edges in (Qt.LeftEdge | Qt.TopEdge, Qt.RightEdge | Qt.BottomEdge):
+            self.setCursor(Qt.SizeFDiagCursor)
+        elif edges in (Qt.RightEdge | Qt.TopEdge, Qt.LeftEdge | Qt.BottomEdge):
+            self.setCursor(Qt.SizeBDiagCursor)
+        elif edges & (Qt.LeftEdge | Qt.RightEdge):
+            self.setCursor(Qt.SizeHorCursor)
+        elif edges & (Qt.TopEdge | Qt.BottomEdge):
+            self.setCursor(Qt.SizeVerCursor)
+        else:
+            self.unsetCursor()
+
+    def leaveEvent(self, event):
+        if self._resize_start is None:
+            self.unsetCursor()
+        super().leaveEvent(event)
+
+    def hideEvent(self, event):
+        if self._resize_start is not None:
+            self._resize_start = None
+            self.releaseMouse()
+        self._drag_origin = None
+        super().hideEvent(event)
+
+    @Slot(str)
+    def _browse_dropped_directory(self, directory):
+        if self.isVisible():
+            self.browse(directory)
+
+    def browse(self, directory=None):
+        if directory is None:
+            current = self.path.text().strip().strip('"')
+            path = Path(current) if current else None
+            directory = str(path if path.is_dir() else path.parent) if path is not None else ''
+        path, _ = QFileDialog.getOpenFileName(self, '选择项目文件', directory, '项目文件 (*.xlsx)')
         if path:
             self.path.setText(path)
 
-    def refresh(self):
-        selected = self.entries.currentRow()
+    def _build_sidebar(self):
+        self.sidebar = QFrame(self)
+        self.sidebar.setObjectName('scheduleSidebar')
+        self.sidebar.setAttribute(Qt.WA_StyledBackground, True)
+        self.sidebar.setMinimumWidth(200)
+        self.sidebar.setMaximumWidth(320)
+        self.splitter.addWidget(self.sidebar)
+        layout = QVBoxLayout(self.sidebar)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+        heading = QHBoxLayout()
+        title = QLabel('定时任务', self.sidebar)
+        title.setObjectName('scheduleTitle')
+        heading.addWidget(title, 1)
+        search = QPushButton('搜索', self.sidebar)
+        search.setFlat(True)
+        search.setAutoDefault(False)
+        heading.addWidget(search)
+        layout.addLayout(heading)
+        self.search = QLineEdit(self.sidebar)
+        self.search.setPlaceholderText('搜索任务或项目文件')
+        self.search.textChanged.connect(self.refresh)
+        self.search.hide()
+        layout.addWidget(self.search)
+        search.clicked.connect(self._toggle_search)
+        self.new_button = QPushButton('＋  新建任务', self.sidebar)
+        self.new_button.setAutoDefault(False)
+        self.new_button.clicked.connect(self.new_task)
+        layout.addWidget(self.new_button)
+        layout.addWidget(QLabel('即将执行', self.sidebar))
+        self.entries = QListWidget(self.sidebar)
+        self.entries.setObjectName('scheduleTaskList')
+        self.entries.setSpacing(2)
+        self.entries.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.entries.customContextMenuRequested.connect(self._show_task_menu)
+        self.entries.currentItemChanged.connect(self._select_task)
+        layout.addWidget(self.entries, 1)
+        self.empty_tasks = QLabel('暂无定时任务，点击“新建任务”添加。', self.sidebar)
+        self.empty_tasks.setWordWrap(True)
+        layout.addWidget(self.empty_tasks)
+
+    def _toggle_search(self):
+        self.search.setVisible(not self.search.isVisible())
+        if self.search.isVisible():
+            self.search.setFocus()
+        else:
+            self.search.clear()
+
+    def _select_task(self, current, previous=None):
+        if current is not None:
+            self.load_task(current.data(Qt.UserRole))
+
+    def _set_editable(self, editable):
+        self._editing = editable
+        self.description.setReadOnly(not editable)
+        self.form_card.setEnabled(editable)
+        self.save_button.setEnabled(editable)
+        self.save_button.setToolTip('保存修改并退出编辑' if editable else '双击详情区域或点击任务的笔形图标后编辑')
+        self._apply_editor_surface()
+        self._sync_edit_icons()
+
+    def _apply_editor_surface(self):
+        surface = ('#242424' if self.theme_mode == 'dark' else '#f5f6fa') if self._editing else self._surface
+        self.editor_panel.setStyleSheet(f'''
+            QWidget#scheduleEditor {{background:{surface};border:none;border-radius:14px;}}
+            QPlainTextEdit, QFrame#scheduleCard, QWidget#scheduleDateTime,
+            QWidget#scheduleAdvancedBody {{background:{surface};}}
+        ''')
+        for widget in (self.description.viewport(), self.advanced, self.advanced_scroll, self.advanced_scroll.viewport()):
+            palette = widget.palette()
+            palette.setColor(QPalette.Window, QColor(surface))
+            palette.setColor(QPalette.Base, QColor(surface))
+            widget.setPalette(palette)
+        self.advanced_scroll.setStyleSheet(
+            f'QScrollArea#scheduleAdvancedScroll, QWidget#scheduleAdvancedViewport {{background:{surface};border:none;}}')
+
+    def _sync_edit_icons(self):
+        for index in range(self.entries.count()):
+            item = self.entries.item(index)
+            card = self.entries.itemWidget(item)
+            if card is not None:
+                card.set_editing(self._editing and item.data(Qt.UserRole) == self._task_id)
+
+    def eventFilter(self, watched, event):
+        if (not self._editing and self._task_id is not None
+                and event.type() in (QEvent.DragEnter, QEvent.DragMove, QEvent.Drop)):
+            path = ProjectPathEdit.dropped_path(event.mimeData())
+            if path is None:
+                event.ignore()
+                return True
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
+            if event.type() == QEvent.Drop and not self._replacement_pending:
+                self._replacement_pending = True
+                # Let the native drop finish before showing confirmation or a picker.
+                self.projectReplacementRequested.emit(self._task_id, str(path))
+            return True
+        if (event.type() == QEvent.MouseButtonDblClick and event.button() == Qt.LeftButton
+                and self._task_id is not None and not self._editing):
+            self._edit_task(self._task_id)
+            return True
+        return super().eventFilter(watched, event)
+
+    def _confirm_project_replacement(self, path):
+        box = QMessageBox(self)
+        box.setWindowTitle('更换项目目录')
+        box.setIcon(QMessageBox.Question)
+        box.setTextFormat(Qt.PlainText)
+        box.setText('是否更换项目目录？')
+        choice = '确认后从该目录选择项目文件，进入编辑，点击“保存”后生效。' if path.is_dir() else '确认后进入编辑，点击“保存”后生效。'
+        box.setInformativeText(f'当前项目：{self.path.text()}\n拖入路径：{path}\n\n{choice}')
+        replace = box.addButton('更换目录', QMessageBox.AcceptRole)
+        cancel = box.addButton('取消', QMessageBox.RejectRole)
+        box.setDefaultButton(cancel)
+        box.setEscapeButton(cancel)
+        from settings_theme import apply_settings_theme
+        apply_settings_theme(box, self.scheduler.window)
+        box.exec_()
+        accepted = box.clickedButton() is replace
+        box.deleteLater()
+        return accepted
+
+    def _replacement_target_available(self, task_id):
+        if not self.isVisible() or self._task_id != task_id or self._editing:
+            return False
+        try:
+            self.scheduler.task_by_id(task_id)
+        except ValueError:
+            return False
+        if self.scheduler.active and self.scheduler.active['id'] == task_id:
+            QMessageBox.information(self, '任务正在执行', '请结束任务后再更换项目目录。')
+            return False
+        return True
+
+    @Slot(str, str)
+    def _replace_readonly_project(self, task_id, dropped_path):
+        try:
+            if not self._replacement_target_available(task_id):
+                return
+            path = Path(dropped_path)
+            if not self._confirm_project_replacement(path):
+                return
+            if not self._replacement_target_available(task_id):
+                return
+            if path.is_dir():
+                selected, _ = QFileDialog.getOpenFileName(self, '选择项目文件', str(path), '项目文件 (*.xlsx)')
+                if not selected:
+                    return
+                path = Path(selected)
+            if not self._replacement_target_available(task_id):
+                return
+            if not path.is_file() or path.suffix.lower() != '.xlsx':
+                QMessageBox.warning(self, '无法更换项目目录', '请选择存在的 .xlsx 项目文件。')
+                return
+            self.load_task(task_id, editable=True)
+            self.path.setText(str(path))
+        except OSError as exc:
+            QMessageBox.warning(self, '无法更换项目目录', str(exc))
+        finally:
+            self._replacement_pending = False
+
+    def _edit_task(self, task_id):
+        if self._task_id == task_id and self._editing:
+            return
+        self.load_task(task_id, editable=True)
+
+    def _choose_enabled(self, enabled):
+        if self._editing:
+            self._show_enabled_state(enabled)
+        else:
+            self.save_task(enabled)
+
+    def _show_enabled_state(self, enabled):
+        self.enable_button.setChecked(bool(enabled))
+        self.disable_button.setChecked(not enabled)
+
+    def new_task(self):
+        self._task_id = None
+        self._set_editable(True)
+        self.title_label.setText('新建定时任务')
+        self.description.clear()
+        self.path.clear()
+        self.repeat.setCurrentText('每天')
+        self.when.setDateTime(QDateTime.currentDateTime().addSecs(300))
+        self.interval.setValue(60)
+        self.entries.blockSignals(True)
+        self.entries.setCurrentRow(-1)
+        self.entries.blockSignals(False)
+        self.enable_button.setToolTip('保存后启用任务')
+        self.disable_button.setToolTip('保存后暂不启用任务')
+        self._show_enabled_state(True)
+
+    def load_task(self, task_id, *, editable=False):
+        try:
+            task = self.scheduler.task_by_id(task_id)
+        except ValueError:
+            self.new_task()
+            return
+        active = self.scheduler.active and self.scheduler.active['id'] == task_id
+        if editable and active:
+            QMessageBox.information(self, '任务正在执行', '请结束任务后再编辑。')
+            return
+        self._task_id = task_id
+        self._set_editable(editable)
+        self.title_label.setText('编辑定时任务' if editable else '定时任务详情')
+        self.description.setPlainText(task.get('description', ''))
+        self.path.setText(task['path'])
+        self.repeat.setCurrentText(task['repeat'])
+        self.when.setDateTime(QDateTime.fromString(task['next_run'], Qt.ISODate))
+        self.interval.setValue(task.get('interval_minutes', 60))
+        self.enable_button.setToolTip('保存后启用任务' if editable else '启用此任务')
+        self.disable_button.setToolTip('保存后暂不启用任务' if editable else '不启用此任务')
+        self._show_enabled_state(task.get('enabled', True))
+        self.entries.blockSignals(True)
+        for index in range(self.entries.count()):
+            if self.entries.item(index).data(Qt.UserRole) == task_id:
+                self.entries.setCurrentRow(index)
+                break
+        self.entries.blockSignals(False)
+
+    def refresh(self, *_):
+        if not hasattr(self, 'entries'):
+            return
+        scroll = self.entries.verticalScrollBar().value()
+        query = self.search.text().strip().casefold()
+        tasks = sorted(self.scheduler.tasks, key=lambda task: (not task.get('enabled', True), task['next_run']))
+        self.entries.blockSignals(True)
         self.entries.clear()
-        for task in self.scheduler.tasks:
-            title = task.get('description') or task['path'].replace('\\', '/').rsplit('/', 1)[-1]
-            state = '启用' if task.get('enabled', True) else '停用'
-            self.entries.addItem(f"{title}  ·  {task['repeat']}  {task['next_run'].replace('T', ' ')}  ·  {state}\n{task.get('status', '')}")
-            self.entries.item(self.entries.count()-1).setToolTip(task['path'])
-        self.empty_tasks.setVisible(not self.entries.count())
-        self.entries.setVisible(bool(self.entries.count()))
-        if self.advanced_button.isChecked():
-            QTimer.singleShot(0, self._fit_advanced_height)
-        if self.entries.count():
-            self.entries.setCurrentRow(max(0, min(selected, self.entries.count()-1)))
+        for task in tasks:
+            title = task.get('description', '').strip().split('\n')[0] or Path(task['path']).name
+            if query and query not in (title + ' ' + task['path']).casefold():
+                continue
+            due = datetime.fromisoformat(task['next_run'])
+            day = '今天' if due.date() == datetime.now().date() else due.strftime('%m月%d日')
+            repeat = task['repeat']
+            if repeat == '自定义':
+                repeat = f"每 {task.get('interval_minutes', 60)} 分钟"
+            details = f'{day} {due:%H:%M:%S} · {repeat}'
+            enabled = task.get('enabled', True)
+            item = QListWidgetItem()
+            item.setData(Qt.UserRole, task['id'])
+            item.setData(Qt.AccessibleTextRole, f"{title}，{details}，{'开启' if enabled else '未开启'}")
+            item.setToolTip(f"{task['path']}\n{task.get('status', '')}\n右击可编辑")
+            self.entries.addItem(item)
+            active = bool(self.scheduler.active and self.scheduler.active['id'] == task['id'])
+            card = ScheduleTaskCard(title, details, enabled=enabled, editable=not active,
+                                    dark=self.theme_mode == 'dark', parent=self.entries)
+            card.editRequested.connect(lambda task_id=task['id']: self._edit_task(task_id))
+            card.set_editing(self._editing and task['id'] == self._task_id)
+            self.entries.setItemWidget(item, card)
+            card.ensurePolished()
+            item.setSizeHint(QSize(0, max(card.sizeHint().height(), card.minimumSizeHint().height())))
+            if task['id'] == self._task_id:
+                self.entries.setCurrentItem(item)
+        self.entries.blockSignals(False)
+        self.entries.verticalScrollBar().setValue(scroll)
+        self.empty_tasks.setText('没有匹配的任务。' if query else '暂无定时任务，点击“新建任务”添加。')
+        self.empty_tasks.setVisible(self.entries.count() == 0)
+        if self._task_id and not self._editing:
+            self.load_task(self._task_id)
+
+    def build_task_menu(self, task_id):
+        task = self.scheduler.task_by_id(task_id)
+        active = bool(self.scheduler.active and self.scheduler.active['id'] == task_id)
+        menu = QMenu(self)
+        edit = menu.addAction('编辑')
+        edit.setEnabled(not active)
+        edit.triggered.connect(lambda: self._edit_task(task_id))
+        toggle = menu.addAction('未开启' if task.get('enabled', True) else '开启')
+        toggle.triggered.connect(lambda: self._toggle_task(task_id))
+        menu.addSeparator()
+        delete = menu.addAction('删除任务')
+        delete.setEnabled(not active)
+        delete.triggered.connect(lambda: self.delete_task(task_id))
+        from context_menu_style import style_context_menu
+        style_context_menu(menu, self.scheduler.window)
+        return menu
+
+    def _show_task_menu(self, position):
+        item = self.entries.itemAt(position)
+        if item is None:
+            return
+        menu = self.build_task_menu(item.data(Qt.UserRole))
+        menu.exec_(self.entries.viewport().mapToGlobal(position))
+        menu.deleteLater()
+
+    def _toggle_task(self, task_id):
+        try:
+            task = self.scheduler.task_by_id(task_id)
+            self.scheduler.set_enabled(task_id, not task.get('enabled', True))
+        except ValueError as exc:
+            QMessageBox.warning(self, '无法更改定时任务', str(exc))
+
+    def save_task(self, enabled):
+        try:
+            if self._task_id is not None and not self._editing:
+                self.scheduler.set_enabled(self._task_id, enabled)
+                self._show_enabled_state(self.scheduler.task_by_id(self._task_id).get('enabled', True))
+                return
+            values = dict(description=self.description.toPlainText().strip(), path=self.path.text().strip(),
+                repeat=self.repeat.currentText(), interval_minutes=self.interval.value(), enabled=enabled,
+                next_run=self.when.dateTime().toString('yyyy-MM-ddTHH:mm:ss'))
+            task_id = (self.scheduler.update_task(self._task_id, values) if self._task_id is not None
+                       else self.scheduler.add(values))
+        except (ValueError, OSError) as exc:
+            task = next((task for task in self.scheduler.tasks if task['id'] == self._task_id), None)
+            self._show_enabled_state(enabled if self._editing else task.get('enabled', True) if task else True)
+            QMessageBox.warning(self, '无法保存定时任务', str(exc))
+            return
+        self.load_task(task_id)
 
     def create_task(self):
+        self.save_task(True)
+
+    def delete_task(self, task_id=None):
+        if task_id is None:
+            item = self.entries.currentItem()
+            task_id = item.data(Qt.UserRole) if item else None
+        if task_id is None:
+            return
         try:
-            self.scheduler.add(dict(description=self.description.toPlainText().strip(), path=self.path.text().strip(),
-                repeat=self.repeat.currentText(), interval_minutes=self.interval.value(), next_run=self.when.dateTime().toString('yyyy-MM-ddTHH:mm:ss')))
-        except (ValueError, OSError) as exc:
-            QMessageBox.warning(self, '无法创建定时任务', str(exc))
+            self.scheduler.remove_task(task_id)
+        except ValueError as exc:
+            QMessageBox.warning(self, '无法删除定时任务', str(exc))
             return
-        self.description.clear()
-        self.refresh()
-
-    def toggle_task(self):
-        row = self.entries.currentRow()
-        if row < 0:
-            return
-        task = self.scheduler.tasks[row]
-        if not task.get('enabled', True) and datetime.fromisoformat(task['next_run']) <= datetime.now():
-            from scheduled_tasks import next_occurrence
-            value = next_occurrence(task, datetime.now())
-            if value is None:
-                QMessageBox.information(self, '设置时间', '单次任务的时间已过去，请在上方选择新的时间创建任务。')
-                return
-            task['next_run'] = value
-        task['enabled'] = not task.get('enabled', True)
-        self.scheduler.save()
-
-    def delete_task(self):
-        row = self.entries.currentRow()
-        if row < 0:
-            return
-        task = self.scheduler.tasks[row]
-        if self.scheduler.active and self.scheduler.active['id'] == task['id']:
-            QMessageBox.information(self, '任务正在执行', '请先结束当前定时任务，再删除。')
-            return
-        self.scheduler.queue[:] = [item for item in self.scheduler.queue if item['id'] != task['id']]
-        self.scheduler.tasks.pop(row)
-        self.scheduler.save()
+        if self._task_id == task_id:
+            self.new_task()

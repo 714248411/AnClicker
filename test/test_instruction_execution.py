@@ -132,6 +132,22 @@ class InstructionFallbackTests(unittest.TestCase):
 
     def test_all_registered_fallbacks_execute_without_delegated_service(self):
         parameters_ = self._parameters()
+        from test.test_background_runtime import Windows, Transport
+        from background_runtime import bind_background, close_background
+        parameters_.update({
+            "绑定选择窗口": {"绑定等待": 0}, "解除后台绑定": {},
+            "暂不运行以下指令": {}, "暂不运行以上指令": {},
+            "后台文字识别": {"接口": "Ocr"},
+            "后台字库管理": {"接口": "UseDict"},
+            "后台图色操作": {"接口": "GetColor"},
+            "后台键鼠操作": {"接口": "LeftClick"},
+            "后台窗口操作": {"接口": "GetClientSize"},
+            "后台信息窗口": {"接口": "CreateFoobarRect"},
+            "后台内存操作": {"接口": "ReadInt", "参数": '{"addr":"1000"}'},
+            "后台汇编操作": {"接口": "AsmClear"},
+            "后台答题器": {"接口": "FaqGetSize"},
+        })
+        self.context_.services.update(background_windows=Windows, background_transport=Transport)
         from instructions.common.rpa_instruction import CATALOG
         rpa_ids = {item['type_id'] for item in CATALOG.values()}
         self.assertEqual(set(parameters_), {spec_.type_id for spec_ in INSTRUCTION_SPECS} - rpa_ids)
@@ -172,6 +188,14 @@ class InstructionFallbackTests(unittest.TestCase):
                     # must not suppress all the later subtests.
                     self.context_.stop_requested = False
                     executor_ = spec_.create_executor()
+                    if spec_.category == "后台功能":
+                        try:
+                            if spec_.type_id != "绑定选择窗口":
+                                bind_background(self.context_, {"绑定等待": 0})
+                            executor_.execute(self.context_, _command(spec_.type_id, parameters_[spec_.type_id]))
+                        finally:
+                            close_background(self.context_)
+                        continue
                     if spec_.type_id == "报错跳转":
                         # This routing module is only executed by the graph's exception path.
                         with self.assertRaisesRegex(ValueError, "不是普通指令"):
@@ -196,6 +220,11 @@ class InstructionFallbackTests(unittest.TestCase):
         common_source_ = (Path(actions.__file__).read_text(encoding="utf-8"))
         from instructions.common import local_ocr_instruction
         common_source_ += Path(local_ocr_instruction.__file__).read_text(encoding='utf-8')
+        from instructions.common import background_instruction
+        import background_runtime, background_binding
+        common_source_ += Path(background_binding.__file__).read_text(encoding="utf-8")
+        common_source_ += Path(background_instruction.__file__).read_text(encoding="utf-8")
+        common_source_ += Path(background_runtime.__file__).read_text(encoding="utf-8")
         from instructions.common import rpa_instruction
         common_source_ += Path(rpa_instruction.__file__).read_text(encoding='utf-8')
         common_source_ += (Path(actions.__file__).resolve().parents[2] / 'integrations/yingdao/src/engine.js').read_text(encoding='utf-8')

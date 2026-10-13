@@ -19,7 +19,13 @@ class _TestWorker(QThread):
         except Exception as error:
             self.error = error
         finally:
-            self.context.output = output
+            try:
+                from instructions.common.actions import release_recorded_inputs
+                release_recorded_inputs(self.context)
+            finally:
+                from background_runtime import close_background
+                close_background(self.context)
+                self.context.output = output
 
 
 class CancellableTestDialog(QDialog):

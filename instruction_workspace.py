@@ -99,6 +99,7 @@ class InstructionWorkspace(QObject):
         return self.editor.focus_command(int(command_id))
 
     def reload_graph(self, focus_command_id: Optional[int] = None) -> None:
+        self.repository.align_comment_marker_orders()
         snapshot_ = self.repository.snapshot()
         pool = getattr(self.parent_window, 'ocr_pool', None)
         if pool is not None:
@@ -115,6 +116,31 @@ class InstructionWorkspace(QObject):
             snapshot_.nodes, snapshot_.edges, INSTRUCTION_SPECS,
             allow_incomplete=True,
         )
+        from flow_comments import snapshot_disabled_ids
+        from qt_compat.QtWidgets import QGraphicsColorizeEffect
+        from qt_compat.QtGui import QColor
+        disabled = snapshot_disabled_ids(snapshot_)
+        scene = self.editor.scene
+        for node in scene.nodes_by_id.values():
+            node.comment_disabled = node.command_id in disabled
+            if node.comment_disabled:
+                effect = QGraphicsColorizeEffect()
+                effect.setColor(QColor('#929292'))
+                effect.setStrength(1.0)
+                node.setGraphicsEffect(effect)
+                node.setToolTip('已注释：不参与运行（按流程连线方向）')
+        for edge in scene.edges:
+            edge.comment_disabled = (edge.source_node.command_id in disabled
+                                     and edge.target_node.command_id in disabled)
+            if edge.source_node.node_id == 'start' and edge.target_node.command_id in disabled and edge.target_node.type_id != '暂不运行以下指令':
+                edge.comment_disabled = True
+            if edge.target_node.node_id == 'end' and edge.source_node.command_id in disabled and edge.source_node.type_id != '暂不运行以上指令':
+                edge.comment_disabled = True
+            if edge.comment_disabled:
+                effect = QGraphicsColorizeEffect()
+                effect.setColor(QColor('#929292'))
+                effect.setStrength(1.0)
+                edge.setGraphicsEffect(effect)
         if focus_command_id is not None:
             self.editor.focus_command(int(focus_command_id))
         else:
@@ -771,7 +797,7 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                if spec_.type_id in {'中键激活', '时间等待', '按键等待', '鼠标点击', '按下键盘'} or spec_.category in {'本地OCR', 'Excel', '白话指令', '网页自动化', '数据抓取'}:
+                if spec_.type_id in {'中键激活', '时间等待', '按键等待', '鼠标点击', '按下键盘'} or spec_.category in {'本地OCR', 'Excel', '白话指令', '网页自动化', '数据抓取', '后台功能'}:
                     from instructions.common.test_runner import run_cancellable_test
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:

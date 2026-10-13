@@ -53,6 +53,10 @@ def collect_instruction_datas():
 
 
 instruction_datas = collect_instruction_datas()
+for name in ("background_dm_host.ps1", "background_dm_worker.py", "background_dm_methods.json",
+             "background_native_72424.cs", "background_native_72424.json"):
+    instruction_datas.append((str(Path(project_root) / name), "."))
+# The locally verified external DLLs and local registration configuration are not public build inputs.
 # Native Qt editors call the isolated reference engine; bundle its sources and runtime.
 rpa_root = Path(project_root) / 'integrations' / 'yingdao'
 rpa_runtime = Path(project_root) / 'runtime' / 'electron'

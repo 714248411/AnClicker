@@ -210,3 +210,41 @@ def test_image_information_entry_uses_confirmed_position(screen, disappears):
         assert result == '内容'
         screen.click_mock.assert_called_once_with(240, 150, clicks=3, interval=0.0, button='left')
         clipboard.copy.assert_called_once_with('内容')
+
+
+@pytest.mark.parametrize('offset', ['(0,0)', '(100,-50)', '(随机,随机)'])
+def test_detection_only_never_moves_or_clicks(screen, offset):
+    with patch.object(actions, 'image_random_offset') as random_offset:
+        assert screen.execute(动作='无操作', 点击位置=offset) == (40, 50)
+    screen.move_mock.assert_not_called()
+    screen.click_mock.assert_not_called()
+    random_offset.assert_not_called()
+
+
+@pytest.mark.parametrize('skip', [False, True])
+def test_detection_only_missing_keeps_error_policy(screen, skip):
+    screen.position = None
+    if skip:
+        assert screen.execute(动作='无操作', 异常='自动略过') is False
+    else:
+        with pytest.raises(FileNotFoundError):
+            screen.execute(动作='无操作', 异常='0')
+    screen.move_mock.assert_not_called()
+    screen.click_mock.assert_not_called()
+
+
+def test_detection_only_can_wait_for_image(screen):
+    screen.position = None
+    screen.after_capture = lambda _: setattr(screen, 'position', (240, 150))
+    assert screen.execute(动作='无操作', 异常='1') == (240, 150)
+    assert screen.captures >= 2
+    screen.move_mock.assert_not_called()
+    screen.click_mock.assert_not_called()
+
+
+def test_detection_only_stop_during_capture(screen):
+    context = ExecutionContext()
+    screen.after_capture = lambda _: setattr(context, 'stop_requested', True)
+    assert screen.execute(context=context, 动作='无操作') is False
+    screen.move_mock.assert_not_called()
+    screen.click_mock.assert_not_called()

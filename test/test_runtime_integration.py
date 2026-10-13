@@ -252,7 +252,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
             window_ = Main_window()
         self.assertFalse(hasattr(window_, "tableWidget"))
         self.assertFalse(hasattr(window_, "groupBox_4"))
-        self.assertEqual(len(window_.workspace.palette.specs()), 95)
+        self.assertEqual(len(window_.workspace.palette.specs()), 108)
         self.assertIs(window_.view_workspace.docking.host.centralWidget(), window_.tabWidget)
         self.assertIs(window_.view_workspace.docking.docks['palette'].widget(), window_.instructionPaletteHost)
         self.assertIs(window_.view_workspace.docking.docks['controls'].widget(), window_.view_workspace.controls_scroll)

@@ -162,6 +162,7 @@ class ImageClickEditorMixin:
         grid.addWidget(ui.parameter_4, 1, 3)
         grid.addWidget(QLabel('指令名称：'), 2, 0)
         grid.addWidget(ui.parameter_1, 2, 1, 1, 2)
+        ui.parameter_1.setToolTip("无操作：只识别图片，不移动或点击鼠标；未找到时按异常设置处理。")
         grid.addWidget(self.advanced_button, 2, 3)
         grid.setColumnStretch(1, 1)
         layout.addLayout(grid)

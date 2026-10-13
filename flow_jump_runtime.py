@@ -3,6 +3,9 @@ from flow_jumps import JUMP_KINDS, row_node, target_config
 
 
 def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
+    from flow_comments import comment_successors, snapshot_disabled_ids
+    commented = comment_successors(snapshot)
+    disabled = snapshot_disabled_ids(snapshot)
     nodes = {node.node_id: node for node in snapshot.nodes}
     commands = {command.id: command for command in snapshot.commands}
     ordered = sorted((node for node in snapshot.nodes if node.command_id is not None),
@@ -18,10 +21,14 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
                  for value in (edge.source, edge.target)}
     incoming = {edge.target for edge in snapshot.edges if edge.kind not in JUMP_KINDS}
     pending = [edge.target for edge in normal.get('start',())]
-    pending += [node_id for node_id in active if node_id in connected and node_id not in incoming]
-    pending += [node_id for node_id in active if nodes[node_id].type_id in {'循环','条件循环'} and node_id in connected]
+    run_unconnected = getattr(worker, 'run_unconnected', True)
+    if run_unconnected:
+        pending += [node_id for node_id in active if node_id in connected and node_id not in incoming]
+        pending += [node_id for node_id in active if nodes[node_id].type_id in {'循环','条件循环'} and node_id in connected]
     pending = list(dict.fromkeys(pending))
     strict = start_id is not None
+    if strict:
+        pending.clear()
     current = start_id or 'end'
     visited, path, iterations = set(), set(), {}
 
@@ -64,9 +71,8 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
     while worker.start_state and not context.stop_requested:
         if current == 'end':
             pending[:] = [value for value in pending if value not in visited and value != 'end']
-            if not pending and not strict:
-                pending[:] = [node_id for node_id in active if node_id not in visited
-                              and (getattr(worker,'run_unconnected',True) or node_id in connected)]
+            if not pending and not strict and run_unconnected:
+                pending[:] = [node_id for node_id in active if node_id not in visited]
             if not pending: return
             current = pending.pop(0)
             path.clear()
@@ -77,6 +83,17 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
         node = nodes.get(current)
         if node is None or node.command_id is None:
             raise ValueError('跳转目标不存在：'+str(current))
+        if current in commented:
+            if single:
+                return
+            if current in path:
+                raise ValueError('注释区间跳转形成环路')
+            path.add(current)
+            visited.add(current)
+            targets = commented[current]
+            pending[0:0] = [target for target in targets[1:] if target != 'end']
+            current = targets[0]
+            continue
         command = commands[node.command_id]
         if command.type_id == '报错跳转':
             raise ValueError('报错模块不能作为普通执行入口')
@@ -107,7 +124,8 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
                 break
             except Exception as error:
                 if context.stop_requested or not worker.start_state: return
-                binding = next((edge for edge in all_edges[current] if edge.kind == 5),None)
+                binding = next((edge for edge in all_edges[current] if edge.kind == 5
+                                and nodes[edge.target].command_id not in disabled),None)
                 if binding is not None:
                     from instructions.common.actions import release_recorded_inputs
                     release_recorded_inputs(context)

@@ -61,7 +61,7 @@ class InstructionExecutor(InstructionExecutorBase):
                 size_ = gui_.size()
                 width_ = size_.width if hasattr(size_, "width") else size_[0]
                 height_ = size_.height if hasattr(size_, "height") else size_[1]
-                x_, y_ = random.randint(0, width_), random.randint(0, height_)
+                x_, y_ = random.randint(0, width_ - 1), random.randint(0, height_ - 1)
                 gui_.moveTo(x_, y_, duration=random.uniform(0.1, 0.9))
         else:
             distance_ = int(actions.parameter(p_, "距离", default=100))

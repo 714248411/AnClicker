@@ -169,3 +169,14 @@ def test_consecutive_capture_selects_latest_and_failure_preserves_it(editor):
         assert widget.get_draft().parameters['图像路径'] == previous
         assert widget.image_combo.currentText() == Path(previous).name
         assert widget.isVisible()
+
+
+def test_detection_only_action_roundtrip(editor):
+    widget, _ = editor
+    assert widget.ui.parameter_1.findText('无操作') >= 0
+    widget.ui.parameter_1.setCurrentText('无操作')
+    draft = widget.get_draft()
+    assert draft.parameters['动作'] == '无操作'
+    widget.ui.parameter_1.setCurrentText('左键单击')
+    widget.load_draft(draft)
+    assert widget.get_draft().parameters['动作'] == '无操作'

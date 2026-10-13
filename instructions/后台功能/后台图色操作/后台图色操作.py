@@ -1,0 +1,16 @@
+from instructions.common import FieldSpec, SchemaInstructionEditor
+from instructions.common.background_instruction import BackgroundMethodEditor, BackgroundExecutor, BindingEditor
+from importlib import import_module
+Ui_InstructionEditor = import_module('.后台图色操作_ui', __package__).Ui_InstructionEditor
+
+class InstructionEditor(BackgroundMethodEditor):
+    TYPE_ID = DISPLAY_NAME = '后台图色操作'
+    UI_CLASS = Ui_InstructionEditor
+    FIELDS = (
+        FieldSpec(key='接口', label='操作', kind='choice', default='读取 RGB 颜色 · GetColor', choices=('读取 RGB 颜色 · GetColor', '读取 HSV 颜色 · GetColorHSV', 'GetColorBGR', '比较颜色 · CmpColor', '区域 RGB 均值 · GetAveRGB', '区域 HSV 均值 · GetAveHSV', 'RGB2BGR', 'BGR2RGB', '查找颜色 · FindColor', '查找全部颜色位置 · FindColorEx', 'FindColorE', '多点找色 · FindMultiColor', '多点找色全部位置 · FindMultiColorEx', 'FindMultiColorE', '查找图片 · FindPic', '查找全部图片位置 · FindPicEx', 'FindPicE', '截图保存 BMP · Capture', '截图保存 PNG · CapturePng', '截图保存 JPG · CaptureJpg', '录制区域动图 · CaptureGif', 'LoadPic', 'FreePic', 'SetPicPwd', 'GetPicSize', 'MatchPicName', 'GetColorNum', 'FindShape', 'FindShapeE', 'FindShapeEx', 'ImageToBmp', 'FindColorBlock', 'FindColorBlockEx', 'FindPicSim', 'FindPicSimEx', '获取图像数组 · CaptureArray'), required=False, minimum=-1000000, maximum=1000000),
+        FieldSpec(key='参数', label='接口参数', kind='multiline', default='{}', choices=(), required=False, minimum=-1000000, maximum=1000000),
+        FieldSpec(key='变量', label='结果变量（可选）', kind='text', default='', choices=(), required=False, minimum=-1000000, maximum=1000000),
+    )
+
+class InstructionExecutor(BackgroundExecutor):
+    TYPE_ID = '后台图色操作'

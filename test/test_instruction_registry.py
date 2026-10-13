@@ -37,9 +37,9 @@ class InstructionRegistryTests(unittest.TestCase):
         type_ids_ = [spec_.type_id for spec_ in INSTRUCTION_SPECS]
         module_paths_ = [spec_.module_path for spec_ in INSTRUCTION_SPECS]
 
-        self.assertEqual(len(type_ids_), 95)
-        self.assertEqual(len(set(type_ids_)), 95)
-        self.assertEqual(len(set(module_paths_)), 95)
+        self.assertEqual(len(type_ids_), 108)
+        self.assertEqual(len(set(type_ids_)), 108)
+        self.assertEqual(len(set(module_paths_)), 108)
         self.assertEqual(tuple(module_paths_), hidden_imports())
         for spec_ in INSTRUCTION_SPECS:
             self.assertTrue(spec_.display_name)
@@ -160,7 +160,7 @@ class InstructionRegistryTests(unittest.TestCase):
 
                     self.assertEqual(restored_.type_id, spec_.type_id)
                     self.assertEqual(restored_.parameters, parameters_)
-                    self.assertEqual(restored_.repeat_count, 3)
+                    self.assertEqual(restored_.repeat_count, 1 if spec_.type_id in {"暂不运行以下指令", "暂不运行以上指令"} else 3)
                     self.assertEqual(restored_.error_policy, "自动跳过")
                     self.assertEqual(restored_.note, "JSON round trip")
                     self.assertEqual(

@@ -826,7 +826,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             """执行前的操作"""
             self.clear_signal.emit()  # 清空日志
             self.view_workspace.highlight_running_command(None)
-            self.view_workspace.show_table()  # 切换到保留日志的表格视图
+            self.view_workspace.begin_runtime_view()
             if self.checkBox_2.isChecked() and escape_available_:  # Keep stop controls visible if global Esc is unavailable.
                 self.hide()
 
@@ -900,6 +900,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return
         if self.command_thread.isRunning():
             return
+        self.view_workspace.end_runtime_view()
         self.run_unconnected_checkbox.setEnabled(True)
         self.escape_stop.setEnabled(bool(getattr(self, 'task_scheduler', None) and self.task_scheduler.busy))
         if self._escape_registered:

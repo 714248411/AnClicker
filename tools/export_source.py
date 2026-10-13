@@ -12,6 +12,8 @@ skip = {'__pycache__', 'node_modules', '.pytest_cache', '.git'}
 diagnostics = {'inspect_defaults.py', 'inspect_update_sdk.py', 'probe_conversion.py', 'check_hao123.py'}
 target = ROOT.parent / f'AnClicker-{CURRENT_VERSION}-win-DaiMa.zip'
 files = [p for p in ROOT.iterdir() if p.is_file() and (p.suffix.lower() in {'.py', '.md', '.toml', '.lock', '.txt', '.qrc', '.ico', '.cmd'} or p.name in {'LICENSE', '.gitignore', '.python-version'})]
+files += [ROOT / name for name in ('background_dm_host.ps1', 'background_dm_methods.json',
+          'background_native_72424.cs', 'background_native_72424.json')]
 for folder in sorted(folders):
     for current, dirs, names in os.walk(ROOT / folder):
         dirs[:] = [d for d in dirs if d not in skip]

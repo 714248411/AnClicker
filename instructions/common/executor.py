@@ -10,14 +10,16 @@ class InstructionExecutorBase(InstructionExecutorInterface):
     """所有独立执行器的统一接口。"""
 
     def execute(self, context: ExecutionContext, command: CommandRecord):
-        result_ = None
-        for _ in range(command.repeat_count):
-            if context.stop_requested:
-                break
-            result_ = self.execute_once(context, command)
-            if context.stop_requested:
-                break
-        return result_
+        from background_runtime import input_context
+        with input_context(context):
+            result_ = None
+            for _ in range(command.repeat_count):
+                if context.stop_requested:
+                    break
+                result_ = self.execute_once(context, command)
+                if context.stop_requested:
+                    break
+            return result_
 
     def execute_once(self, context: ExecutionContext, command: CommandRecord):
         raise NotImplementedError

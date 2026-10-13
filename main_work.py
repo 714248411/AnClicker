@@ -129,7 +129,11 @@ class CommandThread(QThread):
                 self.request_stop()
             finally:
                 from instructions.common.actions import release_recorded_inputs
-                release_recorded_inputs(context_)
+                try:
+                    release_recorded_inputs(context_)
+                finally:
+                    from background_runtime import close_background
+                    close_background(context_)
                 self.mutex.lock()
                 try:
                     if self._active_context is context_:
@@ -257,6 +261,9 @@ class CommandThread(QThread):
             self._execute_flow(self.repository.execution_snapshot(), context_)
             return
         snapshot_ = self.repository.execution_snapshot()
+        from flow_comments import snapshot_disabled_ids
+        disabled_ = snapshot_disabled_ids(snapshot_)
+        commands_ = [command for command in commands_ if command.id not in disabled_]
         if any(command.type_id in {'报错跳转','变量比较'} for command in snapshot_.commands) and commands_:
             from flow_jump_runtime import execute_jump_flow
             start_id = next(node.node_id for node in snapshot_.nodes if node.command_id == commands_[0].id)
@@ -319,6 +326,8 @@ class CommandThread(QThread):
         if start_id is not None or any(command.type_id in {'报错跳转','变量比较'} for command in snapshot_.commands):
             from flow_jump_runtime import execute_jump_flow
             return execute_jump_flow(self,snapshot_,context_,start_id)
+        from flow_comments import comment_successors
+        commented_ = comment_successors(snapshot_)
         node_by_id_ = {node_.node_id: node_ for node_ in snapshot_.nodes}
         command_by_id_ = {int(command_.id): command_ for command_ in snapshot_.commands}
         outgoing_: dict[str, list] = {node_id_: [] for node_id_ in node_by_id_}
@@ -336,11 +345,13 @@ class CommandThread(QThread):
         }
         incoming_ = {edge_.target for edge_ in snapshot_.edges}
         roots_ = [edge_.target for edge_ in start_edges_]
-        roots_.extend(node_.node_id for node_ in insertion_nodes_
-                      if node_.node_id in connected_ and node_.node_id not in incoming_)
-        roots_.extend(node_.node_id for node_ in insertion_nodes_
-                      if node_.node_id in connected_
-                      and node_.type_id in {"循环", "条件循环"})
+        run_unconnected_ = getattr(self, 'run_unconnected', True)
+        if run_unconnected_:
+            roots_.extend(node_.node_id for node_ in insertion_nodes_
+                          if node_.node_id in connected_ and node_.node_id not in incoming_)
+            roots_.extend(node_.node_id for node_ in insertion_nodes_
+                          if node_.node_id in connected_
+                          and node_.type_id in {"循环", "条件循环"})
         executed_ = set()
         pending_ = list(dict.fromkeys(roots_))
         current_id_ = "end"
@@ -352,11 +363,10 @@ class CommandThread(QThread):
         while self.start_state:
             if current_id_ == "end":
                 pending_ = [item_ for item_ in pending_ if item_ not in executed_]
-                if not pending_:
+                if not pending_ and run_unconnected_:
                     fallback_ = True
                     pending_ = [node_.node_id for node_ in insertion_nodes_
-                                if node_.node_id not in executed_
-                                and (getattr(self, 'run_unconnected', True) or node_.node_id in connected_)]
+                                if node_.node_id not in executed_]
                 if not pending_:
                     return
                 current_id_ = pending_.pop(0)
@@ -370,6 +380,16 @@ class CommandThread(QThread):
             if node_ is None or node_.command_id is None:
                 raise GraphValidationError(f"流程指向了无效节点：{current_id_}")
             command_ = command_by_id_[int(node_.command_id)]
+            if current_id_ in commented_:
+                if current_id_ in path_:
+                    raise GraphValidationError("注释区间跳转形成环路")
+                path_.add(current_id_)
+                executed_.add(current_id_)
+                targets_ = commented_[current_id_]
+                if not fallback_:
+                    pending_[0:0] = [target for target in targets_[1:] if target != "end"]
+                current_id_ = "end" if fallback_ else targets_[0]
+                continue
             if current_id_ in path_:
                 if command_.type_id not in {"循环", "条件循环"}:
                     raise GraphValidationError("检测到没有循环控制节点的循环连线，已停止")
@@ -530,7 +550,7 @@ class CommandThread(QThread):
                 context.emit(f'项目{"已中断" if context.stop_requested or not self.start_state else "已完成"}：{path.name}')
             finally:
                 # Propagate key/button tracking changes back to the calling scope.
-                for key in ('recorded_keys', 'recorded_buttons'):
+                for key in ('recorded_keys', 'recorded_buttons', '_background_session', '_background_error'):
                     if key in context.metadata:
                         saved_metadata[key] = context.metadata[key]
                     else:

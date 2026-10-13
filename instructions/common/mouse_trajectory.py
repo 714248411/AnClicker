@@ -55,7 +55,10 @@ def screen_bounds(gui, start, end):
     """
     import sys
     try:
-        if sys.platform == "win32":
+        if getattr(gui, "is_background", False) is True:
+            w, h = gui.size()
+            x = y = 0
+        elif sys.platform == "win32":
             import ctypes
             metrics = ctypes.windll.user32.GetSystemMetrics
             x, y, w, h = (metrics(i) for i in (76, 77, 78, 79))

@@ -1,0 +1,16 @@
+from instructions.common import FieldSpec, SchemaInstructionEditor
+from instructions.common.background_instruction import BackgroundMethodEditor, BackgroundExecutor, BindingEditor
+from importlib import import_module
+Ui_InstructionEditor = import_module('.后台窗口操作_ui', __package__).Ui_InstructionEditor
+
+class InstructionEditor(BackgroundMethodEditor):
+    TYPE_ID = DISPLAY_NAME = '后台窗口操作'
+    UI_CLASS = Ui_InstructionEditor
+    FIELDS = (
+        FieldSpec(key='接口', label='操作', kind='choice', default='枚举窗口 · EnumWindow', choices=('枚举窗口 · EnumWindow', 'EnumWindowByProcess', 'EnumWindowSuper', '查找窗口 · FindWindow', 'FindWindowEx', 'FindWindowByProcess', 'FindWindowByProcessId', 'GetWindow', '读取窗口状态 · GetWindowState', '读取窗口标题 · GetWindowTitle', '读取窗口类名 · GetWindowClass', 'GetWindowProcessId', 'GetWindowProcessPath', '获取窗口矩形 · GetWindowRect', 'GetClientRect', '获取内容区大小 · GetClientSize', 'GetPointWindow', 'GetMousePointWindow', 'ClientToScreen', 'ScreenToClient', 'SetWindowText', '调整窗口大小 · SetWindowSize', '调整内容区大小 · SetClientSize', '移动窗口 · MoveWindow', '设置窗口状态 · SetWindowState', 'SetWindowTransparent'), required=False, minimum=-1000000, maximum=1000000),
+        FieldSpec(key='参数', label='接口参数', kind='multiline', default='{}', choices=(), required=False, minimum=-1000000, maximum=1000000),
+        FieldSpec(key='变量', label='结果变量（可选）', kind='text', default='', choices=(), required=False, minimum=-1000000, maximum=1000000),
+    )
+
+class InstructionExecutor(BackgroundExecutor):
+    TYPE_ID = '后台窗口操作'
