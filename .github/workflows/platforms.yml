@@ -1,7 +1,7 @@
 name: Verify macOS and Linux packages
 on:
   push:
-    branches: [codex/v1.5.4-platforms]
+    branches: [codex/v1.5.5-platforms]
   workflow_dispatch:
 permissions:
   contents: read
@@ -124,7 +124,7 @@ jobs:
       - name: Verify final downloadable package
         run: |
           mkdir extracted reports
-          unzip -q delivery/AnClicker-v1.5.4-${{ matrix.package }}.zip -d extracted
+          unzip -q delivery/AnClicker-v1.5.5-${{ matrix.package }}.zip -d extracted
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
             sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
@@ -132,7 +132,7 @@ jobs:
           python packaging/smoke_release.py --dist extracted/${{ matrix.folder }} 2>&1 | tee reports/final-${{ matrix.artifact }}.txt
           python - <<'PY'
           import hashlib, json, pathlib, platform
-          p = pathlib.Path('delivery/AnClicker-v1.5.4-${{ matrix.package }}.zip')
+          p = pathlib.Path('delivery/AnClicker-v1.5.5-${{ matrix.package }}.zip')
           pathlib.Path('reports/final-${{ matrix.artifact }}.json').write_text(json.dumps({
               'system': platform.platform(), 'architecture': platform.machine(),
               'commit': '${{ github.sha }}', 'package': p.name,
@@ -142,3 +142,25 @@ jobs:
         with:
           name: final-verification-${{ matrix.artifact }}
           path: reports/*
+
+  stage-native:
+    needs: verify-final
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: final-platform-packages
+          path: delivery
+      - name: Stage verified native archives in draft release
+        run: python3 packaging/upload_native_assets.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-upload-verification
+          path: native-upload.json

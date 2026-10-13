@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import weakref
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +15,17 @@ from graph_repository import END_NODE_ID, GraphRepository
 from instructions.models import CommandRecord, ExecutionContext, InstructionDraft
 from instructions.registry import INSTRUCTION_SPECS, get_instruction_spec
 from node_editor import InstructionPalette, NodeEditorWidget
+
+
+def _weak_callback(method, default=None):
+    """Do not let view callback attributes keep their Qt owner alive in a cycle."""
+    reference = weakref.WeakMethod(method)
+
+    def call(*args, **kwargs):
+        callback = reference()
+        return callback(*args, **kwargs) if callback is not None else default
+
+    return call
 
 
 class InstructionWorkspace(QObject):
@@ -64,14 +76,20 @@ class InstructionWorkspace(QObject):
         self.editor.saveTemplateRequested.connect(self._save_template)
         self.editor.insertTemplateRequested.connect(self._insert_template)
         self.editor.manageTemplatesRequested.connect(self._manage_templates)
-        self.editor.view.template_names_provider = self._template_names
+        self.editor.view.template_names_provider = _weak_callback(self._template_names, ())
         self.editor.view.deleteEdgeRequested.connect(self._delete_edge)
         self.editor.view.deleteEdgesRequested.connect(self._delete_edges)
-        self.editor.view.can_cut_connections = self._connection_edit_allowed
+        self.editor.view.can_cut_connections = _weak_callback(self._connection_edit_allowed, False)
         self.editor.view.undoConnectionsRequested.connect(self.undo_connections)
         self.editor.view.redoConnectionsRequested.connect(self.redo_connections)
-        self.editor.view.connection_undo_count = lambda: len(self._connection_history)
-        self.editor.view.connection_redo_count = lambda: len(self._connection_redo)
+        self.editor.view.connection_undo_count = _weak_callback(self._connection_undo_count, 0)
+        self.editor.view.connection_redo_count = _weak_callback(self._connection_redo_count, 0)
+
+    def _connection_undo_count(self):
+        return len(self._connection_history)
+
+    def _connection_redo_count(self):
+        return len(self._connection_redo)
 
     # Public node-workspace interface used by the main window.
     def selected_command_ids(self) -> list[int]:

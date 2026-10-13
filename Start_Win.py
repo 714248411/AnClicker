@@ -12,6 +12,7 @@ from __future__ import print_function
 
 import collections
 import gc
+import html
 import os.path
 import sqlite3
 import sys
@@ -1001,11 +1002,14 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def send_message(self, message):
         """向日志窗口发送信息"""
-        time_message = f"<font color=#ffff00>{get_str_now_time()}</font>"
-        text_ = (f"{time_message}&nbsp;&nbsp;&nbsp;&nbsp;{message}"
+        color = self.view_workspace.THEMES[self.view_workspace.theme_mode]["accent"]
+        time_message = f'<font color="{color}">{get_str_now_time()}</font>'
+        escaped = html.escape(str(message)).replace("\n", "<br>")
+        text_ = (f"{time_message}&nbsp;&nbsp;&nbsp;&nbsp;{escaped}"
                  if message != "换行" else "<br>")
         self._runtime_messages.append(text_)
-        if self.command_thread.isRunning():
+        scheduled = getattr(getattr(self, "task_scheduler", None), "worker", None)
+        if self.command_thread.isRunning() or (scheduled is not None and scheduled.isRunning()):
             if not self._runtime_message_timer.isActive():
                 self._runtime_message_timer.start()
         else:

@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 
-from qt_compat.QtCore import QObject, QEvent, QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData
+from qt_compat.QtCore import QObject, QEvent, QSize, QSignalBlocker, Signal, Qt, QTimer, QMimeData, QItemSelectionModel
 from qt_compat.QtGui import QAction, QColor, QGuiApplication, QKeySequence, QPalette, QPixmap, QDrag, QPainter, QPen
 from qt_compat.QtWidgets import (
     QAbstractItemView,
@@ -298,6 +298,12 @@ class ViewWorkspace:
         self.tabs = window.tabWidget
         self._loading_code = False
         self._code_dirty = False
+        self._code_save_timer = QTimer(window)
+        self._code_save_timer.setSingleShot(True)
+        self._code_save_timer.setInterval(350)
+        self._code_save_timer.timeout.connect(self._save_code)
+        self._table_rows = []
+        self._table_command_rows = {}
         self.running_command_id = None
         self.theme_mode = str(window.db.get_setting_value(THEME_SETTING) or "light")
         if self.theme_mode not in self.THEMES:
@@ -1008,40 +1014,74 @@ class ViewWorkspace:
             for node in snapshot.nodes
             if node.command_id is not None
         }
-        self.command_table.setRowCount(len(commands))
+        rows = []
         for row, command in enumerate(commands):
             node = nodes_by_command.get(command.id)
             display_name = node.display_name if node is not None else command.type_id
             parameters_text = json.dumps(
                 command.parameters, ensure_ascii=False, sort_keys=True, separators=(", ", ": ")
             )
-            values = (
-                str(row + 1),
-                f"#{command.id}",
-                display_name,
-                parameters_text,
-                str(command.repeat_count),
-                command.error_policy,
-                command.note,
-            )
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                item.setData(Qt.ItemDataRole.UserRole, command.id)
-                item.setToolTip(value)
-                self.command_table.setItem(row, column, item)
-        self.highlight_running_command(self.running_command_id)
+            rows.append((command.id, (
+                str(row + 1), f"#{command.id}", display_name, parameters_text,
+                str(command.repeat_count), command.error_policy, command.note,
+            )))
+        table = self.command_table
+        previous_rows = getattr(self, "_table_rows", [])
+        if rows == previous_rows:
+            return
+        order_changed = [r[0] for r in rows] != [r[0] for r in previous_rows]
+        selected = [(table.item(index.row(), 0).data(Qt.ItemDataRole.UserRole), index.column())
+                    for index in table.selectedIndexes()]
+        current = table.currentItem()
+        current_cell = (current.data(Qt.ItemDataRole.UserRole), table.currentColumn()) if current else None
+        scroll_x, scroll_y = table.horizontalScrollBar().value(), table.verticalScrollBar().value()
+        updates_enabled = table.updatesEnabled()
+        table.setUpdatesEnabled(False)
+        try:
+            with QSignalBlocker(table):
+                if order_changed:
+                    table.clearSelection()
+                table.setRowCount(len(rows))
+                for row, (command_id, values) in enumerate(rows):
+                    if row < len(previous_rows) and rows[row] == previous_rows[row]:
+                        continue
+                    for column, value in enumerate(values):
+                        item = table.item(row, column)
+                        if item is None:
+                            item = QTableWidgetItem(value)
+                            table.setItem(row, column, item)
+                        elif item.text() != value:
+                            item.setText(value)
+                        if item.data(Qt.ItemDataRole.UserRole) != command_id:
+                            item.setData(Qt.ItemDataRole.UserRole, command_id)
+                        if item.toolTip() != value:
+                            item.setToolTip(value)
+                self._table_rows = rows
+                self._table_command_rows = {command_id: row for row, (command_id, _) in enumerate(rows)}
+                if order_changed:
+                    if current_cell and current_cell[0] in self._table_command_rows:
+                        table.setCurrentCell(self._table_command_rows[current_cell[0]], current_cell[1], QItemSelectionModel.NoUpdate)
+                    else:
+                        table.setCurrentCell(-1, -1, QItemSelectionModel.NoUpdate)
+                    for command_id, column in selected:
+                        row = self._table_command_rows.get(command_id)
+                        if row is not None:
+                            table.selectionModel().select(table.model().index(row, column), QItemSelectionModel.Select)
+                self.highlight_running_command(self.running_command_id, ensure_visible=False)
+                table.horizontalScrollBar().setValue(scroll_x)
+                table.verticalScrollBar().setValue(scroll_y)
+        finally:
+            table.setUpdatesEnabled(updates_enabled)
 
-    def highlight_running_command(self, command_id) -> None:
-        """Follow stable command IDs, including backwards/branch jumps, without changing selection."""
+    def highlight_running_command(self, command_id, *, ensure_visible=True) -> None:
+        """Follow stable command IDs without changing the editing selection."""
         try:
             self.running_command_id = int(command_id) if command_id is not None else None
         except (TypeError, ValueError):
             self.running_command_id = None
         table = self.command_table
-        table.runtime_row = next((row for row in range(table.rowCount())
-            if table.item(row, 0) is not None
-            and table.item(row, 0).data(Qt.ItemDataRole.UserRole) == self.running_command_id), -1)
-        if table.runtime_row >= 0 and self.tabs.currentIndex() == TABLE_VIEW:
+        table.runtime_row = self._table_command_rows.get(self.running_command_id, -1)
+        if ensure_visible and table.runtime_row >= 0 and self.tabs.currentIndex() == TABLE_VIEW:
             table.scrollToItem(table.item(table.runtime_row, 0), QAbstractItemView.ScrollHint.EnsureVisible)
         table.viewport().update()
 
@@ -1167,7 +1207,8 @@ class ViewWorkspace:
             self.window.db.set_setting_value(CODE_SETTING, text)
             self.window.db.set_setting_value(CODE_GRAPH_SIGNATURE_SETTING, signature)
         self._loading_code = True
-        with QSignalBlocker(self.code_editor): self.code_editor.setPlainText(text)
+        if self.code_editor.toPlainText() != text:
+            with QSignalBlocker(self.code_editor): self.code_editor.setPlainText(text)
         self._loading_code = False
         self.code_status.setText(
             "修改会自动保存在当前任务中"
@@ -1320,9 +1361,10 @@ class ViewWorkspace:
         if self._loading_code: return
         self._code_dirty = True
         self.code_status.setText("正在保存……")
-        QTimer.singleShot(350, self._save_code)
+        self._code_save_timer.start()
 
     def _save_code(self) -> None:
+        self._code_save_timer.stop()
         if not self._code_dirty: return
         self.window.db.set_setting_value(CODE_SETTING, self.code_editor.toPlainText())
         self._code_dirty = False

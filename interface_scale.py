@@ -101,6 +101,11 @@ class InterfaceScale(QObject):
                     state['icon_output'] = output
                     if current != output:
                         w.setIconSize(output)
+            workspace = getattr(self.window, "view_workspace", None)
+            if workspace is not None and not getattr(getattr(workspace, "compact", None), "active", False):
+                workspace._align_search_row()
+                status = self.window.statusBar
+                status.setFixedHeight(max(18, status.fontMetrics().height() + 2))
         finally:
             self.applied = self.offset != 0
             self.busy = False
