@@ -1,144 +1,63 @@
-name: Verify macOS and Linux packages
+name: Upload verified native release assets
 on:
-  push:
-    branches: [codex/v1.5.4-platforms]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
+  actions: read
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15-intel
-            artifact: macos-x64
-          - os: macos-15
-            artifact: macos-arm64
-          - os: ubuntu-24.04
-            artifact: linux-x64
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
-    env:
-      QT_QPA_PLATFORM: offscreen
-      DISPLAY: ':99'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - uses: astral-sh/setup-uv@v6
-      - name: Install Linux desktop libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb scrot xdotool unzip libegl1 libgl1 libopengl0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-shape0 libxkbcommon-x11-0 libnss3 libasound2t64 libgtk-3-0 tk8.6
-          Xvfb :99 -screen 0 1920x1080x24 > /tmp/anclicker-xvfb.log 2>&1 &
-          touch "$HOME/.Xauthority"
-      - name: Install locked dependencies and native runtime
-        run: |
-          export UV_PYTHON="$(command -v python)"
-          echo "UV_PYTHON=$UV_PYTHON" >> "$GITHUB_ENV"
-          python -c "import tkinter; print('Tcl/Tk', tkinter.TkVersion)"
-          uv sync --locked --group release
-          uv run --locked --group release python tools/setup_rpa_runtime.py
-      - name: Build native application
-        run: uv run --locked --group release python -m PyInstaller --clean -y packaging/main.spec
-      - name: Package application
-        run: uv run --locked --group release python packaging/build_release.py
-      - name: Verify delivered archive
-        run: |
-          mkdir extracted
-          unzip -q release/*.zip -d extracted
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
-            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
-          fi
-          uv run --locked --group release python packaging/smoke_release.py --dist extracted 2>&1 | tee release/verification-${{ matrix.artifact }}.txt
-          uv run --locked --group release python - <<'PY'
-          import hashlib, pathlib, platform, json
-          for p in pathlib.Path('release').glob('*.zip'):
-              p.with_suffix(p.suffix+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n')
-          pathlib.Path('release/platform-${{ matrix.artifact }}.json').write_text(json.dumps({'system':platform.platform(),'architecture':platform.machine(),'commit':'${{ github.sha }}','verification':'passed'},indent=2))
-          PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-${{ matrix.artifact }}
-          path: release/*
-          if-no-files-found: error
-  assemble:
-    needs: build
+  upload:
     runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: platform-artifacts
-      - run: python3 packaging/assemble_platforms.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: final-platform-packages
-          path: delivery/*
-  verify-final:
-    needs: assemble
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15-intel
-            artifact: macos-x64
-            package: mac
-            folder: Intel
-          - os: macos-15
-            artifact: macos-arm64
-            package: mac
-            folder: Apple-Silicon
-          - os: ubuntu-24.04
-            artifact: linux-x64
-            package: linux
-            folder: .
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
+    timeout-minutes: 25
     env:
-      DISPLAY: ':99'
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: 714248411/AnClicker
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
       - uses: actions/download-artifact@v4
         with:
           name: final-platform-packages
           path: delivery
-      - name: Install Linux desktop libraries
-        if: runner.os == 'Linux'
+          run-id: 38334398952
+          github-token: ${{ github.token }}
+      - name: Require all native tests to pass
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb scrot xdotool unzip libegl1 libgl1 libopengl0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-shape0 libxkbcommon-x11-0 libnss3 libasound2t64 libgtk-3-0
-          Xvfb :99 -screen 0 1920x1080x24 > /tmp/anclicker-xvfb.log 2>&1 &
-          touch "$HOME/.Xauthority"
-      - name: Verify final downloadable package
+          python3 - <<'PY'
+          import json,os,time,urllib.request
+          def api(path):
+              req=urllib.request.Request('https://api.github.com/repos/714248411/AnClicker'+path,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(req,timeout=30) as r:return json.load(r)
+          for i in range(40):
+              r=api('/actions/runs/38334398952')
+              if r['status']=='completed':
+                  assert r['conclusion']=='success',r['conclusion']
+                  break
+              time.sleep(20)
+          else:raise RuntimeError('Native verification still pending')
+          r=api('/releases/tags/v1.5.4')
+          assert r['draft'],'Release must still be a draft'
+          PY
+      - name: Validate and upload native archives
         run: |
-          mkdir extracted reports
-          unzip -q delivery/AnClicker-v1.5.4-${{ matrix.package }}.zip -d extracted
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
-            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
-          fi
-          python packaging/smoke_release.py --dist extracted/${{ matrix.folder }} 2>&1 | tee reports/final-${{ matrix.artifact }}.txt
-          python - <<'PY'
-          import hashlib, json, pathlib, platform
-          p = pathlib.Path('delivery/AnClicker-v1.5.4-${{ matrix.package }}.zip')
-          pathlib.Path('reports/final-${{ matrix.artifact }}.json').write_text(json.dumps({
-              'system': platform.platform(), 'architecture': platform.machine(),
-              'commit': '${{ github.sha }}', 'package': p.name,
-              'sha256': hashlib.sha256(p.read_bytes()).hexdigest(), 'verification': 'passed'}, indent=2))
+          python3 - <<'PY'
+          import pathlib,hashlib,json,zipfile,subprocess,os,urllib.request
+          folder=pathlib.Path('delivery')
+          expected=json.loads((folder/'SHA256.json').read_text())
+          result=[]
+          for platform in ['linux','mac']:
+              p=folder/('AnClicker-v1.5.4-'+platform+'.zip')
+              with zipfile.ZipFile(p) as z:assert z.testzip() is None
+              sha=hashlib.sha256(p.read_bytes()).hexdigest()
+              assert sha==expected[p.name]
+              subprocess.run(['gh','release','upload','v1.5.4',str(p)],check=True)
+              result.append({'name':p.name,'size':p.stat().st_size,'sha256':sha})
+          req=urllib.request.Request('https://api.github.com/repos/714248411/AnClicker/releases/tags/v1.5.4',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+          with urllib.request.urlopen(req) as r:release=json.load(r)
+          for record in result:
+              a=next(a for a in release['assets'] if a['name']==record['name'])
+              assert a['size']==record['size'] and a['digest']=='sha256:'+record['sha256']
+          pathlib.Path('native-upload.json').write_text(json.dumps(result,indent=2))
+          print(json.dumps(result))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: final-verification-${{ matrix.artifact }}
-          path: reports/*
+          name: native-upload-verification
+          path: native-upload.json
