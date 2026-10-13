@@ -7,8 +7,9 @@ import sys
 
 
 def config_path():
-    base = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
-    return Path(os.environ.get('ANCLICKER_DM_CONFIG', base / 'current/damo/config.json'))
+    base = (Path(sys.executable).parent if getattr(sys, 'frozen', False)
+            else Path(__file__).parent / 'current')
+    return Path(os.environ.get('ANCLICKER_DM_CONFIG', base / 'damo' / 'config.json'))
 
 
 def read_config(path=None):

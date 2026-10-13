@@ -173,10 +173,9 @@ class DmTransport:
         self.context = context
         self._host_dir = None
         env = dict(os.environ, PYTHONUTF8='1')
-        base = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
-        config_path = Path(env.get('ANCLICKER_DM_CONFIG', base / 'current' / 'damo' / 'config.json'))
+        from background_component_settings import config_path as component_config_path, read_config
+        config_path = component_config_path()
         if config_path.is_file():
-            from background_component_settings import read_config
             config = read_config(config_path)
             for name, key in (('dll_path', 'ANCLICKER_DM_DLL'), ('reg_code', 'ANCLICKER_DM_REG_CODE'), ('reg_extra', 'ANCLICKER_DM_REG_EXTRA'), ('backend', 'ANCLICKER_DM_BACKEND'), ('helper_path', 'ANCLICKER_DM_HELPER')):
                 if config.get(name):
@@ -184,7 +183,7 @@ class DmTransport:
                     if name in ('dll_path', 'helper_path') and not Path(value).is_absolute():
                         value = str((config_path.parent / value).resolve())
                     env.setdefault(key, value)
-        local_dll = base / 'current' / 'damo' / 'dm.dll'
+        local_dll = config_path.parent / 'dm.dll'
         if 'ANCLICKER_DM_DLL' not in env and local_dll.is_file():
             env['ANCLICKER_DM_DLL'] = str(local_dll)
         if env.get('ANCLICKER_DM_BACKEND') == 'native-7.2424':

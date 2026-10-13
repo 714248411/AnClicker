@@ -159,3 +159,31 @@ def test_component_configuration_protects_registration_code(tmp_path):
     write_config({'dll_path':'test.dll','reg_code':'test-local-secret','reg_extra':'local'},path)
     assert 'test-local-secret' not in path.read_text(encoding='utf8')
     assert read_config(path)['reg_code']=='test-local-secret'
+
+
+@pytest.mark.parametrize('frozen', [False, True])
+def test_component_settings_and_transport_share_source_or_packaged_directory(tmp_path, monkeypatch, frozen):
+    import sys
+    from pathlib import Path
+    import background_component_settings as settings
+    import background_runtime
+    from unittest.mock import patch
+    monkeypatch.delenv('ANCLICKER_DM_CONFIG', raising=False)
+    monkeypatch.setattr(sys, 'frozen', frozen, raising=False)
+    monkeypatch.setattr(sys, 'executable', str(tmp_path/'current/AnClicker.exe'))
+    monkeypatch.setattr(settings, '__file__', str(tmp_path/'background_component_settings.py'))
+    expected = tmp_path/'current/damo/config.json'
+    assert settings.config_path() == expected
+    expected.parent.mkdir(parents=True)
+    expected.write_text('{}', encoding='utf8')
+    with patch.object(settings, 'read_config', side_effect=ValueError('configuration reached')) as read:
+        with pytest.raises(ValueError, match='configuration reached'):
+            background_runtime.DmTransport(ExecutionContext())
+    read.assert_called_once_with(expected)
+
+
+def test_component_directory_can_still_be_overridden(tmp_path, monkeypatch):
+    from background_component_settings import config_path
+    target=tmp_path/'external/damo.json'
+    monkeypatch.setenv('ANCLICKER_DM_CONFIG',str(target))
+    assert config_path()==target
