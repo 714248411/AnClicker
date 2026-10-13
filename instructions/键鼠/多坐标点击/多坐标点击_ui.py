@@ -9,6 +9,7 @@ class Ui_InstructionEditor:
     def setupUi(self, editor):
         editor.resize(680, 480)
         root = QVBoxLayout(editor)
+        self.rootLayout = root
         root.addWidget(QLabel('多坐标点击：按填写顺序点击屏幕位置；取点每次追加一个坐标。', editor))
         form = QFormLayout()
         root.addLayout(form)
@@ -51,7 +52,9 @@ class Ui_InstructionEditor:
         advanced_form.addRow(hint)
         root.addWidget(advanced)
         advanced.hide()
-        toggle.toggled.connect(advanced.setVisible)
+        from instructions.common.downward_expansion import DownwardExpansion
+        editor._coordinate_expansion = DownwardExpansion(editor, advanced)
+        toggle.toggled.connect(editor._coordinate_expansion.setExpanded)
         toggle.toggled.connect(lambda checked: toggle.setText('▾ 高级设置' if checked else '▸ 高级设置'))
         self.parameter_3.currentTextChanged.connect(self._offset_enabled)
         common = QFormLayout()

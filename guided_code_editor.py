@@ -12,6 +12,11 @@ class GuidedCodeEditor(QPlainTextEdit):
         self._choices=[]
         self._model=QStringListModel(self)
         self.completer=QCompleter(self._model,self)
+        # Keep a typed Python owner before app-wide styling sees this native popup.
+        # Lazily wrapping QCompleter's default view can crash PySide2 after restyling.
+        from qt_compat.QtWidgets import QListView
+        self._completion_popup = QListView()
+        self.completer.setPopup(self._completion_popup)
         self.completer.setWidget(self)
         self.completer.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
         self.completer.activated[str].connect(self._accept)

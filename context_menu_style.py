@@ -45,6 +45,9 @@ def style_context_menu(menu, owner):
     if not hasattr(menu, '_rounded_menu_background'):
         menu._rounded_menu_background = _RoundedMenuBackground(menu, background, border)
         menu.installEventFilter(menu._rounded_menu_background)
+    menu._rounded_menu_background.background = QColor(background)
+    menu._rounded_menu_background.border = QColor(border)
+    menu._rounded_menu_background.border.setAlpha(180)
     menu.setMinimumWidth(180)
     menu.setStyleSheet(f'''
         QMenu {{ background: transparent; color: {foreground};
@@ -57,3 +60,13 @@ def style_context_menu(menu, owner):
         QMenu::separator {{ height: 1px; background: {border}; margin: 3px 7px; }}
         QMenu::indicator {{ width: 14px; height: 14px; }}
     ''')
+
+
+def install_menu_styling(window):
+    """Native menubar popups need the same alpha surface as context menus."""
+    from qt_compat.QtWidgets import QMenu
+    for menu in window.findChildren(QMenu):
+        if not getattr(menu, '_theme_on_show', False):
+            menu._theme_on_show = True
+            menu.aboutToShow.connect(lambda popup=menu: style_context_menu(popup, window))
+        style_context_menu(menu, window)

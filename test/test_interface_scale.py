@@ -52,10 +52,10 @@ def test_parameter_scaling_survives_resize(host):
     editor = v.docking.parameters[key]
     dock.resize(800, 700); QTest.qWait(100)
     labels = [w for w in editor.findChildren(QLabel) if w.text() and not w.styleSheet()]
-    assert labels and all(w.font().pixelSize() == 13 for w in labels), ([(w.objectName(), w.font().pixelSize()) for w in labels], editor.styleSheet(), editor._panel_scaler.base_style)
+    assert labels and all(w.font().pixelSize() == 14 for w in labels), ([(w.objectName(), w.font().pixelSize()) for w in labels], editor.styleSheet(), editor._panel_scaler.base_style)
     dock.resize(350, 300); QTest.qWait(100)
     dock.resize(800, 700); QTest.qWait(100)
-    assert all(w.font().pixelSize() == 13 for w in labels)
+    assert all(w.font().pixelSize() == 14 for w in labels)
     v.interface_scale.change(); QTest.qWait(100)
-    assert all(w.font().pixelSize() == 12 for w in labels)
+    assert all(w.font().pixelSize() == 13 for w in labels)
     editor.reject()

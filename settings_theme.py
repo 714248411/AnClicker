@@ -8,6 +8,8 @@ def apply_settings_theme(dialog, window):
     workspace = getattr(window, 'view_workspace', None)
     if workspace is None:
         return
+    from settings_combo import style_settings_combos
+    style_settings_combos(dialog, window)
     c = workspace.THEMES[workspace.theme_mode]
     palette = dialog.palette()
     for role, color in (
@@ -25,7 +27,7 @@ def apply_settings_theme(dialog, window):
         palette.setColor(role, QColor(color))
     dialog.setPalette(palette)
     dialog.setStyleSheet(f"""
-        QDialog {{ background: {c['surface']}; color: {c['text']}; }}
+        QDialog {{ font-size:14px; background: {c['surface']}; color: {c['text']}; }}
         QLabel, QCheckBox {{ color: {c['text']}; background: transparent; }}
         QLabel#settingsHint {{ color: {c['dim']}; font-size: 11px; }}
         QWidget#settingsBody, QWidget#settingsViewport, QWidget#settingsRow {{ background: {c['surface']}; color: {c['text']}; }}

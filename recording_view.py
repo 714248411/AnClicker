@@ -170,7 +170,7 @@ class RecordingView(QWidget):
             return
         if self.busy:
             return
-        if self.window.command_thread.isRunning() or getattr(getattr(getattr(self.window, "view_workspace", None), "web_recording_page", None), "busy", False):
+        if (self.window.command_thread.isRunning() or bool(getattr(self.window, 'task_scheduler', None) and self.window.task_scheduler.busy)) or getattr(getattr(getattr(self.window, "view_workspace", None), "web_recording_page", None), "busy", False):
             QMessageBox.warning(self, "无法录制", "请先停止正在运行的任务。")
             return
         if not continuation and self.drafts and not self.written and QMessageBox.question(
@@ -283,7 +283,7 @@ class RecordingView(QWidget):
     def write(self, *, speed=1.0):
         if self.busy or not self.drafts or self.written:
             return
-        if self.window.command_thread.isRunning():
+        if (self.window.command_thread.isRunning() or bool(getattr(self.window, 'task_scheduler', None) and self.window.task_scheduler.busy)):
             QMessageBox.warning(self, "无法写入", "请先停止正在运行的任务。")
             return
         try:

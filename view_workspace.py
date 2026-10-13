@@ -790,6 +790,8 @@ class ViewWorkspace:
         from view_shortcuts import install_view_shortcuts
         install_view_shortcuts(self.window, self.window.menu_4, view_actions)
         self.window.menubar.removeAction(self.window.menu_3.menuAction())
+        from context_menu_style import install_menu_styling
+        install_menu_styling(self.window)
 
     def toggle_primary(self) -> None:
         self.show_main() if self.tabs.currentIndex() == FLOW_VIEW else self.show_flow()
@@ -1395,6 +1397,7 @@ class ViewWorkspace:
             QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
             QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: none; border-radius: 12px; }}
+            QWidget#instructionTreeSurface {{ background: {c['surface2']}; border: none; border-radius: 12px; }}
             QTreeWidget#instructionTree {{ border: none; background: transparent; }}
             QGroupBox#groupBox_3::title {{ color: {c['text']}; }}
             QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,

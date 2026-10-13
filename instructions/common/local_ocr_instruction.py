@@ -193,6 +193,8 @@ class LocalOcrEditor(SchemaInstructionEditor):
         self.ui.rootLayout.insertWidget(position + 1, self.ocr_advanced_panel)
         self.ocr_advanced_panel.hide()
         self.ocr_advanced_button.setVisible(bool(self._ocr_advanced_keys))
+        from instructions.common.downward_expansion import DownwardExpansion
+        self._ocr_expansion = DownwardExpansion(self, self.ocr_advanced_panel)
         self.ocr_advanced_button.toggled.connect(self._toggle_advanced)
         changed = any(self._control_value(self._controls[f.key]) != f.default
                       for f in self.FIELDS if f.key in self._ocr_advanced_keys)
@@ -227,7 +229,7 @@ class LocalOcrEditor(SchemaInstructionEditor):
         form.insertRow(insert_at, self.ocr_match_options)
 
     def _toggle_advanced(self, expanded):
-        self.ocr_advanced_panel.setVisible(expanded)
+        self._ocr_expansion.setExpanded(expanded)
         self.ocr_advanced_button.setText('高级设置 ▾（收起）' if expanded else '高级设置 ▸')
 
     def _engine_changed(self, engine):

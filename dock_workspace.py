@@ -2,8 +2,8 @@
 import base64
 import json
 
-from qt_compat.QtCore import QObject, QEvent, Qt, QMimeData, QTimer, QByteArray, QSize, QPoint, QRect
-from qt_compat.QtGui import QDrag, QCursor
+from qt_compat.QtCore import QObject, QEvent, Qt, QMimeData, QTimer, QByteArray, QSize, QPoint, QRect, QRectF
+from qt_compat.QtGui import QDrag, QCursor, QPainter, QColor, QPen
 from qt_compat.QtWidgets import (QApplication, QDockWidget, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMenu, QScrollArea, QFrame, QDialog)
 
@@ -43,10 +43,14 @@ class PanelTitle(QLabel):
         self.dock = dock
         if dock.key.startswith('parameters_'):
             layout = QHBoxLayout(self)
-            layout.setContentsMargins(8, 0, 3, 0)
+            layout.setContentsMargins(8, 0, 6, 0)
+            self.setIndent(10)
+            self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.setStyleSheet("QLabel#dockPanelTitle {background:transparent; border:none; font-weight:600; font-size:13px;}")
             layout.addStretch()
             self.close_button = QPushButton('×', self)
-            self.close_button.setFixedSize(24, 24)
+            self.close_button.setFixedSize(26, 26)
+            self.close_button.setStyleSheet("QPushButton {padding:0; margin:0; border:none; border-radius:6px; background:transparent; font-size:18px;} QPushButton:hover {background:rgba(128,128,128,35);}")
             self.close_button.setToolTip('关闭并取消未保存修改')
             self.close_button.clicked.connect(dock.close)
             layout.addWidget(self.close_button)
@@ -80,6 +84,8 @@ class PanelDock(QDockWidget):
         self.setTitleBarWidget(self._embedded_title)
         self._title_drag_filter = PanelDragFilter(manager, self._embedded_title, key)
         if key.startswith('parameters_'):
+            self.setAttribute(Qt.WA_TranslucentBackground, True)
+            self.setAutoFillBackground(False)
             self.topLevelChanged.connect(self._parameter_window_chrome)
         self.setMinimumSize(0, 0)
         self.setToolTip('拖动标题停靠到上、下、左、右栏；右击标题可选择并排、堆叠或返回中栏')
@@ -91,11 +97,33 @@ class PanelDock(QDockWidget):
         features = QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable
         if floating: features |= QDockWidget.DockWidgetClosable
         title = self._embedded_title
-        title.setFixedHeight(28 if floating else 0)
+        self.setContentsMargins(8, 6, 8, 8) if floating else self.setContentsMargins(0, 0, 0, 0)
+        title.setFixedHeight(32 if floating else 0)
         title.setText(self.windowTitle() if floating else '')
         title.close_button.setVisible(floating)
+        editor = self.manager.parameters.get(self.key)
+        if editor is not None:
+            heading = editor.findChild(QLabel, 'titleLabel')
+            if heading is not None:
+                # Floating editors already identify the instruction in the corner caption.
+                # Embedded editors retain their title as the panel's drag handle.
+                heading.setVisible(not floating)
         self.setFeatures(features)
         self.manager.configure_dock(self)
+
+    def paintEvent(self, event):
+        if not self.key.startswith('parameters_') or not self.isFloating():
+            return super().paintEvent(event)
+        colors = self.manager.view.THEMES[self.manager.view.theme_mode]
+        painter = QPainter(self)
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.fillRect(self.rect(), Qt.transparent)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor(colors['bg']))
+        painter.setPen(QPen(QColor(colors['line']), 1))
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 14, 14)
+        painter.end()
 
     def contextMenuEvent(self, event):
         self.manager.panel_menu(self.key, event.globalPos())
@@ -489,8 +517,20 @@ class DockWorkspace(QObject):
         if self.suspended: return
         view = self.view
         palette_visible = not view.palette_collapsed and self.tab_key(view.tabs.currentIndex()) != 'code'
-        self.docks['palette'].setVisible(palette_visible)
+        palette = self.docks['palette']
+        was_visible = not palette.isHidden()
+        if was_visible and not palette_visible:
+            self._palette_before_hide = (QSize(palette.size()), self.host.dockWidgetArea(palette), palette.isFloating())
+        palette.setVisible(palette_visible)
         self.window.instructionPaletteHost.setVisible(palette_visible)
+        saved = getattr(self, '_palette_before_hide', None)
+        if palette_visible and not was_visible and saved:
+            size, area, floating = saved
+            if floating and palette.isFloating():
+                palette.resize(size)
+            elif not palette.isFloating() and self.host.dockWidgetArea(palette) == area:
+                self.host.resizeDocks([palette], [size.width()], Qt.Horizontal)
+                self.host.resizeDocks([palette], [size.height()], Qt.Vertical)
         self.docks['controls'].setVisible(not view.controls_collapsed)
         view.controls_scroll.setVisible(not view.controls_collapsed)
         key = self.tab_key(view.tabs.currentIndex())
@@ -518,8 +558,11 @@ class DockWorkspace(QObject):
     def pin_editor(self, editor, callback, key, *, floating=False):
         if key in self.parameters:
             self.docks[key].show(); self.docks[key].raise_(); return
+        from settings_combo import style_settings_combos
+        style_settings_combos(editor, self.window)
         editor.ensurePolished()
-        editor._original_popup_size = QSize(editor.size().expandedTo(editor.sizeHint()))
+        from instructions.common.compact_settings import parameter_popup_size
+        editor._original_popup_size = parameter_popup_size(editor)
         self.parameters[key] = editor
         editor._workspace_owner = self.window
         if not hasattr(editor, '_pin_filter'): editor._pin_filter = ParameterPinFilter(editor)
@@ -536,7 +579,8 @@ class DockWorkspace(QObject):
             area.viewport().setObjectName('parameterViewport')
         from adaptive_panels import AdaptivePanelSizer
         if hasattr(editor, '_panel_scaler'): editor._panel_scaler.rebind(scroll.viewport())
-        else: editor._panel_scaler = AdaptivePanelSizer(scroll.viewport(), editor, 600, reference_height=420, base_pixels=12)
+        else: editor._panel_scaler = AdaptivePanelSizer(scroll.viewport(), editor, 600, reference_height=420, base_pixels=13)
+        editor._panel_scaler.reference_height = min(420, max(160, editor._original_popup_size.height()-56))
         dock = self.create_dock(key, '指令参数 · '+editor.windowTitle(), scroll, 'right', floating=floating)
         title = editor.findChild(QLabel, 'titleLabel') or editor.findChild(QLabel)
         if title is not None:
@@ -557,7 +601,10 @@ class DockWorkspace(QObject):
             self.schedule_save()
         editor.finished.connect(finished)
         editor.show();dock.show()
-        if floating: self.float_panel(key, True)
+        if floating:
+            self.float_panel(key, True)
+            from instructions.common.compact_settings import fit_initial_popup
+            QTimer.singleShot(0, lambda: fit_initial_popup(editor, dock) if key in self.parameters else None)
 
     def update_controls_layout(self):
         dock = self.docks['controls']

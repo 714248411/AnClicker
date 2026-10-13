@@ -69,7 +69,7 @@ class WebRecordingView(QWidget):
         self.connect_option.setEnabled(not self.busy)
     def begin(self, *, continuation=False):
         if self.busy:return
-        if self.window.command_thread.isRunning() or self.window.view_workspace.recording_page.busy or getattr(self.window.workspace,'_instruction_test_active',False) or getattr(self.window,'_update_preparing',False):
+        if (self.window.command_thread.isRunning() or bool(getattr(self.window, 'task_scheduler', None) and self.window.task_scheduler.busy)) or self.window.view_workspace.recording_page.busy or getattr(self.window.workspace,'_instruction_test_active',False) or getattr(self.window,'_update_preparing',False):
             QMessageBox.warning(self,'无法录制','请先停止任务、键鼠录制或指令测试。');return
         from web_urls import normalize_web_url
         try:
@@ -125,7 +125,7 @@ class WebRecordingView(QWidget):
                 self.preview.setItem(row,col,QTableWidgetItem(text))
     def write(self):
         if self.busy or self.written or not self.drafts:return
-        if self.window.command_thread.isRunning() or self.window.view_workspace.recording_page.busy:return
+        if (self.window.command_thread.isRunning() or bool(getattr(self.window, 'task_scheduler', None) and self.window.task_scheduler.busy)) or self.window.view_workspace.recording_page.busy:return
         try:
             workspace=self.window.workspace
             ids=workspace.repository.append_recording(self.drafts,connect=self.connect_option.isChecked())

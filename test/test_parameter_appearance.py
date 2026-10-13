@@ -23,9 +23,9 @@ def test_parameter_background_and_smaller_font(host, theme):
     editor = v.docking.parameters[key]
     dock.resize(800, 650)
     QTest.qWait(100)
-    assert editor._panel_scaler.last_size == 12
+    assert editor._panel_scaler.last_size == 13
     labels = [label for label in editor.findChildren(QLabel) if label.text() and not label.styleSheet()]
-    assert labels and all(label.font().pixelSize() == 12 for label in labels)
+    assert labels and all(label.font().pixelSize() == 13 for label in labels)
     for floating in (True, False):
         if not floating:
             v.docking.move_panel(key, 'right')
@@ -35,7 +35,12 @@ def test_parameter_background_and_smaller_font(host, theme):
             viewport = area.viewport()
             assert viewport.palette().color(viewport.backgroundRole()).name() == expected
         picture = dock.grab().toImage()
-        assert picture.pixelColor(1, picture.height() - 2).name() == expected
+        if floating:
+            assert picture.pixelColor(0, 0).alpha() == 0
+            assert picture.pixelColor(1, picture.height()-2).alpha() == 0
+            assert dock._embedded_title.indent() >= 8
+        else:
+            assert picture.pixelColor(1, picture.height()-2).name() == expected
         dock.grab().save('validation/parameters-' + theme + ('-floating' if floating else '-embedded') + '.png')
     editor.reject()
     QTest.qWait(30)

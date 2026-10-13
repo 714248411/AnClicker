@@ -206,6 +206,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.load_initialization()
         self.view_workspace.restore_last_view()
         self._install_updates()
+        from scheduled_tasks import TaskScheduler
+        self.task_scheduler = TaskScheduler(self)
+        self.workspace.palette.scheduleRequested.connect(self.task_scheduler.show_settings)
 
     def _install_updates(self):
         if sys.platform != 'win32':
@@ -239,6 +242,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             bar.set_update_applying(False)
 
     def prepare_for_update(self):
+        if getattr(self, "task_scheduler", None) and self.task_scheduler.busy:
+            return False, "请先结束定时任务，再更新。"
         if (self.command_thread.isRunning() or (self.view_workspace.recording_page.busy or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False))
                 or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'unsaved', False)
                 or getattr(self.workspace, '_instruction_test_active', False)
@@ -634,6 +639,11 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self.view_workspace.save_last_view()
             event.accept()
             return
+        if getattr(self, 'task_scheduler', None) and self.task_scheduler.busy:
+            self.task_scheduler.stop()
+            self.statusBar.showMessage('正在停止定时任务，请停止后再关闭窗口。', 5000)
+            event.ignore()
+            return
         cancel_update = False
         if hasattr(self, "auto_update") and not self.auto_update.shutdown():
             box = QMessageBox(self)
@@ -697,6 +707,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             web_recording.shutdown()
         recording.shutdown()
         self._closing = True
+        if getattr(self, 'task_scheduler', None):
+            self.task_scheduler.timer.stop()
         event.accept()
 
     def data_import(self, file_path: str) -> None:
@@ -795,6 +807,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             )
 
     def start(self, run_mode='全部指令', info=0) -> bool:
+        if getattr(self, 'task_scheduler', None) and self.task_scheduler.busy:
+            self.statusBar.showMessage('定时任务正在等待或执行，请稍后启动主任务。', 5000)
+            return False
         if getattr(self, '_update_preparing', False):
             self.statusBar.showMessage('正在准备更新，暂时无法启动任务。', 3000)
             return False
@@ -885,7 +900,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         if self.command_thread.isRunning():
             return
         self.run_unconnected_checkbox.setEnabled(True)
-        self.escape_stop.setEnabled(False)
+        self.escape_stop.setEnabled(bool(getattr(self, 'task_scheduler', None) and self.task_scheduler.busy))
         if self._escape_registered:
             try:
                 self.hk_stop.unregister(('escape',))
@@ -953,6 +968,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.db.system_prompt_tone("全局快捷键")  # 发出提示音
 
         if i_str == "终止线程":
+            if getattr(self, "task_scheduler", None):
+                self.task_scheduler.stop()
             if self.command_thread.isRunning():
                 self.command_thread.request_stop()
                 if self._runtime_error_box is not None:
@@ -970,6 +987,10 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                 self.send_message("任务开始！")
 
         elif i_str == "暂停和恢复线程":
+            scheduled = getattr(getattr(self, "task_scheduler", None), "worker", None)
+            if scheduled is not None:
+                scheduled.resume() if scheduled.is_paused else scheduled.pause()
+                return
             if self.command_thread.isRunning():
                 if self.command_thread.is_paused:
                     self.send_message("任务恢复！")

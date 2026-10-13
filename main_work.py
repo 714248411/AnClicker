@@ -42,6 +42,8 @@ class CommandThread(QThread):
         self.mutex = QMutex()
         self.condition = QWaitCondition()
         self.is_paused = False
+        self.schedule_pause_requested = False
+        self.schedule_pause_ack = Event()
         self._active_context: ExecutionContext | None = None
         self._stop_requested = False
         self._persisted_values: dict[str, str] = {}
@@ -208,15 +210,32 @@ class CommandThread(QThread):
             return True
         return bool(self.wait(max(0, int(timeout_ms))))
 
+    def pause_for_schedule(self, enabled):
+        self.mutex.lock()
+        try:
+            self.schedule_pause_requested = bool(enabled)
+            if not enabled:
+                self.schedule_pause_ack.clear()
+            self.condition.wakeAll()
+        finally:
+            self.mutex.unlock()
+
     def check_mutex(self) -> bool:
         self.mutex.lock()
         try:
             if self.start_state and time.thread_time() >= self._next_cpu_yield:
                 self.condition.wait(self.mutex, self.COOPERATIVE_YIELD_MS)
                 self._next_cpu_yield = time.thread_time() + self.CPU_SLICE_SECONDS
-            paused_at_ = time.monotonic() if self.is_paused else None
-            while self.is_paused and self.start_state:
+            metadata = self._active_context.metadata if self._active_context else {}
+            # Finish held-key / mouse-drag sequences before yielding input ownership.
+            safe = not metadata.get('recorded_keys') and not metadata.get('recorded_buttons')
+            scheduled = self.schedule_pause_requested and safe
+            paused_at_ = time.monotonic() if self.is_paused or scheduled else None
+            while (self.is_paused or (self.schedule_pause_requested and safe)) and self.start_state:
+                if self.schedule_pause_requested and safe:
+                    self.schedule_pause_ack.set()
                 self.condition.wait(self.mutex)
+            self.schedule_pause_ack.clear()
             if paused_at_ is not None and self._active_context is not None:
                 duration_ = time.monotonic() - paused_at_
                 for clock_ in self._active_context.metadata.get("recorded_clocks", {}).values():

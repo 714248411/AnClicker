@@ -194,7 +194,7 @@ class InstructionWorkspace(QObject):
             editor._pin_filter = ParameterPinFilter(editor)
             from adaptive_panels import AdaptivePanelSizer
             editor.setMinimumSize(260, 180)
-            editor._panel_scaler = AdaptivePanelSizer(editor, editor, 600, reference_height=420, base_pixels=12)
+            editor._panel_scaler = AdaptivePanelSizer(editor, editor, 600, reference_height=420, base_pixels=13)
             docking.pin_editor(editor, callback, key, floating=True)
             return None
         else:
@@ -208,6 +208,7 @@ class InstructionWorkspace(QObject):
         thread = getattr(window, 'command_thread', None)
         view = getattr(window, 'view_workspace', None)
         if ((thread is not None and thread.isRunning()) or getattr(self, '_instruction_test_active', False)
+                or bool(getattr(window, 'task_scheduler', None) and window.task_scheduler.busy)
                 or (view is not None and (view.recording_page.busy or view.web_recording_page.busy))):
             raise RuntimeError('请先停止运行、录制或指令测试，再保存参数。')
 
@@ -733,6 +734,10 @@ class InstructionWorkspace(QObject):
             return
 
         def execute_test_(draft_: InstructionDraft) -> None:
+            scheduler = getattr(getattr(self, 'parent_window', None), 'task_scheduler', None)
+            if scheduler is not None and scheduler.busy:
+                self.statusMessage.emit('请先结束定时任务，再测试指令。')
+                return
             if getattr(getattr(self, 'parent_window', None), '_update_preparing', False):
                 self.statusMessage.emit('正在准备更新，暂时无法测试指令。')
                 return

@@ -227,6 +227,9 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         body = QWidget()
         body.setObjectName('instructionEditorBody')
         body.setLayout(self.layout())
+        self._parameter_body = body
+        from instructions.common.compact_settings import compact_body
+        compact_body(body)
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -234,11 +237,11 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         root = QVBoxLayout(self)
         root.setContentsMargins(4, 4, 4, 4)
         root.addWidget(scroll)
-        self.setMinimumSize(480, 360)
+        self.setMinimumSize(480, 180)
         screen = self.screen()
         if screen:
             available = screen.availableGeometry()
-            self.resize(min(760, available.width()-40), min(self.height(), available.height()-60))
+            self.resize(min(760, available.width()-40), min(body.sizeHint().height()+16, available.height()-60))
 
     def _collect_parameter_controls(self) -> dict[str, QWidget]:
         controls_: dict[str, QWidget] = {}

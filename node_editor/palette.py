@@ -150,6 +150,7 @@ class InstructionPalette(QWidget):
 
     instructionActivated = Signal(str)
     instructionDoubleClicked = Signal(str)
+    scheduleRequested = Signal()
     quickCaptureRequested = Signal()
     quickOcrCaptureRequested = Signal()
     guidanceEnabledChanged = Signal(bool)
@@ -171,7 +172,32 @@ class InstructionPalette(QWidget):
         search_layout.setContentsMargins(0, 0, 0, 2)
         search_layout.addWidget(self.search_edit, 1, Qt.AlignmentFlag.AlignBottom)
         layout_.addWidget(self.search_row)
-        layout_.addWidget(self.tree, 1)
+        self.tree_surface = QWidget(self)
+        self.tree_surface.setObjectName('instructionTreeSurface')
+        self.tree_surface.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        tree_layout = QVBoxLayout(self.tree_surface)
+        tree_layout.setContentsMargins(0, 0, 0, 0)
+        tree_layout.setSpacing(0)
+        tree_layout.addWidget(self.tree, 1)
+        layout_.addWidget(self.tree_surface, 1)
+        from qt_compat.QtWidgets import QToolButton
+        self.schedule_button = QToolButton(self.tree_surface)
+        self.schedule_button.setText('⏰')
+        self.schedule_button.setObjectName('scheduleTasksButton')
+        self.schedule_button.setToolTip('定时运行项目任务')
+        self.schedule_button.setAccessibleName('定时任务')
+        self.schedule_button.setAutoRaise(True)
+        self.schedule_button.setFixedSize(30, 28)
+        self.schedule_button.clicked.connect(self.scheduleRequested.emit)
+        self.schedule_button.setStyleSheet(
+            'QToolButton#scheduleTasksButton {background:transparent; border:none; padding:0;}'
+            'QToolButton#scheduleTasksButton:hover {background:rgba(100,120,160,30); border-radius:6px;}')
+        # Share the tree's rounded background without covering scrollable entries.
+        footer = QHBoxLayout()
+        footer.setContentsMargins(4, 0, 4, 4)
+        footer.addWidget(self.schedule_button)
+        footer.addStretch()
+        tree_layout.addLayout(footer)
 
         self._specs: dict[str, NodeDisplaySpec] = {}
         self.guidance_enabled = True
@@ -181,6 +207,11 @@ class InstructionPalette(QWidget):
         self._chosen_suggestion = None
         self._suggestion_model = QStringListModel(self)
         self.completer = QCompleter(self._suggestion_model, self)
+        # Keep a typed Python owner before app-wide styling sees this native popup.
+        # Lazily wrapping QCompleter's default view can crash PySide2 after restyling.
+        from qt_compat.QtWidgets import QListView
+        self._completion_popup = QListView()
+        self.completer.setPopup(self._completion_popup)
         self.completer.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
         self.search_edit.setCompleter(self.completer)
         self.search_edit.textEdited.connect(self._suggest)

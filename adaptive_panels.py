@@ -44,7 +44,7 @@ class AdaptivePanelSizer(QObject):
         if not self.palette:
             horizontal = bool(self.body.property('horizontalControls'))
             ratio = min(1.0, width / (460 if horizontal else self.reference_width), height / (190 if horizontal else self.reference_height))
-        pixels = max(7, round(self.base_pixels * ratio))
+        pixels = getattr(self, "expanded_pixels", max(7, round(self.base_pixels * ratio)))
         if pixels == self.last_size: return
         self.last_size = pixels
         scale = pixels / 13

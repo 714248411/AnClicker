@@ -44,7 +44,9 @@ class InstructionEditor(RpaInstructionEditor):
         advanced.setVisible(False)
         advanced_layout.addWidget(advanced_toggle)
         advanced_layout.addWidget(advanced)
-        advanced_toggle.toggled.connect(advanced.setVisible)
+        from instructions.common.downward_expansion import DownwardExpansion
+        self._coordinate_expansion = DownwardExpansion(self, advanced)
+        advanced_toggle.toggled.connect(self._coordinate_expansion.setExpanded)
         advanced_toggle.toggled.connect(
             lambda expanded: advanced_toggle.setText('▾ 高级设置' if expanded else '▸ 高级设置'))
         form = QFormLayout(advanced)

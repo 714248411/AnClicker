@@ -2,26 +2,20 @@
 
 通过表格与可视化流程图组织自动化任务，将键鼠操作、图像识别、OCR、Excel 和网页操作连接成可保存、可重复执行的流程。
 
-## v1.5.3 更新介绍
+## v1.5.4 更新介绍
 
-**v1.5.3 完善界面方案、全局字号与拖拽停靠，并优化参数窗口和更新提示。** Windows、Linux、Mac 均提供完整应用与对应源码；Mac 包含 Intel 与 Apple Silicon 两个原生版本。
+新增定时运行项目，修复表格内 Tab 自定义快捷键闪退，并统一优化指令设置及定时任务界面。
 
-### 下载
+[下载完整应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.5.4)
 
-[下载 v1.5.3 应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.5.3)
+- 完整应用：AnClicker-v1.5.4-win.zip、AnClicker-v1.5.4-linux.zip、AnClicker-v1.5.4-mac.zip。
+- 对应源码：以上名称追加 -DaiMa；Mac 包含 Intel 与 Apple-Silicon 两个版本。
+- 定时任务：从指令栏左下角闹钟进入，选择项目与时间。主任务在安全暂停点让出执行，定时任务结束后继续；录制时延后，手动暂停状态保留。
+- 界面修复：下拉选项完整显示、消除白边，指令栏收起展开保持尺寸；设置字号加大，空白收紧，高级设置向下展开。
 
-选择 AnClicker-v1.5.3-win.zip、AnClicker-v1.5.3-linux.zip 或 AnClicker-v1.5.3-mac.zip；对应源码追加 -DaiMa。Mac 按电脑芯片选择 Intel 或 Apple-Silicon 文件夹。
+Windows 完整解压后启动根目录 An Clicker.exe。升级前备份自己的 data。定时任务需要程序保持打开。Mac 未进行 Developer ID 公证；Linux 在 Ubuntu 24.04 / X11 验证，Wayland 未验证。
 
-### 详细变化
-
-- **界面方案与字号**：保存、应用、更名或删除布局方案，恢复默认不改变快捷指令顺序；字体和图标统一增减并记住选择。
-- **拖拽停靠**：在鼠标下的目标栏内部显示上下左右位置，支持并排、堆叠与标签组合；控制与操作放在表格上方或下方时统一两列布局。
-- **参数与菜单**：修复参数窗口白边和保存方案后的布局变化；搜索右键菜单中文化；捐赠移到帮助后面，控制按钮根据状态显示收起或展开。
-- **更新由用户选择**：新版本提示支持更新、稍后更新；稍后将提示收回并高亮更新入口，不自动下载安装。
-
-Windows 完整解压后启动根目录 An Clicker.exe，保留 data。Mac 尚未 Developer ID 签名或公证，首次使用需授权。Linux 在 Ubuntu 24.04 / X11 验证，Wayland 未验证。详细测试记录和 SHA-256 见发行页。
-
-[平台使用说明](https://github.com/714248411/AnClicker/blob/v1.5.3/packaging/PLATFORM_GUIDE.md) · [发行记录](https://github.com/714248411/AnClicker/releases) · [源码更新说明](packaging/RELEASE_NOTES.md)
+[定时任务说明](docs/定时任务使用说明.md) · [平台说明](packaging/PLATFORM_GUIDE.md) · [更新说明](packaging/RELEASE_NOTES.md)
 
 ## 项目简介
 
