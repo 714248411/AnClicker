@@ -21,6 +21,7 @@ class InterfaceScale(QObject):
             self.offset = 0
         self.busy = False
         self.applied = False
+        self.listening = False
         self.widgets = weakref.WeakKeyDictionary()
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
@@ -28,8 +29,15 @@ class InterfaceScale(QObject):
         QTimer.singleShot(0, self.start)
 
     def start(self):
-        QApplication.instance().installEventFilter(self)
+        self.listen(self.offset != 0)
         self.apply()
+
+    def listen(self, enabled):
+        if enabled == self.listening: return
+        app = QApplication.instance()
+        if enabled: app.installEventFilter(self)
+        else: app.removeEventFilter(self)
+        self.listening = enabled
 
     def owns(self, widget):
         while widget is not None:
@@ -48,6 +56,7 @@ class InterfaceScale(QObject):
     def change(self, amount=None):
         self.offset = 0 if amount is None else max(-5, min(10, self.offset + amount))
         self.window.db.set_setting_value('界面字号偏移', str(self.offset))
+        self.listen(self.offset != 0)
         self.apply()
 
     def stylesheet(self, text):

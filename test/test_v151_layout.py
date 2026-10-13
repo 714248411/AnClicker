@@ -31,7 +31,9 @@ def test_narrow_window_controls_and_wrapped_palette(host,theme):
 def test_controls_toggle_compact_restore_and_toolbar_name(host):
     view=host.view_workspace
     actions=host.toolBar.actions()
-    assert actions.index(view.controls_action)+1==actions.index(view.donation_action)
+    assert view.controls_action in actions
+    assert view.donation_action in host.menubar.actions()
+    assert view.donation_action not in actions
     assert host.toolBar.windowTitle()=='显示工具栏'
     assert host.toolBar.toggleViewAction().text()=='显示工具栏'
     view.controls_action.setChecked(False)
