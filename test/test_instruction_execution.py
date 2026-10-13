@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import os
 import sys
 import unittest
+# Initialize OpenCV before patch.dict(sys.modules) restores the module table.
+import cv2
 from unittest.mock import Mock, patch
 
 from instructions.common import actions
