@@ -32,7 +32,8 @@ jobs:
                   break
               time.sleep(20)
           else:raise RuntimeError('Native verification still pending')
-          r=api('/releases/tags/v1.5.4')
+          r=next(x for x in api('/releases?per_page=30') if x['name']=='AnClicker v1.5.4')
+          open('draft.json','w').write(json.dumps(r))
           assert r['draft'],'Release must still be a draft'
           PY
       - name: Validate and upload native archives
@@ -42,14 +43,18 @@ jobs:
           folder=pathlib.Path('delivery')
           expected=json.loads((folder/'SHA256.json').read_text())
           result=[]
+          release=json.loads(pathlib.Path('draft.json').read_text())
           for platform in ['linux','mac']:
               p=folder/('AnClicker-v1.5.4-'+platform+'.zip')
               with zipfile.ZipFile(p) as z:assert z.testzip() is None
               sha=hashlib.sha256(p.read_bytes()).hexdigest()
               assert sha==expected[p.name]
-              subprocess.run(['gh','release','upload','v1.5.4',str(p)],check=True)
+              url=release['upload_url'].split('{')[0]+'?name='+p.name
+              response=subprocess.run(['gh','api','--method','POST',url,'--input',str(p),'-H','Content-Type: application/octet-stream'],check=True,capture_output=True,text=True)
+              a=json.loads(response.stdout)
+              assert a['size']==p.stat().st_size and a['digest']=='sha256:'+sha
               result.append({'name':p.name,'size':p.stat().st_size,'sha256':sha})
-          req=urllib.request.Request('https://api.github.com/repos/714248411/AnClicker/releases/tags/v1.5.4',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+          req=urllib.request.Request('https://api.github.com/repos/714248411/AnClicker/releases/'+str(release['id']),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN']})
           with urllib.request.urlopen(req) as r:release=json.load(r)
           for record in result:
               a=next(a for a in release['assets'] if a['name']==record['name'])
