@@ -2,28 +2,26 @@
 
 通过表格与可视化流程图组织自动化任务，将键鼠操作、图像识别、OCR、Excel 和网页操作连接成可保存、可重复执行的流程。
 
-## v1.5.2 更新介绍
+## v1.5.3 更新介绍
 
-**v1.5.2 支持自由安排工作面板，改善窄窗口操作和多坐标取点。** Windows、Mac、Linux 同版本应用及对应源码现已提供；Mac 包同时包含 Intel 与 Apple Silicon 两个原生版本。
+**v1.5.3 完善界面方案、全局字号与拖拽停靠，并优化参数窗口和更新提示。** Windows、Linux、Mac 均提供完整应用与对应源码；Mac 包含 Intel 与 Apple Silicon 两个原生版本。
 
 ### 下载
 
-[下载 v1.5.2 应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.5.2)
+[下载 v1.5.3 应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.5.3)
 
-选择 `AnClicker-v1.5.2-win.zip`、`AnClicker-v1.5.2-linux.zip` 或 `AnClicker-v1.5.2-mac.zip`；对应完整源码包追加 `-DaiMa`。Mac 按电脑芯片选择 Intel 或 Apple-Silicon 文件夹。
+选择 AnClicker-v1.5.3-win.zip、AnClicker-v1.5.3-linux.zip 或 AnClicker-v1.5.3-mac.zip；对应源码追加 -DaiMa。Mac 按电脑芯片选择 Intel 或 Apple-Silicon 文件夹。
 
 ### 详细变化
 
-- **自由布局**：表格和流程图固定在中栏，其他面板可拖到上、下、左、右区域，并排、堆叠或组合为标签，布局自动保存。
-- **参数与窄窗口**：参数默认独立窗口打开，可右击融入主窗体；面板内容随宽度换行并调整控件、间距，支持恢复默认视图。
-- **连续取点**：键鼠多坐标点击提供连续取点画布，支持编号、拖动调整和撤回，取消保留原值。
-- **平台补齐**：以 Windows 正式版源码为基准，Mac 双架构与 Linux 最终 ZIP 在原生 CI 完整解压后，通过两次启动、图像识别、离线 OCR、表格、浏览器、网页录制和数据迁移检查。
+- **界面方案与字号**：保存、应用、更名或删除布局方案，恢复默认不改变快捷指令顺序；字体和图标统一增减并记住选择。
+- **拖拽停靠**：在鼠标下的目标栏内部显示上下左右位置，支持并排、堆叠与标签组合；控制与操作放在表格上方或下方时统一两列布局。
+- **参数与菜单**：修复参数窗口白边和保存方案后的布局变化；搜索右键菜单中文化；捐赠移到帮助后面，控制按钮根据状态显示收起或展开。
+- **更新由用户选择**：新版本提示支持更新、稍后更新；稍后将提示收回并高亮更新入口，不自动下载安装。
 
-Mac 尚未 Developer ID 签名或公证，首次打开需允许并授予所需系统权限。Linux 已验证 Ubuntu 24.04 / X11，按包内说明安装依赖并配置浏览器沙箱；Wayland 未验证。Windows 保留原正式包，本次平台补充不新增 Windows 兼容性结论。测试数据不代替用户真实桌面与业务环境验收。
+Windows 完整解压后启动根目录 An Clicker.exe，保留 data。Mac 尚未 Developer ID 签名或公证，首次使用需授权。Linux 在 Ubuntu 24.04 / X11 验证，Wayland 未验证。详细测试记录和 SHA-256 见发行页。
 
-[平台使用说明](https://github.com/714248411/AnClicker/blob/v1.5.2-platforms/packaging/PLATFORM_GUIDE.md) · [发行记录](https://github.com/714248411/AnClicker/releases) · [源码更新说明](packaging/RELEASE_NOTES.md)
-
-Windows 源码保留原 `v1.5.2` 标签，Mac/Linux 适配源码见 `v1.5.2-platforms` 标签；各包 SHA-256 与原生验证记录见发行页。
+[平台使用说明](https://github.com/714248411/AnClicker/blob/v1.5.3/packaging/PLATFORM_GUIDE.md) · [发行记录](https://github.com/714248411/AnClicker/releases) · [源码更新说明](packaging/RELEASE_NOTES.md)
 
 ## 项目简介
 
