@@ -645,6 +645,13 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self.statusBar.showMessage('正在停止定时任务，请停止后再关闭窗口。', 5000)
             event.ignore()
             return
+        if getattr(self.workspace, '_instruction_test_active', False):
+            context = getattr(self.workspace, '_instruction_test_context', None)
+            if context is not None:
+                context.stop_requested = True
+            self.statusBar.showMessage('正在停止指令测试，请结束后再关闭窗口。', 5000)
+            event.ignore()
+            return
         cancel_update = False
         if hasattr(self, "auto_update") and not self.auto_update.shutdown():
             box = QMessageBox(self)
@@ -808,6 +815,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             )
 
     def start(self, run_mode='全部指令', info=0) -> bool:
+        if getattr(self.workspace, '_instruction_test_active', False):
+            self.statusBar.showMessage('请先结束指令测试，再启动主任务。', 5000)
+            return False
         if getattr(self, 'task_scheduler', None) and self.task_scheduler.busy:
             self.statusBar.showMessage('定时任务正在等待或执行，请稍后启动主任务。', 5000)
             return False
@@ -970,6 +980,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.db.system_prompt_tone("全局快捷键")  # 发出提示音
 
         if i_str == "终止线程":
+            test_context = getattr(self.workspace, "_instruction_test_context", None)
+            if test_context is not None:
+                test_context.stop_requested = True
             if getattr(self, "task_scheduler", None):
                 self.task_scheduler.stop()
             if self.command_thread.isRunning():

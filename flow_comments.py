@@ -21,6 +21,8 @@ def disabled_command_ids(commands):
 
 def graph_comment_nodes(snapshot):
     """Connected comments follow edges; isolated commands retain table ranges."""
+    if not any(n.type_id in MARKERS for n in snapshot.nodes):
+        return set()
     nodes = {n.node_id: n for n in snapshot.nodes}
     forward = {key: [] for key in nodes}
     backward = {key: [] for key in nodes}
@@ -57,9 +59,9 @@ def graph_comment_nodes(snapshot):
     for end in above - paired_above:
         if forward[end] or backward[end]:
             disabled.update(walk(end, backward, below))
-    isolated = [c for c in snapshot.commands
-                if any(n.command_id == c.id and not forward[n.node_id] and not backward[n.node_id]
-                       for n in snapshot.nodes)]
+    isolated_ids = {n.command_id for n in snapshot.nodes
+                    if n.command_id is not None and not forward[n.node_id] and not backward[n.node_id]}
+    isolated = [c for c in snapshot.commands if c.id in isolated_ids]
     table_disabled = disabled_command_ids(isolated)
     disabled.update(n.node_id for n in snapshot.nodes if n.command_id in table_disabled)
     disabled.update(below | above)

@@ -333,6 +333,20 @@ def release_recorded_inputs(context):
         context.metadata.pop("recording_mouse_controller", None)
 
 
+
+def release_execution_resources(context):
+    """Always attempt every cleanup; native failures must not escape Qt worker.run."""
+    from background_runtime import close_background
+    first_error = None
+    for cleanup in (release_recorded_inputs, close_background):
+        try:
+            cleanup(context)
+        except Exception as error:
+            if first_error is None:
+                first_error = error
+    return first_error
+
+
 def workbook_cell(path_: str, sheet_: str, cell_: str, data_only: bool = True):
     from openpyxl import load_workbook
     workbook_ = load_workbook(path_, data_only=data_only)

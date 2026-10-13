@@ -160,3 +160,10 @@ Windows Velopack 绿色便携版仅交付 ZIP，不生成安装包；完整解�
 本地 OCR 与智能截图说明见 [LOCAL_OCR.md](LOCAL_OCR.md)。感谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[ONNX Runtime](https://github.com/microsoft/onnxruntime)、[OpenCV](https://github.com/opencv/opencv) 及微信 OCR 社区适配项目 [wechat_ocr](https://github.com/kanadeblisst00/wechat_ocr)、[wechat-ocr](https://github.com/swigger/wechat-ocr)。遵循各自许可，微信私有原生组件不随包分发。截图交互参考 [Snipaste](https://www.snipaste.com/)，实现独立编写；Snipaste 并非本项目使用的开源代码依赖，也未完整复刻其所有功能。
 
 感谢 [Project Graph](https://github.com/graphif/project-graph) 的开源作者与全体贡献者。流程图右键拖拽切线交互与视觉反馈参考其设计，本项目的 Qt 实现独立编写。致谢仅展示在仓库介绍中，应用内不再添加该展示区；原有许可证与版权声明保留。
+
+
+### 后台组件自动配置
+
+Windows 版首次执行“绑定选择窗口”或“测试绑定”时，会优先识别本地 `current/damo` 的配套组件；缺失时自动下载固定版本并校验 SHA-256，无需手动填写 DLL 路径或注册系统组件。下载进度显示在测试窗口和运行日志中，可取消，连接失败会切换备用下载地址。
+
+自动配置的组件保存在用户数据目录的 `damo/7.2424` 下，便携版升级不会清除，配置成功后可离线重复使用。“高级设置 → 大漠组件设置”保留“自动配置后台组件”及“立即配置 / 重新检查”，也可切换手动配置；既有手动路径和授权不会自动覆盖。网络不可用时，可将已验证的 `xd47243.dll` 与 `Go.dll` 放入本地 `current/damo` 后重试。

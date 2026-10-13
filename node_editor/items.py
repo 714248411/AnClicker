@@ -251,15 +251,6 @@ class NodeItem(QGraphicsObject):
             painter_.fillRect(QRectF(0.0, 0.0, self.width, 4.0), self.header_color)
             painter_.restore()
 
-        if self.runtime_active:
-            # An execution outline remains distinct from hover and selection.
-            painter_.setBrush(Qt.BrushStyle.NoBrush)
-            for width_, alpha_ in ((12, 35), (7, 85), (3, 255)):
-                color_ = QColor("#00e5a0")
-                color_.setAlpha(alpha_)
-                painter_.setPen(QPen(color_, width_))
-                painter_.drawPath(body_)
-
         painter_.setPen(TEXT_COLOR)
         painter_.setFont(self.title_font)
         if self.is_terminal:

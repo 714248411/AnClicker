@@ -778,6 +778,14 @@ class InstructionWorkspace(QObject):
             return
 
         def execute_test_(draft_: InstructionDraft) -> None:
+            window = getattr(self, 'parent_window', None)
+            view = getattr(window, 'view_workspace', None)
+            thread = getattr(window, 'command_thread', None)
+            if (getattr(self, '_instruction_test_active', False)
+                    or (thread is not None and thread.isRunning())
+                    or (view is not None and (view.recording_page.busy or view.web_recording_page.busy))):
+                self.statusMessage.emit('请先停止运行、录制或其他指令测试。')
+                return
             scheduler = getattr(getattr(self, 'parent_window', None), 'task_scheduler', None)
             if scheduler is not None and scheduler.busy:
                 self.statusMessage.emit('请先结束定时任务，再测试指令。')
@@ -797,7 +805,8 @@ class InstructionWorkspace(QObject):
                     order=0,
                 )
                 context_ = self._editor_context()
-                if spec_.type_id in {'中键激活', '时间等待', '按键等待', '鼠标点击', '按下键盘'} or spec_.category in {'本地OCR', 'Excel', '白话指令', '网页自动化', '数据抓取', '后台功能'}:
+                self._instruction_test_context = context_
+                if spec_.type_id in {'图像等待', '窗口焦点等待', '时间等待', '按键等待'} or spec_.category in {'键鼠', '本地OCR', 'Excel', '白话指令', '网页自动化', '数据抓取', '后台功能'}:
                     from instructions.common.test_runner import run_cancellable_test
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:
@@ -810,9 +819,13 @@ class InstructionWorkspace(QObject):
                     database_.persist_global_variables(context_.variables)
                 self.statusMessage.emit(f"测试完成：{spec_.display_name}")
             except Exception as error_:
-                self._show_error("测试指令失败", error_)
+                if getattr(getattr(self, "_instruction_test_context", None), "stop_requested", False):
+                    self.statusMessage.emit(f"{spec_.display_name}测试已取消")
+                else:
+                    self._show_error("测试指令失败", error_)
             finally:
                 self._instruction_test_active = False
+                self._instruction_test_context = None
 
         signal_.connect(execute_test_)
 

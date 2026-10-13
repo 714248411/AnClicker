@@ -184,3 +184,63 @@ def test_run_keeps_current_page_and_allows_switching(host):
     QTest.qWait(50)
     assert host.tabWidget.currentIndex() == 2
     assert views.flow_log_panel.isHidden()
+
+
+def test_runtime_fit_waits_for_log_layout_and_restores_zoom(host):
+    views = host.view_workspace
+    host.workspace.reload_graph()
+    views.show_flow()
+    QApplication.processEvents()
+    view = host.workspace.editor.view
+    view._set_zoom(.75)
+    original = view.transform().m11()
+    heights = []
+    fit = view.fit_graph
+    def capture_fit():
+        assert views.flow_log_panel.isVisible()
+        heights.append(view.viewport().height())
+        fit()
+    with patch.object(view, 'fit_graph', side_effect=capture_fit):
+        views.begin_runtime_view()
+        QTest.qWait(40)
+        assert len(heights) == 1
+        assert heights[0] == view.viewport().height()
+        assert abs(view._zoom - view.transform().m11()) < .001
+        views.end_runtime_view()
+        QTest.qWait(40)
+        assert abs(view._zoom - original) < .001
+        assert abs(view.transform().m11() - original) < .001
+        # A queued fit must never run after a very short task ends.
+        views.begin_runtime_view()
+        views.end_runtime_view()
+        QTest.qWait(30)
+        assert len(heights) == 1
+
+
+def test_runtime_outline_pixels_clear_and_stay_bright_when_zoomed(host):
+    from qt_compat.QtGui import QImage, QPainter
+    from qt_compat.QtCore import QRectF
+    host.workspace.repository.add_command(InstructionDraft('时间等待', {'时长': 0}))
+    host.workspace.reload_graph()
+    views = host.view_workspace
+    view = host.workspace.editor.view
+    commands = host.workspace.repository.list_commands()
+    views._runtime_view_active = True
+    def green_count():
+        image = QImage(500, 300, QImage.Format_ARGB32)
+        image.fill(0)
+        painter = QPainter(image)
+        painter.translate(100, 100)
+        painter.scale(.2, .2)
+        active = view.scene().nodes_by_command_id[commands[0].id]
+        painter.translate(-active.pos())
+        view.drawForeground(painter, QRectF(-1000,-1000,4000,4000))
+        painter.end()
+        return sum(1 for y in range(image.height()) for x in range(image.width())
+                   if image.pixelColor(x,y).green() > 230 and image.pixelColor(x,y).alpha() > 200)
+    views.highlight_running_command(commands[0].id, ensure_visible=False)
+    assert green_count() > 100
+    views.highlight_running_command(commands[1].id, ensure_visible=False)
+    assert [n.command_id for n in view.scene().nodes_by_id.values() if n.runtime_active] == [commands[1].id]
+    views.end_runtime_view()
+    assert green_count() == 0

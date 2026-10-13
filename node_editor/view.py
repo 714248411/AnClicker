@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from qt_compat.QtCore import QPoint, QPointF, QRectF, Signal, Qt
 import math
-from qt_compat.QtGui import QContextMenuEvent, QKeySequence, QPainter
+from qt_compat.QtGui import QContextMenuEvent, QKeySequence, QPainter, QColor, QPen
 from time import monotonic
 from qt_compat.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
@@ -60,6 +60,27 @@ class NodeView(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.setAcceptDrops(True)
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
+
+    def drawForeground(self, painter, rect):
+        super().drawForeground(painter, rect)
+        active = next((node for node in self.scene().nodes_by_id.values()
+                       if getattr(node, 'runtime_active', False)), None)
+        if active is None:
+            return
+        # Draw above every item/effect, in viewport pixels so fitting a large
+        # graph cannot shrink the execution outline into an almost invisible line.
+        path = painter.worldTransform().map(active.mapToScene(active.shape()))
+        painter.save()
+        painter.resetTransform()
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(Qt.NoBrush)
+        for width, color in ((13, '#405cffae'), (8, '#aa26ff99'),
+                             (4, '#32ff9c'), (1.2, '#effff7')):
+            pen = QPen(QColor(color), width)
+            pen.setJoinStyle(Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPath(path)
+        painter.restore()
 
     def set_instruction_types(self, type_ids_) -> None:
         self._instruction_types = {str(type_id_) for type_id_ in type_ids_}

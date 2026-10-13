@@ -19,12 +19,11 @@ class _TestWorker(QThread):
         except Exception as error:
             self.error = error
         finally:
+            from instructions.common.actions import release_execution_resources
             try:
-                from instructions.common.actions import release_recorded_inputs
-                release_recorded_inputs(self.context)
+                cleanup_error = release_execution_resources(self.context)
+                self.error = self.error or cleanup_error
             finally:
-                from background_runtime import close_background
-                close_background(self.context)
                 self.context.output = output
 
 

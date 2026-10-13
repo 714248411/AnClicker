@@ -44,7 +44,7 @@ class ScheduledWorker(CommandThread):
         raise RuntimeError(f'指令 {command.id} 执行失败：{error}') from error
 
     def run(self):
-        from instructions.common.actions import release_recorded_inputs
+        from instructions.common.actions import release_execution_resources
         context = ExecutionContext(variables={}, services=getattr(self.main_window, 'execution_services', {}) or {},
             output=self.send_message.emit, metadata={'database': self.db, 'main_window': self.main_window,
                 'run_project': self._run_project, 'wait_interruptibly': self._wait_interruptibly})
@@ -59,11 +59,9 @@ class ScheduledWorker(CommandThread):
         except Exception as exc:
             error = str(exc) or type(exc).__name__
         finally:
-            try:
-                release_recorded_inputs(context)
-            finally:
-                from background_runtime import close_background
-                close_background(context)
+            cleanup_error = release_execution_resources(context)
+            if cleanup_error is not None and not error:
+                error = '运行资源释放失败：' + str(cleanup_error)
             self._active_context = None
             self.completed.emit(self.task['id'], error)
 

@@ -29,7 +29,7 @@ class ViewLinkageTests(unittest.TestCase):
         self.view.window = SimpleNamespace(
             db=self.database,
             workspace=SimpleNamespace(repository=self.repository,
-                editor=SimpleNamespace(scene=NodeScene())),
+                editor=SimpleNamespace(scene=NodeScene(), view=SimpleNamespace(viewport=lambda: SimpleNamespace(update=lambda: None)))),
         )
         self.view.command_table = QTableWidget(0, 7)
         self.view.table_state = QLabel()

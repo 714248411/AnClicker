@@ -242,6 +242,7 @@ class BindingEditor(BackgroundEditor):
         self._controls['绑定等待'].setToolTip('绑定成功后等待画面准备完成，单位为秒')
         component = QPushButton('大漠组件设置…', self.advanced_panel)
         component.setAutoDefault(False);component.clicked.connect(self._configure)
+        component.setToolTip('默认首次绑定时自动配置；可查看进度、重新检查或改用手动组件')
         advanced.addRow(component)
         self.preset_hint = QLabel(self)
         self.preset_hint.setWordWrap(True)

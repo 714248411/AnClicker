@@ -89,6 +89,8 @@ class CommandThread(QThread):
             return
         try:
             commands_ = self._commands_for_mode()
+            variables_ = self._load_variables() if commands_ else {}
+            self._persisted_values = {str(name): str(value) for name, value in variables_.items()}
         except Exception as error_:
             self.send_message.emit(f"无法开始运行：{error_}")
             self.finished_signal.emit("任务未启动")
@@ -99,8 +101,6 @@ class CommandThread(QThread):
             self.finished_signal.emit("任务完成")
             return
 
-        variables_ = self._load_variables()
-        self._persisted_values = {str(name): str(value) for name, value in variables_.items()}
         last_cleanup_ = time.monotonic()
         services_ = getattr(self.main_window, "execution_services", {}) or {}
         loop_is_infinite_ = self.number_cycles == -1
@@ -128,12 +128,11 @@ class CommandThread(QThread):
                 self.send_message.emit(f"流程执行失败：{error_}")
                 self.request_stop()
             finally:
-                from instructions.common.actions import release_recorded_inputs
-                try:
-                    release_recorded_inputs(context_)
-                finally:
-                    from background_runtime import close_background
-                    close_background(context_)
+                from instructions.common.actions import release_execution_resources
+                cleanup_error = release_execution_resources(context_)
+                if cleanup_error is not None:
+                    self.send_message.emit(f'运行资源释放失败：{cleanup_error}')
+                    self.request_stop()
                 self.mutex.lock()
                 try:
                     if self._active_context is context_:

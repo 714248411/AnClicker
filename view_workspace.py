@@ -738,6 +738,8 @@ class ViewWorkspace:
         return page
 
     def begin_runtime_view(self):
+        self._runtime_view_serial = getattr(self, '_runtime_view_serial', 0) + 1
+        self._runtime_fit_pending = True
         self._runtime_view_active = True
         self.refresh_table()
         view = self.window.workspace.editor.view
@@ -746,18 +748,42 @@ class ViewWorkspace:
         self.flow_log_panel.show()
         height = max(300, self.flow_splitter.height())
         self.flow_splitter.setSizes([int(height * .75), int(height * .25)])
+        self._schedule_runtime_fit()
+
+    def _schedule_runtime_fit(self):
+        if not getattr(self, '_runtime_view_active', False) or not getattr(self, '_runtime_fit_pending', False):
+            return
+        serial = self._runtime_view_serial
+        def fit_after_layout():
+            if serial != self._runtime_view_serial or not self._runtime_view_active:
+                return
+            if self.tabs.currentIndex() != FLOW_VIEW or not self.flow_log_panel.isVisible():
+                return
+            self.editor_page.layout().activate()
+            self.window.workspace.editor.view.fit_graph()
+            self._runtime_fit_pending = False
+            self.window.workspace.editor.view.viewport().update()
+        QTimer.singleShot(0, fit_after_layout)
 
     def end_runtime_view(self):
+        self._runtime_view_serial = getattr(self, '_runtime_view_serial', 0) + 1
+        serial = self._runtime_view_serial
+        self._runtime_fit_pending = False
         self._runtime_view_active = False
         self.flow_log_panel.hide()
         for node in self.window.workspace.editor.scene.nodes_by_id.values():
             node.runtime_active = False
             node.update()
+        self.window.workspace.editor.view.viewport().update()
         saved = getattr(self, '_flow_view_before_run', None)
         if saved is not None:
             view = self.window.workspace.editor.view
             view.setTransform(saved[0])
+            view._zoom = saved[0].m11()
+            view.zoomChanged.emit(view._zoom * 100)
             def restore_scroll():
+                if serial != self._runtime_view_serial or self._runtime_view_active:
+                    return
                 view.horizontalScrollBar().setValue(saved[1])
                 view.verticalScrollBar().setValue(saved[2])
             QTimer.singleShot(0, restore_scroll)
@@ -1080,7 +1106,9 @@ class ViewWorkspace:
         self._place_palette()
         if index == MAIN_VIEW: self.refresh_summary()
         elif index == TABLE_VIEW: self.refresh_table()
-        elif index == FLOW_VIEW: self.highlight_running_command(self.running_command_id)
+        elif index == FLOW_VIEW:
+            self.highlight_running_command(self.running_command_id)
+            self._schedule_runtime_fit()
         elif index == CODE_VIEW: self._load_code()
 
     def refresh_all(self) -> None:
@@ -1191,6 +1219,11 @@ class ViewWorkspace:
         background = QColor('#3c3c40' if dark else '#dedee3')
         foreground = QColor('#d4d4d8' if dark else '#53535c')
         table = self.command_table
+        appearance = (dark, tuple((table.item(row, 0).data(Qt.ItemDataRole.UserRole) if table.item(row, 0) else None)
+                                  for row in range(table.rowCount())), frozenset(disabled))
+        if appearance == getattr(self, '_table_comment_appearance', None):
+            return
+        self._table_comment_appearance = appearance
         for row in range(table.rowCount()):
             first = table.item(row, 0)
             inactive = first is not None and first.data(Qt.ItemDataRole.UserRole) in disabled
@@ -1215,6 +1248,7 @@ class ViewWorkspace:
                 node.update()
         if active is not None and getattr(self, '_runtime_view_active', False) and ensure_visible and self.tabs.currentIndex() == FLOW_VIEW:
             editor.view.ensureVisible(active, 32, 32)
+        editor.view.viewport().update()
         table = self.command_table
         table.runtime_row = self._table_command_rows.get(self.running_command_id, -1)
         if ensure_visible and table.runtime_row >= 0 and self.tabs.currentIndex() == TABLE_VIEW:
