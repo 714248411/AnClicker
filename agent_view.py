@@ -248,7 +248,7 @@ class AgentView(QWidget):
     def new_chat(self):
         if self.busy:return
         if self.unsaved and QMessageBox.question(self,'新对话','清空尚未写入的指令草稿？')!=QMessageBox.Yes:return
-        self.session.close();self.session=AgentSession();self.written=False;self._tool_card=None
+        self.session.close();self.session=create_agent_session();self.written=False;self._tool_card=None
         for card in self._cards:self.message_layout.removeWidget(card);card.deleteLater()
         self._cards=[];self.render_drafts();self.welcome();self.update_buttons();self.status.setText('新对话 · 准备就绪')
     def start_local(self):

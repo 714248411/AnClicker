@@ -58,3 +58,21 @@ def test_worker_progress_does_not_override_qobject_event():
     from agent_runtime import AgentSession
     worker=AgentWorker(AgentSession(object()),'',AgentSettings(),None)
     assert worker.event(QEvent(QEvent.User)) is True
+
+
+def test_new_chat_uses_configured_session_factory_and_preserves_cancelled_drafts(host):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    page=host.view_workspace.agent_page
+    old=page.session
+    old.drafts=[make_draft('时间等待',{'时长':2})]
+    fresh=SimpleNamespace(drafts=[],close=Mock(),api_url='http://127.0.0.1:8767')
+    with patch('agent_view.create_agent_session',return_value=fresh) as factory,patch.object(old,'close',wraps=old.close) as close:
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.No):page.new_chat()
+        assert page.session is old and len(old.drafts)==1
+        factory.assert_not_called();close.assert_not_called()
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):page.new_chat()
+        factory.assert_called_once_with();close.assert_called_once_with()
+        assert page.session is fresh and page.session.api_url and not page.session.drafts
+        assert not page.written and page.preview.rowCount()==0
+    page.shutdown()
