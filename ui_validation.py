@@ -1,4 +1,5 @@
 """Release-only checks of actual loaded instruction dialogs, without input replay."""
+from qt_compat.QtCore import QCoreApplication, QEvent
 from qt_compat.QtWidgets import QApplication, QAbstractSpinBox, QLineEdit
 from instructions.registry import INSTRUCTION_SPECS
 from instructions.models import ExecutionContext
@@ -36,6 +37,7 @@ def validate_instruction_editors(window):
                 finally:
                     editor.hide()
                     editor.deleteLater()
+                    QCoreApplication.sendPostedEvents(editor, QEvent.DeferredDelete)
             app.processEvents()
     finally:
         view.theme_mode = original_theme
@@ -120,9 +122,12 @@ def validate_image_click_modal_add(window):
         def capture_for_validation():
             if not image.is_file(): raise RuntimeError('Image validation fixture disappeared before capture')
             editor.capture_button.click()
+        confirmation = QTimer()
+        confirmation.setSingleShot(True)
+        confirmation.timeout.connect(lambda: editor.ui.buttonBox.button(QDialogButtonBox.StandardButton.Ok).click())
+        editor.ui.parameter_0.textChanged.connect(lambda path: confirmation.start(0) if path != str(image) else None)
         class Picker(QDialog):
             def exec(self):
-                QTimer.singleShot(250, lambda: editor.ui.buttonBox.button(QDialogButtonBox.StandardButton.Ok).click())
                 return QDialog.DialogCode.Accepted
             def selected_region(self):
                 return (0, 0, 40, 30)
@@ -132,8 +137,8 @@ def validate_image_click_modal_add(window):
         watchdog = QTimer()
         watchdog.setSingleShot(True)
         watchdog.timeout.connect(editor.reject)
-        watchdog.start(5000)
-        capture_timer = QTimer(editor)
+        watchdog.start(30000)
+        capture_timer = QTimer()
         capture_timer.setSingleShot(True)
         capture_timer.timeout.connect(capture_for_validation)
         capture_timer.start(0)
@@ -143,7 +148,7 @@ def validate_image_click_modal_add(window):
                 command_id = workspace.add_command('图像点击')
                 if command_id is None:
                     import time
-                    deadline = time.monotonic() + 5
+                    deadline = time.monotonic() + 30
                     while command_id is None and time.monotonic() < deadline:
                         QApplication.processEvents()
                         time.sleep(0.025)
@@ -160,10 +165,16 @@ def validate_image_click_modal_add(window):
             if command.parameters['图像路径'] == str(image):
                 raise RuntimeError('Screenshot was not selected for new command')
         finally:
+            confirmation.stop()
             capture_timer.stop()
             watchdog.stop()
             created = [c.id for c in workspace.repository.list_commands() if c.id not in original_ids]
             if created:
                 workspace.remove_commands(created, confirm=False)
-            editor.deleteLater()
+            from qt_compat import BINDING
+            if BINDING == 'PySide2':
+                from shiboken2 import isValid
+            else:
+                from shiboken6 import isValid
+            if isValid(editor): editor.deleteLater()
     return True

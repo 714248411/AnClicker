@@ -363,6 +363,13 @@ class ImageClickEditorMixin:
             super()._run_auxiliary(key)
 
     def _select_screen(self, capture):
+        from qt_compat import BINDING
+        if BINDING == 'PySide2':
+            from shiboken2 import isValid
+        else:
+            from shiboken6 import isValid
+        if getattr(self, '_screen_selection_active', False):
+            return
         if capture and not self.folder_combo.currentText():
             from functions import IMAGES_FOLDER
             Path(IMAGES_FOLDER).mkdir(parents=True, exist_ok=True)
@@ -372,48 +379,57 @@ class ImageClickEditorMixin:
             return
         host = self.parentWidget().window() if self.parentWidget() else None
         host_visible = host is not None and host.isVisible()
-        # Hiding a modal QDialog ends exec() and cancels the workspace add.
-        # Preserve that event loop while removing the windows from the screenshot.
+        was_visible = self.isVisible()
         opacity = self.windowOpacity()
         host_opacity = host.windowOpacity() if host_visible else None
+        buttons_enabled = self.ui.buttonBox.isEnabled()
+        self._screen_selection_active = True
+        self.ui.buttonBox.setEnabled(False)
+        # Hiding a modal editor ends exec(); opacity keeps its event loop alive.
         self.setWindowOpacity(0.0)
         if host_visible:
             host.setWindowOpacity(0.0)
         def restore():
-            if host_visible:
+            if host_visible and isValid(host):
                 host.setWindowOpacity(host_opacity)
+            if not isValid(self):
+                return
+            self._screen_selection_active = False
+            self.ui.buttonBox.setEnabled(buttons_enabled)
             self.setWindowOpacity(opacity)
-            self.show(); self.raise_(); self.activateWindow()
+            # A cancelled or closed editor must not be reopened by a late callback.
+            if not was_visible or self.isVisible():
+                self.show(); self.raise_(); self.activateWindow()
         def choose():
             selector = None
             try:
+                if not isValid(self) or (was_visible and not self.isVisible()):
+                    return
                 selector = SmartCaptureDialog() if capture else _RegionSelectionDialog()
                 selector.exec()
+                if not isValid(self) or (was_visible and not self.isVisible()):
+                    return
                 region = selector.selected_region()
+                # Selection already contains the captured pixels. Commit immediately
+                # so confirmation cannot overtake a second arbitrary delay.
+                if region and capture:
+                    path = Path(self.folder_combo.currentText()) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
+                    selector.save_selection(path)
+                    self._set_image_path(path)
+                    callback = getattr(self.context, 'metadata', {}).get('remember_capture')
+                    if callable(callback):
+                        callback(str(path))
+                elif region:
+                    self.ui.parameter_3.setText(str(region))
+                    self.region_group.setChecked(True)
             except Exception as error:
-                if selector is not None:
+                if isValid(self):
+                    restore()
+                    QMessageBox.warning(self, '截图/区域设置失败', str(error))
+            finally:
+                if selector is not None and (not isinstance(selector, QDialog) or isValid(selector)):
                     selector.deleteLater()
                 restore()
-                QMessageBox.warning(self, '截图失败', str(error))
-                return
-            def finish():
-                try:
-                    if region and capture:
-                        path = Path(self.folder_combo.currentText()) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
-                        selector.save_selection(path)
-                        self._set_image_path(path)
-                        callback = getattr(self.context, 'metadata', {}).get('remember_capture')
-                        if callable(callback):
-                            callback(str(path))
-                    elif region:
-                        self.ui.parameter_3.setText(str(region))
-                        self.region_group.setChecked(True)
-                except Exception as error:
-                    QMessageBox.warning(self, '截图/区域设置失败', str(error))
-                finally:
-                    selector.deleteLater()
-                    restore()
-            QTimer.singleShot(180, finish)
         QTimer.singleShot(180, choose)
 
     def load_draft(self, draft):

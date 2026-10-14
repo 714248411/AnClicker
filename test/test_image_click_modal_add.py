@@ -74,3 +74,65 @@ def test_image_selection_preserves_modal_add(tmp_path, capture, outcome):
         owner.deleteLater()
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         app.processEvents()
+
+
+@pytest.mark.parametrize('when', ['before_picker', 'inside_picker', 'cancelled', 'double_start'])
+def test_capture_callback_respects_editor_lifetime(tmp_path, when):
+    from qt_compat import BINDING
+    if BINDING == 'PySide2':
+        from shiboken2 import isValid
+    else:
+        from shiboken6 import isValid
+    from qt_compat.QtTest import QTest
+    owner = QWidget()
+    owner.db = DatabaseOperation(str(tmp_path / 'lifetime.db'))
+    owner.db.writes_to_resource_folder_path(str(tmp_path))
+    from instructions.models import ExecutionContext
+    editor = get_instruction_spec('图像点击').create_editor(parent=owner,
+        context=ExecutionContext(metadata={'database': owner.db}))
+    image = tmp_path / 'original.png'
+    pixmap = QPixmap(20,20); pixmap.fill(); assert pixmap.save(str(image))
+    editor._set_image_path(image)
+    owner.show(); editor.show(); owner.setWindowOpacity(.8)
+    original_opacity = owner.windowOpacity()
+    calls = []
+    class Picker(QDialog):
+        def exec(self):
+            calls.append(True)
+            if when == 'inside_picker':
+                owner.deleteLater()
+                QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            return QDialog.Rejected
+        def selected_region(self): return None
+    try:
+        with patch('instructions.common.image_click_editor.SmartCaptureDialog', Picker):
+            editor._select_screen(True)
+            if when == 'before_picker':
+                owner.deleteLater()
+                QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            elif when == 'cancelled':
+                editor.reject()
+            elif when == 'double_start':
+                assert not editor.ui.buttonBox.isEnabled()
+                editor._select_screen(True)
+            QTest.qWait(240)
+        assert len(calls) == int(when in ('inside_picker','double_start'))
+        assert list(tmp_path.glob('截图_*.png')) == []
+        if isValid(editor):
+            assert editor.ui.parameter_0.text() == str(image)
+            assert editor.ui.buttonBox.isEnabled()
+            assert owner.windowOpacity() == original_opacity
+            if when == 'cancelled': assert not editor.isVisible()
+    finally:
+        if isValid(owner): owner.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
+from test.test_hidden_stop import host
+
+
+def test_packaged_capture_validation_waits_for_saved_image(host):
+    from ui_validation import validate_image_click_modal_add
+    original = host.workspace.repository.list_commands()
+    assert validate_image_click_modal_add(host)
+    assert host.workspace.repository.list_commands() == original
