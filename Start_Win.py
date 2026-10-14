@@ -344,16 +344,14 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             QMessageBox.critical(self, '致命错误', '命令集.db文件不存在！请重新下载！', QMessageBox.StandardButton.Ok,
                                  QMessageBox.StandardButton.NoButton)
             sys.exit(1)
-        # 检查开屏和qss文件夹是否存在
-        if not os.path.exists(os.path.join(RESOURCE_FOLDER, 'flat')):
-            QMessageBox.critical(self, '致命错误', 'flat文件夹不存在！', QMessageBox.StandardButton.Ok,
-                                 QMessageBox.StandardButton.NoButton)
-            sys.exit(1)
-        # 检查qss文件夹下是否有模型文件
-        model_files = os.listdir(os.path.join(RESOURCE_FOLDER, 'flat'))
-        if not any(x.endswith('.qss') for x in model_files) or not any(x.endswith('.png') for x in model_files):
-            QMessageBox.critical(self, '致命错误', 'flat文件夹下没有文件！', QMessageBox.StandardButton.Ok,
-                                 QMessageBox.StandardButton.NoButton)
+        # Validate the resources actually used by this version, not legacy PNGs.
+        from startup_resources import missing_startup_resources
+        missing = missing_startup_resources(RESOURCE_FOLDER)
+        if missing:
+            QMessageBox.critical(
+                self, '启动资源缺失',
+                '缺少启动资源：' + '、'.join(missing) + '。请完整解压安装包后重试。',
+                QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.NoButton)
             sys.exit(1)
 
     def register_global_shortcut_keys(self):

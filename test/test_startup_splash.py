@@ -43,3 +43,19 @@ def test_only_new_animation_is_packaged():
     assert 'startup.gif' in spec
     assert '开屏.png' not in spec
     assert not (ROOT / 'flat/开屏.png').exists()
+
+
+def test_gif_resources_pass_without_legacy_png(tmp_path):
+    from startup_resources import missing_startup_resources, REQUIRED_STARTUP_RESOURCES
+    folder = tmp_path / 'flat'
+    folder.mkdir()
+    for name in REQUIRED_STARTUP_RESOURCES:
+        (folder / name).write_bytes(b'resource')
+    assert not list(folder.glob('*.png'))
+    assert missing_startup_resources(tmp_path) == []
+    (folder / 'startup.gif').unlink()
+    assert missing_startup_resources(tmp_path) == ['flat/startup.gif']
+
+def test_missing_resource_folder_reports_exact_filenames(tmp_path):
+    from startup_resources import missing_startup_resources, REQUIRED_STARTUP_RESOURCES
+    assert missing_startup_resources(tmp_path) == ['flat/' + name for name in REQUIRED_STARTUP_RESOURCES]
