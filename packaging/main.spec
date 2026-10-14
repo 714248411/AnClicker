@@ -111,7 +111,7 @@ a = Analysis(
         (os.path.join(project_root, 'flat', 'Combinear.qss'), 'flat'),
         (os.path.join(project_root, 'flat', 'chevron-down.svg'), 'flat'),
         (os.path.join(project_root, 'flat', 'chevron-up.svg'), 'flat'),
-        (os.path.join(project_root, 'flat', '开屏.png'), 'flat'),
+        (os.path.join(project_root, 'flat', 'startup.gif'), 'flat'),
         (os.path.join(project_root, 'Window', 'res', 'donation_qr.png'), 'Window/res'),
     ] + instruction_datas + collect_data_files('rapidocr_onnxruntime', excludes=['models/**']),
     hiddenimports=['Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,

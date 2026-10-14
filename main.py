@@ -21,6 +21,11 @@ if __name__ == '__main__' and '--update-worker' in sys.argv:
     update_worker_main()
     raise SystemExit(0)
 
+# Animation runs independently so synchronous UI initialization cannot freeze it.
+if __name__ == '__main__' and '--startup-animation' in sys.argv:
+    from startup_splash import run_animation
+    raise SystemExit(run_animation(sys.argv[sys.argv.index('--startup-animation') + 1]))
+
 # Handle lifecycle hooks before storage, Qt and singleton initialization.
 if __name__ == "__main__" and sys.platform == "win32" and getattr(sys, "frozen", False):
     import velopack
@@ -72,25 +77,7 @@ SINGLETON_KEY = os.environ.get(
 )
 
 
-class LoadingSplashScreen(QSplashScreen):
-    """使用清晰的自定义文字绘制启动画面。"""
-
-    def drawContents(self, painter):
-        message = self.message()
-        if not message:
-            return
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        font = QFont("微软雅黑", 16)
-        font.setBold(True)
-        painter.setFont(font)
-        painter.setPen(QColor("#176b2c"))
-        painter.drawText(
-            self.rect().adjusted(0, 0, 0, -18),
-            Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter,
-            message,
-        )
-        painter.restore()
+from startup_splash import LoadingSplashScreen, show_splash_screen
 
 
 def read_qss_file(qss_file_name):
@@ -108,44 +95,6 @@ def install_qt_chinese_translator(app):
         app.installTranslator(translator)
     return translator
 
-
-def show_splash_screen(app, image_path):
-    """创建并居中显示圆角启动画面。"""
-    splash = LoadingSplashScreen()
-    if Path(image_path).is_file():
-        pixmap = QPixmap(image_path).scaled(
-            600,
-            400,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        rounded_pixmap = QPixmap(pixmap.size())
-        rounded_pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(rounded_pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        path = QPainterPath()
-        path.addRoundedRect(pixmap.rect(), 24, 24)
-        painter.setClipPath(path)
-        painter.drawPixmap(0, 0, pixmap)
-        painter.end()
-        splash.setPixmap(rounded_pixmap)
-        splash.setMask(rounded_pixmap.mask())
-
-    screen = app.primaryScreen()
-    if screen is not None:
-        geometry = screen.availableGeometry()
-        splash.move(
-            geometry.x() + (geometry.width() - splash.width()) // 2,
-            geometry.y() + (geometry.height() - splash.height()) // 2,
-        )
-    splash.showMessage(
-        "正在载入中...",
-        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter,
-        QColor("#176b2c"),
-    )
-    splash.show()
-    app.processEvents()
-    return splash
 
 
 def main():
@@ -190,7 +139,7 @@ def main():
         return 1
 
     flat_dir = os.path.join(RESOURCE_FOLDER, "flat")
-    splash = show_splash_screen(app, os.path.join(flat_dir, "开屏.png"))
+    splash = show_splash_screen(app, os.path.join(flat_dir, "startup.gif"))
 
     # Keep the import delayed for the splash, but statically visible to
     # PyInstaller so the main window and its dependency tree are bundled.
