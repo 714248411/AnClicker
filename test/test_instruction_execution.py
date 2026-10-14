@@ -145,7 +145,7 @@ class InstructionFallbackTests(unittest.TestCase):
             "后台信息窗口": {"接口": "CreateFoobarRect"},
             "后台内存操作": {"接口": "ReadInt", "参数": '{"addr":"1000"}'},
             "后台汇编操作": {"接口": "AsmClear"},
-            "后台答题器": {"接口": "FaqGetSize"},
+            "后台答题器": {"题库路径": "fixture.docx", "题目": "fixture", "变量": "答案"},
         })
         self.context_.services.update(background_windows=Windows, background_transport=Transport)
         from instructions.common.rpa_instruction import CATALOG
@@ -158,6 +158,7 @@ class InstructionFallbackTests(unittest.TestCase):
         process_result_ = SimpleNamespace(stdout="ok\n", returncode=0)
 
         with ExitStack() as stack_:
+            stack_.enter_context(patch('local_word_answers.load_bank', return_value=[('fixture', 'local answer')]))
             # This case verifies the legacy Windows fallbacks and their exact
             # API calls. Cross-platform routing has dedicated platform tests.
             stack_.enter_context(patch.object(sys, "platform", "win32"))
@@ -209,6 +210,7 @@ class InstructionFallbackTests(unittest.TestCase):
                         stack_.enter_context(patch.object(executor_, "_show_countdown"))
                     executor_.execute(self.context_, _command(spec_.type_id, parameters_[spec_.type_id]))
 
+        self.assertEqual(self.context_.variables["答案"], "local answer")
         self.assertEqual(self.context_.variables["Python"], 3)
         self.assertEqual(self.context_.variables["剪切板"], "剪切板内容")
         self.assertEqual(self.context_.variables["验证码"], "1234")

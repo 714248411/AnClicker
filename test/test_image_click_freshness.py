@@ -221,14 +221,11 @@ def test_detection_only_never_moves_or_clicks(screen, offset):
     random_offset.assert_not_called()
 
 
-@pytest.mark.parametrize('skip', [False, True])
-def test_detection_only_missing_keeps_error_policy(screen, skip):
+@pytest.mark.parametrize('policy', ['0', '自动略过', '自动跳过', ''])
+def test_detection_only_missing_always_reaches_exception_logic(screen, policy):
     screen.position = None
-    if skip:
-        assert screen.execute(动作='无操作', 异常='自动略过') is False
-    else:
-        with pytest.raises(FileNotFoundError):
-            screen.execute(动作='无操作', 异常='0')
+    with pytest.raises(FileNotFoundError, match='图片存在判断未通过'):
+        screen.execute(动作='无操作', 异常=policy)
     screen.move_mock.assert_not_called()
     screen.click_mock.assert_not_called()
 

@@ -180,3 +180,33 @@ def test_detection_only_action_roundtrip(editor):
     widget.ui.parameter_1.setCurrentText('左键单击')
     widget.load_draft(draft)
     assert widget.get_draft().parameters['动作'] == '无操作'
+
+
+def test_detection_only_exposes_wait_and_exception_hint_instead_of_image_skip(editor):
+    widget, _ = editor
+    widget.ui.parameter_1.setCurrentText('无操作')
+    assert widget.skip_check.isHidden()
+    assert not widget.detection_hint.isHidden()
+    assert widget.timeout_spin.isEnabled() and widget.timeout_spin.value() == 1
+    assert not widget.ui.parameter_6.isEnabled() and not widget.ui.auxiliary_6.isEnabled()
+    assert widget.get_draft().parameters['异常'] == '1'
+    widget.timeout_spin.setValue(7)
+    assert widget.get_draft().parameters['异常'] == '7'
+    widget.ui.parameter_1.setCurrentText('左键单击')
+    assert not widget.skip_check.isHidden() and widget.detection_hint.isHidden()
+    assert widget.ui.parameter_6.isEnabled()
+    assert widget.get_draft().parameters['异常'] == '自动略过'
+
+
+@pytest.mark.parametrize('policy,seconds', [('自动略过',1), ('自动跳过',1), ('0',0), ('25',25)])
+def test_legacy_detection_only_load_preserves_search_duration_and_exception_policy(editor,policy,seconds):
+    widget, image = editor
+    draft = InstructionDraft('图像点击', {'动作':'无操作','图像路径':str(image),'异常':policy},
+                             error_policy='提示异常并停止')
+    widget.load_draft(draft)
+    saved = widget.get_draft()
+    assert saved.parameters['异常'] == str(seconds)
+    assert saved.error_policy == '提示异常并停止'
+    assert widget.timeout_spin.value() == seconds
+    widget.load_draft(saved)
+    assert widget.get_draft() == saved

@@ -47,7 +47,15 @@ def condition_hint(snapshot, command_id=None):
     shared = [name for name in before if name in after]
     candidates = shared or before or after
     selected = candidates[0] if len(candidates) == 1 else ''
-    return {'variable': selected, 'candidates': list(dict.fromkeys(before + after)),
+    suggestions = []
+    for command in reversed(commands[max(0, position-5):position]):
+        parameters = visual_condition_hint(command)
+        if parameters is not None:
+            suggestions.append({'command_id': command.id, 'type_id': command.type_id, 'parameters': parameters})
+    target_variables = list(dict.fromkeys(name for command in reversed(commands[max(0, position-5):position])
+                                         for name in variables_in(command)))
+    target_variables = list(dict.fromkeys(target_variables + before + after))
+    return {'target_variables': target_variables, 'condition_suggestions': suggestions, 'variable': selected, 'candidates': list(dict.fromkeys(before + after)),
             'previous': [command.id for command in previous], 'following': [command.id for command in following]}
 
 
@@ -67,3 +75,27 @@ def replace_condition_variable(expression, variable):
     except (SyntaxError, ValueError):
         pass
     return variable
+
+
+def visual_condition_hint(command):
+    """Use the nearest relevant instruction; never prefer images over nearer colors."""
+    p = command.parameters
+    from flow_condition_checks import condition_kind, KINDS
+    kind = condition_kind(p)
+    if kind in KINDS and kind != '表达式':
+        return dict(p, 判断类型=kind)
+    if command.type_id == '颜色判断' or ('颜色' in p and '坐标' in p):
+        return {'判断类型': '颜色判断', '坐标': p.get('坐标', ''), '颜色': p.get('颜色', '#FFFFFF'),
+                '容差': p.get('容差', 0), '满足条件': '不存在 / 不相等' if p.get('比较') == '不相等' else '存在 / 相等'}
+    if '目标文字' in p and 'OCR' in command.type_id:
+        return {'判断类型': 'OCR文字存在', '目标文字': p['目标文字'], '区域': p.get('区域', ''),
+                '匹配方式': p.get('匹配方式', '精准' if '精准' in command.type_id else '包含'),
+                '精度': p.get('相似度', .8), '满足条件': '不存在 / 不相等' if '消失' in command.type_id else '存在 / 相等'}
+    image = next((p[k] for k in ('图像路径', '图像', '图片') if p.get(k)), None)
+    if image is not None and 'OCR' not in command.type_id:
+        precision = float(p.get('精度', .8))
+        return {'判断类型': '图片存在', '图像路径': image, '区域': p.get('区域', ''),
+                '精度': precision / 100 if precision > 1 else precision, '灰度': p.get('灰度', False)}
+    if '坐标' in p and command.type_id in ('坐标点击', '移动鼠标', '颜色判断'):
+        return {'判断类型': '坐标存在', '坐标': p['坐标']}
+    return None

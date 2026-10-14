@@ -1,6 +1,6 @@
 """Typed parameter forms and window selection for isolated background commands."""
 import json
-from qt_compat.QtCore import Qt, QObject, QEvent
+from qt_compat.QtCore import Qt, QObject, QEvent, QTimer
 from qt_compat.QtGui import QPalette
 from qt_compat.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QFormLayout, QPushButton, QListWidget, QListWidgetItem, QDialogButtonBox, QMessageBox,
@@ -213,6 +213,23 @@ class BindingEditor(BackgroundEditor):
         from background_binding import AUTO, CUSTOM
         super().__init__(parent=parent, draft=None, context=context)
         self.ui.parameterGroupBox.setTitle('选择窗口与绑定方案')
+        self.preload_label = QLabel(self)
+        self.preload_label.setWordWrap(True)
+        self.ui.rootLayout.insertWidget(1, self.preload_label)
+        if getattr(context, 'metadata', {}).get('main_window') is not None:
+            from background_preload import start_preload, preload_status, close_preload
+            from qt_compat.QtWidgets import QApplication
+            app = QApplication.instance()
+            if not getattr(app, '_background_preload_cleanup', False):
+                app.aboutToQuit.connect(close_preload)
+                app._background_preload_cleanup = True
+            start_preload()
+            self.preload_timer = QTimer(self)
+            self.preload_timer.timeout.connect(lambda: self.preload_label.setText(preload_status()))
+            self.preload_timer.start(400)
+            self.preload_label.setText(preload_status())
+        else:
+            self.preload_label.setText('执行绑定时将使用已准备好的后台组件。')
         self._controls['窗口句柄'].setPlaceholderText('点选窗口后自动填写，也可手动输入句柄')
         self._controls['窗口标题'].setPlaceholderText('选择后显示窗口名称，也可填写标题定位窗口')
         self.ui.label_1.setText('窗口名称')

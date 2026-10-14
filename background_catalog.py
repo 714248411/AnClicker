@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 METHODS = json.loads(Path(__file__).with_name('background_dm_methods.json').read_text(encoding='utf-8'))
-GROUPS = tuple(dict.fromkeys(item['group'] for item in METHODS.values()))
+GROUPS = tuple(dict.fromkeys(item['group'] for item in METHODS.values() if item['group'] != '后台答题器'))
 
 def group_methods(group):
     return {name: data for name, data in METHODS.items() if data['group'] == group}

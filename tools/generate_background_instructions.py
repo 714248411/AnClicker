@@ -9,7 +9,7 @@ from instructions.common import FieldSpec
 from background_binding import AUTO, PRESETS
 source=(root/'instructions/Excel/写入单元格/写入单元格.ui').read_text(encoding='utf8')
 common=source[source.index('<item><spacer name="verticalSpacer"'):]
-fields={group:[FieldSpec('接口','操作','choice',label(next(iter(group_methods(group)))),tuple(label(n) for n in group_methods(group))),FieldSpec('参数','接口参数','multiline','{}'),FieldSpec('变量','结果变量（可选）')] for group in GROUPS}
+fields={group:[FieldSpec('接口','操作','choice',label(next(iter(group_methods(group)))),tuple(label(n) for n in group_methods(group))),FieldSpec('参数','接口参数','multiline','{}'),FieldSpec('变量','结果变量（可选）')] for group in GROUPS if group != '后台答题器'}
 fields['绑定选择窗口']=[FieldSpec('窗口句柄','目标窗口句柄'),FieldSpec('窗口标题','窗口标题'),FieldSpec('窗口类名','窗口类名'),FieldSpec('进程路径','进程路径'),FieldSpec('进程ID','进程 ID','int',0,maximum=2147483647),FieldSpec('图像模式','后台图像模式','choice','dx1',('dx1','dx2','dx3','gdi','gdi2','dx')),FieldSpec('鼠标模式','后台鼠标模式','choice','dx',('dx','dx2','windows','windows2','windows3')),FieldSpec('键盘模式','后台键盘模式','choice','dx',('dx','windows')),FieldSpec('绑定模式','绑定方式','choice','0',('0','2')),FieldSpec('绑定等待','绑定后等待（秒）','float',1,minimum=0,maximum=10),FieldSpec('绑定方案','绑定方案','choice',AUTO,PRESETS)]
 fields['解除后台绑定']=[]
 for name, items in fields.items():

@@ -1240,6 +1240,46 @@ class GraphRepository:
                                            [(START_NODE_ID, nodes[0]), (nodes[-1], END_NODE_ID)])
         return ids
 
+    def add_error_handler(self, source_id: str, x: float, y: float) -> CommandRecord:
+        """Create a handler and its error edge together, or leave the graph unchanged."""
+        source_id, x, y = str(source_id), float(x), float(y)
+        if not math.isfinite(x) or not math.isfinite(y):
+            raise ValueError("节点坐标必须是有限数值")
+        draft = InstructionDraft('报错跳转', {'跳转方式': '连线节点', '目标行': 1, '项目路径': ''})
+        values = self._normalize_draft(draft)
+        if not self._is_known_type(values[0]):
+            raise ValueError("未知指令类型：报错跳转")
+        with self._transaction(validate_graph=False) as connection:
+            source = connection.execute(
+                "SELECT 命令.类型标识 FROM 节点 JOIN 命令 ON 节点.命令ID=命令.ID WHERE 节点.节点ID=?",
+                (source_id,),
+            ).fetchone()
+            if source is None or source[0] == '报错跳转':
+                raise GraphValidationError("请从普通指令的报错接口添加报错模块")
+            if connection.execute(
+                "SELECT 1 FROM flow_edge_metadata WHERE source_id=? AND kind=5", (source_id,),
+            ).fetchone():
+                raise GraphValidationError("此指令已连接报错模块，请先删除原报错连线")
+            order = connection.execute("SELECT COALESCE(MAX(排序), -1) + 1 FROM 命令").fetchone()[0]
+            cursor = connection.execute(
+                "INSERT INTO 命令(类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?)",
+                (*values, order),
+            )
+            command_id, node_id = int(cursor.lastrowid), uuid.uuid4().hex
+            connection.execute(
+                "INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) VALUES (?, ?, 'instruction', ?, ?)",
+                (node_id, command_id, x, y),
+            )
+            connection.execute("INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)", (source_id, node_id))
+            connection.execute(
+                "INSERT INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, 5)",
+                (source_id, node_id),
+            )
+        record = self.get_command(command_id)
+        if record is None:  # pragma: no cover - transaction invariant
+            raise GraphRepositoryError("新增报错模块后无法读取记录")
+        return record
+
     def add_command(
         self,
         draft: Any,

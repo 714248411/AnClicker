@@ -8,7 +8,7 @@ import weakref
 from pathlib import Path
 from typing import Optional
 
-from qt_compat.QtCore import QObject, Signal, QTimer
+from qt_compat.QtCore import QObject, Signal, QTimer, Qt
 from qt_compat.QtWidgets import QDialog, QInputDialog, QMessageBox
 
 from graph_repository import END_NODE_ID, GraphRepository
@@ -71,6 +71,8 @@ class InstructionWorkspace(QObject):
         self.editor.sizeCommitted.connect(self._commit_size)
         self.editor.connectionRequested.connect(self._connect_nodes)
         self.editor.branchConnectionRequested.connect(self._connect_nodes)
+        # Reload only after the port mouse-release handler has finished.
+        self.editor.errorNodeRequested.connect(self._add_error_node, Qt.QueuedConnection)
         self.editor.deleteConnectionsRequested.connect(self._delete_connections)
         self.editor.noteChanged.connect(self._update_note)
         self.editor.saveTemplateRequested.connect(self._save_template)
@@ -261,6 +263,9 @@ class InstructionWorkspace(QObject):
     def add_command(self, type_id, x=None, y=None, *, initial_draft=None, configure=True):
         try:
             spec_ = get_instruction_spec(str(type_id))
+            if str(type_id) == "绑定选择窗口":
+                from background_preload import start_preload
+                start_preload()
             if initial_draft is None:
                 quick = self.palette.quick_parameters(str(type_id))
                 if quick is not None: initial_draft = InstructionDraft(str(type_id), quick)
@@ -522,6 +527,50 @@ class InstructionWorkspace(QObject):
             self.statusMessage.emit(f'已重做连线操作，剩余 {len(self._connection_redo)} 步')
         except Exception as error:
             self._show_error('重做连线失败', error)
+
+    def _add_error_node(self, source_id, x: float, y: float) -> None:
+        if not self._connection_edit_allowed():
+            return
+        try:
+            self._check_parameter_save_allowed()
+            source_id = str(source_id)
+            snapshot = self.repository.snapshot()
+            if any(edge.source == source_id and edge.kind == 5 for edge in snapshot.edges):
+                self.statusMessage.emit('此指令已连接报错模块，请先删除原报错连线。')
+                return
+            if not any(node.node_id == source_id and node.command_id is not None
+                       and node.type_id != '报错跳转' for node in snapshot.nodes):
+                return
+            box = QMessageBox(self.parent_window)
+            box.setIcon(QMessageBox.Question)
+            box.setWindowTitle('添加报错模块')
+            box.setText('是否在此处添加报错模块，并连接当前指令的报错线？')
+            box.setInformativeText('回车确认添加，Esc 取消。添加后可连接跳转目标，或双击模块设置。')
+            add = box.addButton('添加报错模块', QMessageBox.AcceptRole)
+            cancel = box.addButton('取消', QMessageBox.RejectRole)
+            box.setDefaultButton(add)
+            box.setEscapeButton(cancel)
+            try:
+                box.exec()
+                confirmed = box.clickedButton() is add
+            finally:
+                box.deleteLater()
+            if not confirmed:
+                return
+            self._check_parameter_save_allowed()
+            view = self.editor.view
+            transform = view.transform()
+            center = view.mapToScene(view.viewport().rect().center())
+            command = self.repository.add_error_handler(source_id, x, y)
+            self.reload_graph(command.id)
+            view.setTransform(transform)
+            view._zoom = transform.m11()
+            view.centerOn(center)
+            view.zoomChanged.emit(view._zoom * 100)
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit('已添加并连接报错模块，请连接跳转目标或双击设置。')
+        except Exception as error:
+            self._show_error('添加报错模块失败', error)
 
     def _connect_nodes(self, source_id, target_id, kind=None) -> None:
         if not self._connection_edit_allowed():

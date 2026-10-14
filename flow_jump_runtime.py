@@ -20,16 +20,17 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
         all_edges[edge.source].append(edge)
         if edge.kind not in JUMP_KINDS:
             normal[edge.source].append(edge)
-    from flow_control_runtime import ordered_edges
+    from flow_control_runtime import ordered_edges, jump_only_nodes
     normal = {key: ordered_edges(edges, nodes) for key, edges in normal.items()}
     connected = {value for edge in snapshot.edges if edge.kind not in JUMP_KINDS
                  for value in (edge.source, edge.target)}
     incoming = {edge.target for edge in snapshot.edges if edge.kind not in JUMP_KINDS}
     pending = [edge.target for edge in normal.get('start',())]
+    jump_only = jump_only_nodes(snapshot, normal, pending, active)
     run_unconnected = getattr(worker, 'run_unconnected', True)
     if run_unconnected:
-        pending += [node_id for node_id in active if node_id in connected and node_id not in incoming]
-        pending += [node_id for node_id in active if nodes[node_id].type_id in {'循环','条件循环'} and node_id in connected]
+        pending += [node_id for node_id in active if node_id in connected and node_id not in incoming and node_id not in jump_only]
+        pending += [node_id for node_id in active if nodes[node_id].type_id in {'循环','条件循环'} and node_id in connected and node_id not in jump_only]
     pending = list(dict.fromkeys(pending))
     strict = start_id is not None
     if strict:
@@ -77,7 +78,7 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
         if current == 'end':
             pending[:] = [value for value in pending if value not in visited and value != 'end']
             if not pending and not strict and run_unconnected:
-                pending[:] = [node_id for node_id in active if node_id not in visited and node_id not in connected]
+                pending[:] = [node_id for node_id in active if node_id not in visited and node_id not in connected and node_id not in jump_only]
             if not pending: return
             current = pending.pop(0)
             path.clear()

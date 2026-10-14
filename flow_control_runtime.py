@@ -20,6 +20,29 @@ def reachable(start, outgoing, blocked=()):
     return seen
 
 
+def jump_only_nodes(snapshot, normal, roots, active):
+    """Keep side branches out of automatic roots in start-connected graphs."""
+    if not any(root in active for root in roots):
+        return set()  # Preserve row-order fallback in files without a main flow.
+    adjacency = {node: [edge.target for edge in edges] for node, edges in normal.items()}
+    targets = {edge.target for edge in snapshot.edges if edge.kind in (6, 7, 8)}
+    commands = {command.id: command for command in snapshot.commands}
+    nodes = {node.node_id: node for node in snapshot.nodes}
+    for binding in snapshot.edges:
+        if binding.kind != 5:
+            continue
+        handler = commands.get(nodes[binding.target].command_id)
+        if handler is None:
+            continue
+        try:
+            mode, row, _ = target_config(handler.parameters)
+            if mode == '当前项目行':
+                targets.add(row_node(snapshot, row))
+        except (ValueError, KeyError):
+            pass  # Invalid handlers report their error only when triggered.
+    return reachable(targets, adjacency) - reachable(roots, adjacency)
+
+
 def loop_regions(snapshot):
     headers = [node.node_id for node in snapshot.nodes if node.type_id in LOOPS]
     if not headers:
@@ -103,15 +126,16 @@ def execute_control_flow(worker, snapshot, context, start_id=None, single=False)
     incoming = {edge.target for edges in normal.values() for edge in edges}
     adjacency = {key: [edge.target for edge in edges] for key, edges in normal.items()}
     roots = [edge.target for edge in normal.get('start', ())]
+    jump_only = jump_only_nodes(snapshot, normal, roots, active)
     run_unconnected = getattr(worker, 'run_unconnected', True)
     if run_unconnected:
-        roots += [node for node in active if node in connected and node not in incoming]
+        roots += [node for node in active if node in connected and node not in incoming and node not in jump_only]
         covered = reachable(roots, adjacency)
         for header in regions:
-            if header in connected and header not in covered:
+            if header in connected and header not in covered and header not in jump_only:
                 roots.append(header)
                 covered.update(reachable([header], adjacency))
-        roots += [node for node in active if node not in connected]
+        roots += [node for node in active if node not in connected and node not in jump_only]
     roots = list(dict.fromkeys(roots))
     visited, executing_loops = set(), []
     steps = 0

@@ -122,7 +122,7 @@ def test_every_method_editor_restores_typed_form_and_updates_values():
     from qt_compat.QtWidgets import QApplication
     app=QApplication.instance() or QApplication([])
     for spec in INSTRUCTION_SPECS:
-        if spec.category!='后台功能' or not spec.type_id.startswith('后台'):continue
+        if spec.category!='后台功能' or not spec.type_id.startswith('后台') or spec.type_id == '后台答题器':continue
         editor=spec.create_editor()
         try:
             for name,item in METHODS.items():

@@ -162,7 +162,7 @@ class ImageClickEditorMixin:
         grid.addWidget(ui.parameter_4, 1, 3)
         grid.addWidget(QLabel('指令名称：'), 2, 0)
         grid.addWidget(ui.parameter_1, 2, 1, 1, 2)
-        ui.parameter_1.setToolTip("无操作：只识别图片，不移动或点击鼠标；未找到时按异常设置处理。")
+        ui.parameter_1.setToolTip("无操作：判断图片是否存在，不移动或点击鼠标。存在则继续下一步；未找到则进入异常处理或已连接的报错跳转。")
         grid.addWidget(self.advanced_button, 2, 3)
         grid.setColumnStretch(1, 1)
         layout.addLayout(grid)
@@ -188,8 +188,13 @@ class ImageClickEditorMixin:
         self.skip_check = QCheckBox('未找到图像时自动略过'); self.skip_check.setChecked(True)
         self.timeout_spin = QSpinBox(); self.timeout_spin.setRange(0, 86400); self.timeout_spin.setValue(10)
         self.timeout_spin.setSuffix(' 秒'); self.timeout_spin.setEnabled(False)
-        missing.addWidget(self.skip_check); missing.addWidget(QLabel('否则等待：')); missing.addWidget(self.timeout_spin)
+        self.waiting_label = QLabel('否则等待：')
+        missing.addWidget(self.skip_check); missing.addWidget(self.waiting_label); missing.addWidget(self.timeout_spin)
         missing.addStretch(); layout.addLayout(missing)
+        self.detection_hint = QLabel('图片存在则继续下一步；等待后仍未找到，进入“功能参数”的异常处理；已连接报错跳转时走异常线。')
+        self.detection_hint.setWordWrap(True)
+        self.detection_hint.setObjectName("mutedText")
+        layout.addWidget(self.detection_hint)
         self.preview = QLabel('请选择图片'); self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview.setMinimumHeight(100)
         self.preview.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
@@ -209,6 +214,7 @@ class ImageClickEditorMixin:
         self.advanced_button.clicked.connect(self._advanced_settings)
         self.confidence_slider.valueChanged.connect(self._set_confidence)
         ui.parameter_5.valueChanged.connect(self._reflect_confidence)
+        ui.parameter_1.currentTextChanged.connect(self._image_action_changed)
         self.skip_check.toggled.connect(self._set_missing_policy)
         self.timeout_spin.valueChanged.connect(self._set_missing_policy)
         folders = self.db.extract_resource_folder_path()
@@ -218,6 +224,7 @@ class ImageClickEditorMixin:
         for combo in (self.folder_combo, self.image_combo):
             combo.setMinimumContentsLength(8)
             combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._image_action_changed()
         self.resize(760, 700)
 
     def _set_confidence(self, value):
@@ -227,9 +234,26 @@ class ImageClickEditorMixin:
     def _reflect_confidence(self, value):
         self.confidence_slider.setValue(round(value * 100))
 
+    def _image_action_changed(self, *_):
+        detection = self.ui.parameter_1.currentText() == '无操作'
+        if detection and (_ or self.ui.parameter_2.text() in ('自动略过', '自动跳过', '')):
+            # Switching the action starts at one second, even if the previous
+            # click action had a numeric timeout. Loading restores saved values
+            # below, and its final no-argument refresh must not reset them.
+            with QSignalBlocker(self.timeout_spin):
+                self.timeout_spin.setValue(1)
+        for widget in (self.ui.parameter_6, self.ui.auxiliary_6):
+            widget.setEnabled(not detection)
+        self._set_missing_policy()
+
     def _set_missing_policy(self, *_):
-        self.timeout_spin.setEnabled(not self.skip_check.isChecked())
-        self.ui.parameter_2.setText('自动略过' if self.skip_check.isChecked() else str(self.timeout_spin.value()))
+        detection = self.ui.parameter_1.currentText() == '无操作'
+        self.skip_check.setVisible(not detection)
+        self.detection_hint.setVisible(detection)
+        self.waiting_label.setText('查找等待：' if detection else '否则等待：')
+        self.timeout_spin.setEnabled(detection or not self.skip_check.isChecked())
+        skip = self.skip_check.isChecked() and not detection
+        self.ui.parameter_2.setText('自动略过' if skip else str(self.timeout_spin.value()))
 
     def _refresh_image_names(self, folder, select=True):
         self.folder_label.setText(f'当前文件夹：{folder}')
@@ -410,7 +434,9 @@ class ImageClickEditorMixin:
             self.skip_check.setChecked(False)
         else:
             self.skip_check.setChecked(True)
-        self._set_missing_policy()
+            if self.ui.parameter_1.currentText() == '无操作':
+                self.timeout_spin.setValue(1)
+        self._image_action_changed()
 
     def get_draft(self):
         self._sync_selected_image()

@@ -6,7 +6,7 @@ import weakref
 
 import math
 
-from qt_compat.QtCore import QLineF, QPointF, QRectF, Qt
+from qt_compat.QtCore import QSizeF, QLineF, QPointF, QRectF, Qt
 from qt_compat.QtGui import (
     QBrush,
     QColor,
@@ -48,7 +48,7 @@ class PortItem(QGraphicsObject):
         self.setAcceptHoverEvents(True)
         self.setToolTip("流程输入" if direction_ == "input" else "流程输出")
         if link_kind_ is not None:
-            self.setToolTip({2:"条件否（顶部输出）",5:"异常输出：连接报错跳转模块后才启用",
+            self.setToolTip({2:"条件否（顶部输出）",5:"异常输出：连接报错模块，或拖到空白处添加（回车确认）",
                             6:"报错跳转目标",7:"比较是：跳转目标",8:"比较否：跳转目标"}.get(link_kind_,"条件是（右侧输出）"))
         self.setZValue(2.0)
         self.setCursor(Qt.CursorShape.CrossCursor)
@@ -221,25 +221,27 @@ class NodeItem(QGraphicsObject):
         del option_, widget_
         painter_.setRenderHint(QPainter.RenderHint.Antialiasing)
         body_ = self.shape()
-        if self._hovered:
+        control_color = QColor("#9b7bea" if self.type_id in {"循环", "条件循环"} else "#25aa85")
+        control = self.type_id in {"循环", "条件循环", "条件判断", "颜色判断", "变量比较"}
+        if self._hovered or (control and self.isSelected()):
             # Paint the halo first: the opaque body and text stay crisp above it.
             painter_.setBrush(Qt.BrushStyle.NoBrush)
             for width_, alpha_ in ((20, 12), (14, 22), (8, 42)):
-                halo_ = QColor(NODE_SELECTED_COLOR)
+                halo_ = QColor(control_color if control else NODE_SELECTED_COLOR)
                 halo_.setAlpha(alpha_)
                 painter_.setPen(QPen(halo_, width_))
                 painter_.drawPath(body_)
-        border_ = NODE_SELECTED_COLOR if self.isSelected() or self._hovered else NODE_BORDER_COLOR
-        painter_.setPen(QPen(border_, 2.5 if self.isSelected() else 1.2))
+        border_ = control_color if control else NODE_SELECTED_COLOR if self.isSelected() or self._hovered else NODE_BORDER_COLOR
+        painter_.setPen(QPen(border_, 3.0 if control and (self._hovered or self.isSelected()) else 2.0 if control else 2.5 if self.isSelected() else 1.2))
         painter_.setBrush(QBrush(NODE_COLOR))
         painter_.drawPath(body_)
-        if self._hovered:
-            tint_ = QColor(NODE_SELECTED_COLOR)
-            tint_.setAlpha(32)
+        if self._hovered or control:
+            tint_ = QColor(control_color if control else NODE_SELECTED_COLOR)
+            tint_.setAlpha(40 if self._hovered or self.isSelected() else 18)
             painter_.fillPath(body_, tint_)
 
         if self.control_kind == "condition":
-            painter_.setPen(QPen(self.header_color, 3.0))
+            painter_.setPen(QPen(control_color if control else self.header_color, 3.0))
             painter_.drawPath(body_)
             if self.no_port is not None:
                 painter_.setFont(self.detail_font)
@@ -271,7 +273,9 @@ class NodeItem(QGraphicsObject):
                 self.title,
             )
             painter_.setFont(self.detail_font)
-            painter_.setPen(QColor("#aeb6c4"))
+            detail_color = QColor(TEXT_COLOR)
+            detail_color.setAlpha(200)
+            painter_.setPen(detail_color)
             painter_.drawText(
                 QRectF(10.0, 37.0, self.width - 20.0, self.height - 42.0),
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
@@ -309,6 +313,7 @@ class NodeItem(QGraphicsObject):
                 scene_.node_position_changed(self)
         elif change_ == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.update()
+            self._refresh_control_edges()
         return super().itemChange(change_, value_)
 
     def connection_port_at(self, position_):
@@ -419,13 +424,23 @@ class NodeItem(QGraphicsObject):
             return
         super().mouseDoubleClickEvent(event_)
 
+    def _refresh_control_edges(self):
+        if self.control_kind not in ('condition', 'loop'):
+            return
+        scene = self.scene()
+        for edge in getattr(scene, 'edges', ()):
+            if edge.source_node is self or edge.target_node is self:
+                edge.update()
+
     def hoverEnterEvent(self, event_):
         self._hovered = True
+        self._refresh_control_edges()
         self.update()
         super().hoverEnterEvent(event_)
 
     def hoverLeaveEvent(self, event_):
         self._hovered = False
+        self._refresh_control_edges()
         self.unsetCursor()
         self.update()
         super().hoverLeaveEvent(event_)
@@ -643,7 +658,23 @@ class EdgeItem(QGraphicsPathItem):
         # the next priority, then path length keeps unobstructed routes tidy.
         return node_hits_ * 1_000_000.0 + crossing_hits_ * 10_000.0 + path_.length()
 
+    def _control_highlight(self):
+        return any(node.control_kind in ('loop', 'condition') and (node.isSelected() or node._hovered)
+                   for node in (self.source_node, self.target_node))
+
     def paint(self, painter_, option_, widget_=None):
+        highlighted = self._control_highlight()
+        branch_color, branch_label = self._branch_style()
+        if NODE_COLOR.lightness() > 128:
+            branch_color = branch_color.darker(155)
+        if highlighted:
+            painter_.save()
+            halo = QColor(branch_color)
+            halo.setAlpha(55)
+            painter_.setPen(QPen(halo, 10.0))
+            painter_.setBrush(Qt.BrushStyle.NoBrush)
+            painter_.drawPath(self.path())
+            painter_.restore()
         if self.link_kind >= 5:
             painter_.save()
             painter_.setPen(self.jump_pen(widget_))
@@ -651,7 +682,12 @@ class EdgeItem(QGraphicsPathItem):
             painter_.drawPath(self.path())
             painter_.restore()
         else:
-            super().paint(painter_, option_, widget_)
+            painter_.save()
+            color = branch_color.lighter(115) if highlighted else EDGE_SELECTED_COLOR if self.isSelected() or self.isUnderMouse() else branch_color
+            painter_.setPen(QPen(color, 4.5 if highlighted else 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter_.setBrush(Qt.BrushStyle.NoBrush)
+            painter_.drawPath(self.path())
+            painter_.restore()
         end_, angle_ = self._arrow_geometry
         size_ = 16.0
         left_ = QPointF(
@@ -663,15 +699,22 @@ class EdgeItem(QGraphicsPathItem):
             end_.y() - size_ * math.sin(angle_ + math.pi / 6.0),
         )
         branch_color_, branch_label_ = self._branch_style()
-        color_ = EDGE_SELECTED_COLOR if self.isSelected() else branch_color_
+        if NODE_COLOR.lightness() > 128:
+            branch_color_ = branch_color_.darker(155)
+        color_ = branch_color_.lighter(115) if highlighted else EDGE_SELECTED_COLOR if self.isSelected() and self.link_kind not in (5, 6) else branch_color_
         painter_.setPen(QPen(color_, 1.0))
         painter_.setBrush(QBrush(color_))
-        painter_.drawPolygon(QPolygonF([end_, left_, right_]))
+        if getattr(self.scene(), 'arrows_visible', True):
+            painter_.drawPolygon(QPolygonF([end_, left_, right_]))
         if branch_label_:
             label_position_ = self.path().pointAtPercent(0.58)
             painter_.setPen(QPen(color_, 1.0))
             painter_.setFont(QFont("Microsoft YaHei UI", 9, QFont.Weight.DemiBold))
-            painter_.drawText(label_position_ + QPointF(6.0, -6.0), branch_label_)
+            metrics = QFontMetricsF(painter_.font())
+            box = QRectF(label_position_ + QPointF(2.0, -22.0), QSizeF(metrics.horizontalAdvance(branch_label_) + 14.0, 22.0))
+            painter_.setBrush(QBrush(NODE_COLOR))
+            painter_.drawRoundedRect(box, 5.0, 5.0)
+            painter_.drawText(box, Qt.AlignmentFlag.AlignCenter, branch_label_)
 
     def arrow_anchor(self):
         """Stop the arrow just outside the final entry into the target's body.
@@ -716,12 +759,14 @@ class EdgeItem(QGraphicsPathItem):
         return tip, math.atan2(tip.y()-before.y(),tip.x()-before.x())
 
     def _branch_style(self):
+        if self.link_kind == 0 and self.target_node.type_id in {'循环', '条件循环'}:
+            return QColor('#9b7bea'), '返回循环'
         if self.link_kind >= 5:
             return QColor('#d99653'), {5:'报错',6:'跳转',7:'是 · 跳转',8:'否 · 跳转'}.get(self.link_kind,'跳转')
         if self.link_kind == 1:
-            return QColor("#7c8cff"), "是"
+            return QColor("#25aa85"), "是"
         if self.link_kind == 2:
-            return QColor("#d69ad5"), "否"
+            return QColor("#e07b63"), "否"
         if self.link_kind == 3:
             return QColor("#6ea8fe"), "循环体"
         if self.link_kind == 4:
@@ -745,7 +790,7 @@ class EdgeItem(QGraphicsPathItem):
         return QColor(EDGE_COLOR), ""
 
     def boundingRect(self):
-        return super().boundingRect().adjusted(-20.0, -20.0, 20.0, 20.0)
+        return super().boundingRect().adjusted(-20.0, -30.0, 90.0, 30.0)
 
     def shape(self):
         stroker_ = QPainterPathStroker()

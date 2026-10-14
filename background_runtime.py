@@ -545,7 +545,12 @@ def bind_background(context, parameters):
                 transport.close()
             raise
         if transport is None:
-            transport = (context.service('background_transport') or DmTransport)(context)
+            factory = context.service('background_transport')
+            if factory is not None:
+                transport = factory(context)
+            else:
+                from background_preload import take_preloaded
+                transport = take_preloaded(context) or DmTransport(context)
         session = BackgroundInput(context, windows, target, transport)
         session.capture_enabled = capture
         bound = False

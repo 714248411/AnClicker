@@ -284,3 +284,50 @@ def test_error_only_branch_not_scheduled_after_success(setup, mode, missing):
     expected = ['image'] + (['left'+str(i) for i in range(6)] if missing else ['wait'])
     assert log == expected * 3
     worker._handle_command_error.assert_not_called()
+
+
+@pytest.mark.parametrize('found', [True, False])
+@pytest.mark.parametrize('with_loop', [True, False])
+@pytest.mark.parametrize('mode', ['连线节点', '当前项目行'])
+def test_image_noop_exists_continues_and_missing_uses_connected_error_branch(setup,found,with_loop,mode):
+    db,repo,worker=setup
+    image=add(repo,'图像点击',图像路径='fixture.png',动作='无操作',异常='自动略过')
+    next_step=add(repo,内容='normal next')
+    handler=add(repo,'报错跳转',跳转方式=mode,目标行=4)
+    recovery=add(repo,内容='error recovery')
+    if with_loop:
+        loop=add(repo,'循环',次数=1,方式='次数')
+        repo.connect_nodes('start',loop)
+        repo.connect_nodes(loop,image,3)
+        repo.connect_nodes(image,loop)
+        repo.connect_nodes(loop,next_step,4)
+    else:
+        repo.connect_nodes('start',image)
+        repo.connect_nodes(image,next_step)
+    repo.connect_nodes(next_step,'end')
+    repo.connect_nodes(image,handler)
+    if mode == '连线节点':
+        repo.connect_nodes(handler,recovery)
+    repo.connect_nodes(recovery,'end')
+    log=[]
+    with patch('instructions.common.actions.click_image',return_value=(40,50) if found else None):
+        run(repo,worker,log)
+    assert log == (['normal next'] if found else ['error recovery'])
+    worker._handle_command_error.assert_not_called()
+
+
+@pytest.mark.parametrize('decision,expected', [('continue',['normal next']), ('stop',[])])
+def test_image_noop_missing_without_error_edge_calls_normal_error_policy(setup,decision,expected):
+    db,repo,worker=setup
+    image=add(repo,'图像点击',图像路径='fixture.png',动作='无操作',异常='自动略过')
+    next_step=add(repo,内容='normal next')
+    repo.connect_nodes('start',image)
+    repo.connect_nodes(image,next_step)
+    repo.connect_nodes(next_step,'end')
+    worker._handle_command_error.return_value=decision
+    log=[]
+    with patch('instructions.common.actions.click_image',return_value=None):
+        run(repo,worker,log)
+    assert log == expected
+    worker._handle_command_error.assert_called_once()
+    assert isinstance(worker._handle_command_error.call_args.args[1],FileNotFoundError)

@@ -46,6 +46,7 @@ class NodeScene(QGraphicsScene):
     sizeCommitted = Signal(object, float, float)
     connectionRequested = Signal(object, object)
     branchConnectionRequested = Signal(object, object, int)
+    errorNodeRequested = Signal(object, float, float)
 
     START_NODE_ID = "__start__"
     END_NODE_ID = "__end__"
@@ -59,6 +60,8 @@ class NodeScene(QGraphicsScene):
         self.nodes_by_command_id: dict[object, NodeItem] = {}
         self.chain_order: list[NodeItem] = []
         self.edges: list[EdgeItem] = []
+        self.flow_arrow_edges = ()
+        self.arrows_visible = True
 
         self._drag_node: NodeItem | None = None
         self._drag_origin_position = QPointF()
@@ -69,6 +72,10 @@ class NodeScene(QGraphicsScene):
         self._connection_port = None
         self._connection_preview = None
         self._routing_edges = False
+
+    def clear(self):
+        self.flow_arrow_edges = ()
+        super().clear()
 
     def reroute_edges(self) -> None:
         """Recalculate all paths so node avoidance and crossing scores agree."""
@@ -110,7 +117,8 @@ class NodeScene(QGraphicsScene):
         self._connection_port = port_
         preview_ = QGraphicsPathItem()
         preview_.setZValue(0.0)
-        preview_.setPen(QPen(QColor("#7c8cff"), 2.5, Qt.PenStyle.DashLine))
+        color_ = QColor("#d99653" if port_.link_kind in (5, 6) else "#7c8cff")
+        preview_.setPen(QPen(color_, 2.5, Qt.PenStyle.DashLine))
         self.addItem(preview_)
         self._connection_preview = preview_
         self.update_port_connection(port_.scenePos())
@@ -141,7 +149,15 @@ class NodeScene(QGraphicsScene):
                 target_node_ = candidate_
                 break
         self.cancel_port_connection()
-        if source_port_ is None or target_node_ is None or target_node_ is source_port_.node:
+        if source_port_ is None:
+            return
+        if target_node_ is None:
+            if (source_port_.direction == "output" and source_port_.link_kind == 5
+                    and not self.items(QPointF(scene_position_))):
+                self.errorNodeRequested.emit(source_port_.node.node_id,
+                                             scene_position_.x(), scene_position_.y())
+            return
+        if target_node_ is source_port_.node:
             return
         if source_port_.direction == "output" and target_node_.input_port is not None:
             if target_node_.type_id == '报错跳转':
@@ -400,11 +416,13 @@ class NodeScene(QGraphicsScene):
             if not str(key_).startswith("__flow_") and key_ not in {"录制批次", "录制时间"}
         }
         if type_id_ == "条件判断":
-            return str(visible_.get("条件", "True"))
+            from flow_condition_checks import condition_summary
+            return condition_summary(visible_)
         if type_id_ in {"循环", "条件循环"}:
             mode_ = str(visible_.get("方式", "次数"))
             if mode_ in {"条件", "cond"} or type_id_ == "条件循环":
-                return f"条件：{visible_.get('条件', 'True')}"
+                from flow_condition_checks import condition_summary
+                return "条件：" + condition_summary(visible_)
             return f"循环 {visible_.get('次数', 1)} 次"
         parts_ = [f"{key_}: {value_}" for key_, value_ in list(visible_.items())[:2]]
         if repeat_count_ > 1:
@@ -510,6 +528,7 @@ class NodeScene(QGraphicsScene):
         return [self.nodes_by_id[node_id_] for node_id_ in ordered_ids_]
 
     def _clear_edges(self) -> None:
+        self.flow_arrow_edges = ()
         for edge_ in self.edges:
             edge_.detach()
             if edge_.scene() is self:
@@ -686,6 +705,8 @@ class NodeScene(QGraphicsScene):
         return rect_.adjusted(-80.0, -80.0, 80.0, 80.0)
 
     def emit_graph_changed(self):
+        from .flow_arrows import control_edges
+        self.flow_arrow_edges = control_edges(self.edges)
         self.setSceneRect(self.sceneRect().united(self.graph_items_rect()))
         self.graphChanged.emit(len(self.nodes_by_id), len(self.edges))
 

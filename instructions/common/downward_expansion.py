@@ -11,6 +11,11 @@ class DownwardExpansion(QObject):
         self.saved = None
         self.fixed = []
 
+    @property
+    def root_layout(self):
+        ui = getattr(self.editor, "ui", None)
+        return ui.rootLayout if ui is not None else self.editor.layout()
+
     def setExpanded(self, expanded):
         expanded = bool(expanded)
         if expanded == self.expanded:
@@ -24,7 +29,7 @@ class DownwardExpansion(QObject):
             self.scroll_positions = [(area.verticalScrollBar(), area.verticalScrollBar().value())
                                      for area in outer.findChildren(QScrollArea)]
             # Freeze preceding sections at their current height; options must not squeeze them.
-            layout = self.editor.ui.rootLayout
+            layout = self.root_layout
             branch = self.panel
             while branch.parentWidget() is not None and layout.indexOf(branch) < 0:
                 branch = branch.parentWidget()
@@ -43,18 +48,18 @@ class DownwardExpansion(QObject):
                 widget.setMaximumHeight(maximum)
             self.fixed = []
         self.panel.setVisible(expanded)
-        self.editor.ui.rootLayout.invalidate()
+        self.root_layout.invalidate()
         QTimer.singleShot(0, self._resize)
 
     def _resize(self):
         if self.saved is None:
             return
         outer, size, floating = self.saved
-        self.editor.ui.rootLayout.activate()
+        self.root_layout.activate()
         if floating and (outer is self.editor or (isinstance(outer, QDockWidget) and outer.isFloating())):
             height = size.height()
             if self.expanded:
-                extra = self.panel.sizeHint().height() + self.editor.ui.rootLayout.spacing()
+                extra = self.panel.sizeHint().height() + self.root_layout.spacing()
                 room = max(0, outer.screen().availableGeometry().bottom()-outer.y()+1-height)
                 height += min(extra, room)
             outer.resize(size.width(), height)

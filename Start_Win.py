@@ -181,6 +181,12 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.command_thread.error_requested.connect(self._show_runtime_error, Qt.QueuedConnection)
         self._runtime_error_box = None
         self.command_thread.send_type_and_id.connect(self._follow_running_command, Qt.QueuedConnection)
+        flow_view = self.workspace.editor.view
+        flow_view.set_continuous_animation(self.db.get_setting_value('流程图持续动画') == 'True')
+        flow_view.continuousAnimationChanged.connect(self._save_flow_animation_setting)
+        flow_view.set_arrows_visible(self.db.get_setting_value('流程图显示箭头') != 'False')
+        flow_view.arrowsVisibilityChanged.connect(self._save_flow_arrows_setting)
+        self.command_thread.started.connect(flow_view.play_run_animation, Qt.QueuedConnection)
         self.shortcut_requested.connect(self.global_shortcut_key, Qt.QueuedConnection)
         self._escape_registered = False
         self._escape_previous_action = None
@@ -813,6 +819,12 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             QMessageBox.information(
                 self, "提示", migration_message_ or "指令数据导入成功！", QMessageBox.StandardButton.Ok
             )
+
+    def _save_flow_arrows_setting(self, visible):
+        self.db.set_setting_value('流程图显示箭头', str(bool(visible)))
+
+    def _save_flow_animation_setting(self, enabled):
+        self.db.set_setting_value('流程图持续动画', str(bool(enabled)))
 
     def start(self, run_mode='全部指令', info=0) -> bool:
         if getattr(self.workspace, '_instruction_test_active', False):

@@ -945,6 +945,23 @@ class ViewWorkspace:
         self.editable_view_action.setChecked(self.window.db.get_setting_value('可编辑视图') != 'False')
         self.editable_view_action.setToolTip('勾选可拖拽布局；取消后只能通过右键菜单内嵌面板')
         self.editable_view_action.toggled.connect(lambda enabled: self.docking.set_editable(enabled))
+        menu.addSeparator()
+        flow_view = self.window.workspace.editor.view
+        self.flow_arrows_action = menu.addAction('流程图箭头动画')
+        self.flow_arrows_action.setCheckable(True)
+        self.flow_arrows_action.setToolTip('勾选显示连线箭头；取消后隐藏箭头，保留连线和文字。')
+        self.flow_arrows_action.triggered.connect(flow_view.set_arrows_visible)
+        self.flow_continuous_action = menu.addAction('流程图持续动画')
+        self.flow_continuous_action.setCheckable(True)
+        self.flow_continuous_action.setToolTip('勾选持续播放；取消后仅在开始运行时播放 5 秒。')
+        self.flow_continuous_action.triggered.connect(flow_view.set_continuous_animation)
+        def sync_flow_actions(*_):
+            self.flow_arrows_action.setChecked(flow_view.arrows_visible)
+            self.flow_continuous_action.setChecked(flow_view.continuous_animation)
+        flow_view.arrowsVisibilityChanged.connect(sync_flow_actions)
+        flow_view.continuousAnimationChanged.connect(sync_flow_actions)
+        menu.aboutToShow.connect(sync_flow_actions)
+        sync_flow_actions()
         view_actions['显示工具栏'] = self.window.actiong
         guidance_action = QAction('中文编程提示', self.window)
         guidance_action.setCheckable(True)

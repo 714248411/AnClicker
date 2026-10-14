@@ -16,6 +16,7 @@ from qt_compat.QtWidgets import (
     QSpinBox,
     QSizePolicy,
     QVBoxLayout,
+    QWidget,
 )
 
 from instructions.base import InstructionEditorInterface, InstructionExecutorInterface
@@ -44,6 +45,11 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
         title_.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         layout_.addWidget(title_)
         form_ = QFormLayout()
+        if self.LOOP:
+            self.basic_form = form_
+            self.advanced_panel = QWidget(self)
+            form_ = QFormLayout(self.advanced_panel)
+            form_.setContentsMargins(0, 0, 0, 0)
         self.condition_edit = None
         self.count_spin = None
         self.mode_combo = None
@@ -54,10 +60,15 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
                 self.mode_combo.setCurrentText("条件")
             form_.addRow("循环方式", self.mode_combo)
         if self.CONDITION or self.LOOP:
+            from flow_condition_editor import ConditionPanel
+            self.condition_panel = ConditionPanel(self)
+            form_.addRow(self.condition_panel)
+            self.condition_panel.kind.currentTextChanged.connect(self._update_mode)
             self.condition_edit = QLineEdit()
             self.condition_edit.setPlaceholderText("例如：计数 >= 10 或 状态 == '完成'")
-            form_.addRow("条件表达式", self.condition_edit)
-            self.infer_condition_button = QPushButton('根据前后指令填入变量')
+            self.condition_label = QLabel("条件表达式")
+            form_.addRow(self.condition_label, self.condition_edit)
+            self.infer_condition_button = QPushButton('根据上方5条指令填入判断')
             self.infer_condition_button.setAutoDefault(False)
             self.infer_condition_button.clicked.connect(lambda: self._infer_condition(replace=True))
             form_.addRow(self.infer_condition_button)
@@ -69,7 +80,7 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             self.count_spin.setRange(1, 1_000_000)
             self.count_spin.setValue(3)
             self.count_label = QLabel("循环次数")
-            form_.addRow(self.count_label, self.count_spin)
+            self.basic_form.addRow(self.count_label, self.count_spin)
         self.error_policy = QComboBox()
         self.error_policy.addItems(ERROR_POLICIES)
         form_.addRow("异常处理", self.error_policy)
@@ -79,7 +90,19 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
         form_.addRow("节点重复", self.repeat_spin)
         self.note_edit = QLineEdit()
         form_.addRow("备注", self.note_edit)
-        layout_.addLayout(form_)
+        if self.LOOP:
+            layout_.addLayout(self.basic_form)
+            self.advanced_button = QPushButton('高级设置 ▸', self)
+            self.advanced_button.setCheckable(True)
+            self.advanced_button.setAutoDefault(False)
+            layout_.addWidget(self.advanced_button)
+            layout_.addWidget(self.advanced_panel)
+            self.advanced_panel.hide()
+            from instructions.common.downward_expansion import DownwardExpansion
+            self._advanced_expansion = DownwardExpansion(self, self.advanced_panel)
+            self.advanced_button.toggled.connect(self._toggle_advanced)
+        else:
+            layout_.addLayout(form_)
         hint_ = QLabel("循环体全部完成后再继续循环；结束后执行后续流程。" if self.LOOP else "条件成立走“是”分支，否则走“否”分支。")
         hint_.setWordWrap(True)
         hint_.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -101,6 +124,15 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             self.load_draft(draft)
         self._update_mode()
         self._infer_condition(replace=draft is None)
+        if self.LOOP:
+            layout_.activate()
+            self.resize(440, self.minimumSizeHint().height())
+        if self.LOOP and self.mode_combo.currentText() == "条件":
+            self.advanced_button.setChecked(True)
+
+    def _toggle_advanced(self, expanded):
+        self.advanced_button.setText('高级设置 ▾（收起）' if expanded else '高级设置 ▸')
+        self._advanced_expansion.setExpanded(expanded)
 
     def _update_mode(self, *args):
         conditional = self.CONDITION or (self.mode_combo is not None and self.mode_combo.currentText() == '条件')
@@ -108,6 +140,10 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             self.mode_combo.setCurrentText('条件')
             self.mode_combo.setEnabled(False)
         if self.condition_edit is not None:
+            self.condition_panel.setEnabled(conditional)
+            expression = self.condition_panel.kind.currentText() == "表达式"
+            self.condition_edit.setVisible(expression)
+            self.condition_label.setVisible(expression)
             self.condition_edit.setEnabled(conditional)
             self.infer_condition_button.setEnabled(conditional)
         if self.count_spin is not None:
@@ -120,19 +156,29 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             return
         callback = getattr(self.context, 'metadata', {}).get('condition_hint')
         if callback is None:
-            self.condition_hint_label.setText('可手动输入比较表达式；在流程中设置后可根据相邻指令推断变量。')
+            self.condition_hint_label.setText('可下拉选择图片、文件或OCR文字判断，只改一行目标即可；也支持比较表达式。')
             return
         try:
             hint = callback()
         except Exception as error:
             self.condition_hint_label.setText('无法读取相邻指令：' + str(error))
             return
+        self.condition_panel.set_suggestions(hint)
+        suggestions = hint.get('condition_suggestions', [])
+        if suggestions:
+            nearest = suggestions[0]
+            self.condition_hint_label.setText('上方5条中最近的相关指令：' + nearest['type_id'] + '；可更改下拉选项和参数。')
+            if replace:
+                self.condition_panel.load(nearest['parameters'])
+                self._update_mode()
+            if self.condition_panel.kind.currentText() != '表达式':
+                return
         candidates = hint['candidates']
         self.condition_edit.setCompleter(QCompleter(candidates, self.condition_edit))
         variable = hint['variable']
         if not variable:
             self.condition_hint_label.setText('存在多个候选变量，请手动指定：' + '、'.join(candidates) if candidates
-                                             else '前后指令没有可确定的变量，请手动填写判断条件。')
+                                             else '可下拉选择常用判断；目标支持直接输入或 {{变量名}}。')
             return
         self.condition_hint_label.setText('建议变量：' + variable + '。单独变量按真/假判断，也可改为比较表达式。')
         if replace:
@@ -140,17 +186,20 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             self.condition_edit.setText(replace_condition_variable(self.condition_edit.text(), variable))
 
     def get_draft(self) -> InstructionDraft:
-        parameters_ = {}
+        parameters_ = {"方式": "次数"} if self.TYPE_ID == "循环" else {}
         if self.mode_combo is not None:
             parameters_["方式"] = self.mode_combo.currentText()
         if self.condition_edit is not None:
             condition_ = self.condition_edit.text().strip()
-            if not condition_ and (
+            visual = self.condition_panel.kind.currentText() != "表达式"
+            if not visual and not condition_ and (
                 self.CONDITION
                 or (self.mode_combo is not None and self.mode_combo.currentText() == "条件")
             ):
                 raise ValueError("判断条件不能为空")
             parameters_["条件"] = condition_ or "True"
+            if self.CONDITION or self.mode_combo.currentText() == "条件":
+                parameters_.update(self.condition_panel.parameters())
         if self.count_spin is not None:
             parameters_["次数"] = self.count_spin.value()
         return InstructionDraft(
@@ -167,6 +216,8 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             self.mode_combo.setCurrentText(str(draft_.parameters.get("方式", "条件" if self.TYPE_ID == "条件循环" else "次数")))
         if self.condition_edit is not None:
             self.condition_edit.setText(str(draft_.parameters.get("条件", "")))
+            self.condition_panel.load(draft_.parameters)
+            self._update_mode()
         if self.count_spin is not None:
             self.count_spin.setValue(int(draft_.parameters.get("次数", 3)))
         self.error_policy.setCurrentText(draft_.error_policy)
@@ -272,9 +323,8 @@ class 循环Executor(_ControlExecutor):
             return result_
         count_ = int(command.parameters.get("次数", 1))
         if str(command.parameters.get("方式", "次数")) == "条件":
-            result_ = _condition_value(
-                str(command.parameters.get("条件", "True")), context.variables
-            )
+            from flow_condition_checks import evaluate
+            result_ = evaluate(context, command.parameters)
             context.metadata[f"flow_condition:{command.id}"] = result_
             context.emit(f"条件循环结果：{'是' if result_ else '否'}")
             return result_
@@ -290,7 +340,8 @@ class 条件判断Executor(_ControlExecutor):
         delegated_, result_ = actions.delegated(context, self.TYPE_ID, command)
         if delegated_:
             return result_
-        result_ = _condition_value(str(command.parameters.get("条件", "True")), context.variables)
+        from flow_condition_checks import evaluate
+        result_ = evaluate(context, command.parameters)
         context.metadata[f"flow_condition:{command.id}"] = result_
         context.emit(f"条件判断结果：{'是' if result_ else '否'}")
         return result_
