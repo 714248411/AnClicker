@@ -1,0 +1,49 @@
+AnClicker 对话 Agent 首版
+
+入口：网页录制旁的“对话 Agent”，快捷键 Ctrl+8。
+布局：移动端对话风格，底部输入框；草稿和模型设置可收起。窄窗口使用单列。
+
+本地模型准备（内置运行器：Windows x64；Linux/macOS 请连接 Ollama 或兼容服务）
+tools/prepare_agent_models.py 下载 CPU 运行器（--gpu 同时准备 Vulkan 运行器）和 Qwen2.5-0.5B-Instruct Q4_0；加 --functiongemma 同时准备更小的工具模型候选。
+下载后校验 SHA256，不自动加载模型。文件位于 .agent-runtime，不纳入源码包。
+当前候选：Qwen 权重 428730208 字节；FunctionGemma 权重 300796576 字节。
+Qwen 用于中文指令首轮验证；FunctionGemma 是专用工具模型候选，中文和多轮能力仍需验证。
+两个文件分别小于 500 MB；运行器、缓存、运行内存另计。
+默认本机接口 http://127.0.0.1:8766/v1，模型名 anclicker-small，标准 JSON 模式。
+发送消息时按需启动，也可在设置中手动启动。自动检测资源，低内存或 CPU 忙时优先尝试可用 GPU；失败回退 CPU。可指定 CPU/GPU 优先。多个窗口请求串行排队，默认空闲 300 秒释放，下次自动唤醒。CPU 与 GPU 均需工作内存，权重体积不等于运行内存。
+支持 Ollama 以及 OpenAI 兼容服务。后续换大模型只需更换服务地址、模型名和调用格式。
+API Key 仅保留在内存；对话不自动写入日志或数据库。导出的草稿可能包含用户输入内容。
+
+工具与指令
+browser：打开网页、查看页面、按元素编号点击/输入、上下滚动；使用 Agent 独立浏览器。
+每次动作后重新查看；过期元素、被遮挡元素和密码/文件控件会被拒绝。
+当前操作主文档中的普通控件；iframe、画布、拖拽和复杂自定义编辑器尚未覆盖。
+instructions_search：覆盖注册指令栏全部类型。
+instruction_schema：按需取得真实参数名称、类型、默认值、选项。
+draft_append / draft_read / draft_update：生成、读取和修改指令草稿，不直接运行系统指令。
+双击草稿使用原参数窗口修改；写入前再次调用原编辑器校验。写入一次后不能重复写入。
+普通草稿顺序连接；包含循环、条件、跳转等流程控制时作为未连接节点追加，需要在流程图连接分支。
+可导入网页录制草稿；当前不会自动将每个 Agent 浏览器动作转换成录制流程。
+
+标准格式与评测
+协议版本 anclicker.agent.v1；工具和全部指令定义见 agent-protocol-v1.json。
+运行 tools/export_agent_schema.py 可从真实注册表重新导出。
+标准 JSON 响应：{"type":"tool_call","name":"instructions_search","arguments":{"query":"等待"}}
+最终答复：{"type":"message","content":"中文答复"}
+工具结果包含 protocol、tool、ok、result 或 error；不把模型文字当执行成功。
+原生 function calling 和标准 JSON 模式使用同一工具执行与校验逻辑。
+
+agent-train-seed-v1.jsonl 为人工种子示例；agent-eval-v1.jsonl 为开发校准测试（部分措辞已用于调试，不再视为独立保留测试）。
+这只是数据格式和评测起点，不能当成已经训练好的 AnClicker 专属模型，也不足以证明泛化能力。
+模型服务启动后运行 tools/evaluate_agent_model.py。评测只检查工具选择和参数，不实际执行浏览器或系统动作。
+需要根据失败记录扩充训练样本并加入更多独立多步任务评测，达到要求后才考虑微调；当前没有进行模型训练。
+
+2026-10-15 已在低可用内存环境实际完成 CPU、Vulkan GPU 推理及空闲释放/自动唤醒测试。真实小模型已完成等待草稿新增/修改和明确单步浏览器操作；复杂自由规划仍需更多评测。
+界面、参数校验、工具循环和真实浏览器操作分别测试；模拟模型测试不等于模型能力测试。
+
+官方来源
+https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF
+https://ollama.com/library/functiongemma
+https://github.com/ggml-org/llama.cpp/releases/tag/b11429
+
+Windows 便携版：将可选模型包中的 .agent-runtime 文件夹解压到 current/AnClicker.exe 旁。源码开发版则解压到项目根目录。

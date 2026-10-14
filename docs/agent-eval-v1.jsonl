@@ -1,0 +1,10 @@
+{"id":"eval-1","messages":[{"role":"user","content":"请列出指令栏的全部指令"}],"expected":{"type":"tool_call","name":"instructions_search","arguments":{"query":""}}}
+{"id":"eval-2","messages":[{"role":"user","content":"搜索网页自动化相关指令"}],"expected":{"type":"tool_call","name":"instructions_search","arguments":{"query":"网页自动化"}}}
+{"id":"eval-3","messages":[{"role":"user","content":"我要了解OCR文字提取的参数"}],"expected":{"type":"tool_call","name":"instruction_schema","arguments":{"type_id":"OCR文字提取"}}}
+{"id":"eval-4","messages":[{"role":"user","content":"获取时间等待的参数定义"}],"expected":{"type":"tool_call","name":"instruction_schema","arguments":{"type_id":"时间等待"}}}
+{"id":"eval-5","messages":[{"role":"user","content":"把现有草稿给我看看"}],"expected":{"type":"tool_call","name":"draft_read","arguments":{}}}
+{"id":"eval-6","messages":[{"role":"user","content":"前往 https://example.org"}],"expected":{"type":"tool_call","name":"browser","arguments":{"action":"open","url":"https://example.org"}}}
+{"id":"eval-7","messages":[{"role":"user","content":"读取当前页面内容"}],"expected":{"type":"tool_call","name":"browser","arguments":{"action":"view"}}}
+{"id":"eval-8","messages":[{"role":"user","content":"页面往上滚动一次"}],"expected":{"type":"tool_call","name":"browser","arguments":{"action":"scroll","direction":"up"}}}
+{"id":"eval-9","messages":[{"role":"user","content":"将草稿第2行的时长调整为3"}],"expected":{"type":"tool_call","name":"draft_update","arguments":{"row":2,"parameters":{"时长":3}}}}
+{"id":"eval-ambiguous","messages":[{"role":"user","content":"点一下那个东西，我没有打开网页也不知道位置。"}],"expected":{"type":"message"}}

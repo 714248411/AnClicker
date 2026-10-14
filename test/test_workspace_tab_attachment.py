@@ -9,7 +9,7 @@ def test_all_tabs_attach_to_content_with_external_recording_gap(host):
     host.resize(1200, 800)
     bar = view.tabs.tabBar()
     assert not bar.drawBase()
-    assert [bar.tabText(i) for i in range(bar.count()) if bar.is_embedded(i)] == ['主界面', '表格图', '流程图', '多功能', '录制', '网页录制']
+    assert [bar.tabText(i) for i in range(bar.count()) if bar.is_embedded(i)] == ['主界面', '表格图', '流程图', '多功能', '录制', '网页录制', '对话 Agent']
     for theme in ('dark', 'light'):
         if view.theme_mode != theme:
             view.toggle_theme()
@@ -25,14 +25,14 @@ def test_all_tabs_attach_to_content_with_external_recording_gap(host):
             expected = QColor(view.THEMES[theme]['surface' if index in (1, 2, 3) else 'bg'])
             assert pixels.pixelColor(x, bar.geometry().bottom()) == expected
             assert pixels.pixelColor(x, bar.geometry().bottom() + 1) == expected
-    for index in (0, 4, 5):
+    for index in (0, 4, 5, 6):
         QTest.mouseClick(bar, Qt.LeftButton, pos=bar._button_rect(index).center())
         assert view.tabs.currentIndex() == index
     gap = bar._gap(4)
     point = QPoint(bar.tabRect(4).left() + gap // 2, bar.tabRect(4).center().y())
     assert bar.tabAt(point) == -1
     QTest.mouseClick(bar, Qt.LeftButton, pos=point)
-    assert view.tabs.currentIndex() == 5
+    assert view.tabs.currentIndex() == 6
 
 
 def test_navigation_keeps_size_and_keyboard_access_in_narrow_workspace(host):

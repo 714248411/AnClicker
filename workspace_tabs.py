@@ -5,7 +5,7 @@ from qt_compat.QtWidgets import QTabBar, QStyle, QStyleOptionTab, QStylePainter
 
 
 class WorkspaceTabBar(QTabBar):
-    EMBEDDED = {'主界面', '表格图', '流程图', '多功能', '录制', '网页录制'}
+    EMBEDDED = {'主界面', '表格图', '流程图', '多功能', '录制', '网页录制', '对话 Agent'}
     GROUPS = (('主界面',), ('表格图', '流程图', '多功能'), ('录制', '网页录制'))
     SURFACE_PAGES = {'表格图', '流程图', '多功能'}
 

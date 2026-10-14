@@ -1,0 +1,11 @@
+{"id":"train-1","messages":[{"role":"user","content":"列出所有指令"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"instructions_search\",\"arguments\":{\"query\":\"\"}}"}]}
+{"id":"train-2","messages":[{"role":"user","content":"查找等待相关指令"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"instructions_search\",\"arguments\":{\"query\":\"等待\"}}"}]}
+{"id":"train-3","messages":[{"role":"user","content":"找一下本地Word答题器"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"instructions_search\",\"arguments\":{\"query\":\"Word\"}}"}]}
+{"id":"train-4","messages":[{"role":"user","content":"查询图像点击的参数格式"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"instruction_schema\",\"arguments\":{\"type_id\":\"图像点击\"}}"}]}
+{"id":"train-5","messages":[{"role":"user","content":"查看颜色判断有哪些设置"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"instruction_schema\",\"arguments\":{\"type_id\":\"颜色判断\"}}"}]}
+{"id":"train-6","messages":[{"role":"user","content":"查一下移动鼠标参数"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"instruction_schema\",\"arguments\":{\"type_id\":\"移动鼠标\"}}"}]}
+{"id":"train-7","messages":[{"role":"user","content":"显示当前草稿"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"draft_read\",\"arguments\":{}}"}]}
+{"id":"train-8","messages":[{"role":"user","content":"打开 https://example.com"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"browser\",\"arguments\":{\"action\":\"open\",\"url\":\"https://example.com\"}}"}]}
+{"id":"train-9","messages":[{"role":"user","content":"查看当前网页"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"browser\",\"arguments\":{\"action\":\"view\"}}"}]}
+{"id":"train-10","messages":[{"role":"user","content":"向下滚动网页"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"browser\",\"arguments\":{\"action\":\"scroll\",\"direction\":\"down\"}}"}]}
+{"id":"train-11","messages":[{"role":"user","content":"把草稿第1行的时长改成5"},{"role":"assistant","content":"{\"type\":\"tool_call\",\"name\":\"draft_update\",\"arguments\":{\"row\":1,\"parameters\":{\"时长\":5}}}"}]}

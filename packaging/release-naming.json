@@ -1,14 +1,14 @@
 {
-  "version": "v1.6.1",
+  "version": "v1.6.2",
   "applications": {
-    "windows": "AnClicker-v1.6.1-win.zip",
-    "linux": "AnClicker-v1.6.1-linux.zip",
-    "macos": "AnClicker-v1.6.1-mac.zip"
+    "windows": "AnClicker-v1.6.2-win.zip",
+    "linux": "AnClicker-v1.6.2-linux.zip",
+    "macos": "AnClicker-v1.6.2-mac.zip"
   },
   "sources": {
-    "windows": "AnClicker-v1.6.1-win-DaiMa.zip",
-    "linux": "AnClicker-v1.6.1-linux-DaiMa.zip",
-    "macos": "AnClicker-v1.6.1-mac-DaiMa.zip"
+    "windows": "AnClicker-v1.6.2-win-DaiMa.zip",
+    "linux": "AnClicker-v1.6.2-linux-DaiMa.zip",
+    "macos": "AnClicker-v1.6.2-mac-DaiMa.zip"
   },
   "macos_layout": "Separate Intel and Apple Silicon application directories in one ZIP; not a universal binary.",
   "source_policy": "Each archive contains the corresponding buildable source, platform build instructions and dependency locks."

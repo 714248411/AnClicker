@@ -51,6 +51,7 @@ FLOW_VIEW = 2
 CODE_VIEW = 3
 RECORDING_VIEW = 4
 WEB_RECORDING_VIEW = 5
+AGENT_VIEW = 6
 CODE_SETTING = "多功能代码"
 CODE_GRAPH_SIGNATURE_SETTING = "多功能流程签名"
 TASK_NAME_SETTING = "任务名称"
@@ -481,6 +482,9 @@ class ViewWorkspace:
         self.tabs.addTab(self.recording_page, "录制")
         self.web_recording_page = WebRecordingView(self.window)
         self.tabs.addTab(self.web_recording_page, "网页录制")
+        from agent_view import AgentView
+        self.agent_page = AgentView(self.window)
+        self.tabs.addTab(self.agent_page, "对话 Agent")
 
     def _build_main_view(self) -> QWidget:
         from home_workspace import HomeWorkspace
@@ -888,6 +892,7 @@ class ViewWorkspace:
             ("多功能", "Ctrl+4", self.show_code),
             ("录制", "Ctrl+6", self.show_recording),
             ("网页录制", "Ctrl+7", self.show_web_recording),
+            ("对话 Agent", "Ctrl+8", self.show_agent),
             ("设置变量", "Ctrl+Shift+V", self.show_variables),
         ):
             action = QAction(label, self.window)
@@ -982,6 +987,8 @@ class ViewWorkspace:
     def show_recording(self): self._show_workspace(RECORDING_VIEW)
 
     def show_web_recording(self): self._show_workspace(WEB_RECORDING_VIEW)
+
+    def show_agent(self): self._show_workspace(AGENT_VIEW)
 
     # Backward-compatible aliases for integrations that used the earlier names.
     def show_beginner(self): self.show_navigation()
@@ -1125,6 +1132,7 @@ class ViewWorkspace:
             'code': self.code_page,
             'recording': self.recording_page,
             'web_recording': self.web_recording_page,
+            'agent': self.agent_page,
         }
 
     def restore_last_view(self):
@@ -1602,6 +1610,8 @@ class ViewWorkspace:
 
     def _apply_theme(self) -> None:
         c = self.THEMES[self.theme_mode]
+        if hasattr(self, 'agent_page'):
+            self.agent_page.apply_theme(self.theme_mode)
         tabs_palette = self.tabs.palette()
         tabs_palette.setColor(QPalette.ColorRole.Window, QColor(c["bg"]))
         self.tabs.setPalette(tabs_palette)

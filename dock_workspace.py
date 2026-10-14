@@ -264,7 +264,7 @@ class DockWorkspace(QObject):
         self.host.setMinimumSize(0, 0)
         self.pages = dict(view._remembered_pages())
         self.pages['log'] = view.table_splitter.widget(1)
-        self.titles = dict(zip(self.pages, ['主界面','表格图','流程图','多功能','录制','网页录制','运行日志']))
+        self.titles = dict(zip(self.pages, ['主界面','表格图','流程图','多功能','录制','网页录制','对话 Agent','运行日志']))
         grid = self.window.gridLayout_4
         grid.removeWidget(view.workspace_splitter)
         self.host.setCentralWidget(view.tabs)

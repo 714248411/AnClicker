@@ -1853,3 +1853,11 @@ ipcMain.handle('ac:recordControl', (e,action) => {
   if(action==='status')return acRecorder.status();
   throw new Error('未知录制操作');
 });
+
+// The conversation agent can access only its own active embedded browser.
+ipcMain.handle('ac:agent', (e,params) => {
+  if(!mainWindow||e.sender!==mainWindow.webContents)throw new Error('无效调用');
+  if(extOn())throw new Error('对话 Agent 请使用内置浏览器');
+  const active=getActiveBrowser();
+  return require('./ac-agent').execute(active&&active.win.webContents,params);
+});

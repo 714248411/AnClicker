@@ -6,6 +6,10 @@ import hashlib
 import tempfile
 from pathlib import Path
 
+if __name__ == '__main__' and '--agent-model-smoke' in sys.argv:
+    from agent_model_validation import run as run_agent_model_validation
+    raise SystemExit(run_agent_model_validation())
+
 # Workers must not enter Velopack lifecycle hooks, Qt or the app singleton.
 if __name__ == '__main__' and '--background-dm-worker' in sys.argv:
     from background_dm_worker import main as background_dm_main

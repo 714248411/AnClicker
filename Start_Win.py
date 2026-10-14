@@ -653,9 +653,15 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             context = getattr(self.workspace, '_instruction_test_context', None)
             if context is not None:
                 context.stop_requested = True
-            self.statusBar.showMessage('正在停止指令测试，请结束后再关闭窗口。', 5000)
+            active_agent = getattr(getattr(self.view_workspace, 'agent_page', None), 'busy', False)
+            self.statusBar.showMessage('正在停止对话 Agent，请结束后再关闭窗口。' if active_agent else '正在停止指令测试，请结束后再关闭窗口。', 5000)
             event.ignore()
             return
+        agent = getattr(self.view_workspace, 'agent_page', None)
+        if agent is not None and agent.unsaved:
+            if QMessageBox.question(self, '未写入的指令草稿', '对话 Agent 草稿尚未写入，确定退出并丢弃？') != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
         cancel_update = False
         if hasattr(self, "auto_update") and not self.auto_update.shutdown():
             box = QMessageBox(self)
@@ -717,6 +723,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         web_recording = getattr(self.view_workspace, 'web_recording_page', None)
         if web_recording is not None:
             web_recording.shutdown()
+        agent = getattr(self.view_workspace, 'agent_page', None)
+        if agent is not None:
+            agent.shutdown()
         recording.shutdown()
         self._closing = True
         if getattr(self, 'task_scheduler', None):
@@ -826,7 +835,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def start(self, run_mode='全部指令', info=0) -> bool:
         if getattr(self.workspace, '_instruction_test_active', False):
-            self.statusBar.showMessage('请先结束指令测试，再启动主任务。', 5000)
+            self.statusBar.showMessage('请先结束对话 Agent 或指令测试，再启动主任务。', 5000)
             return False
         if getattr(self, 'task_scheduler', None) and self.task_scheduler.busy:
             self.statusBar.showMessage('定时任务正在等待或执行，请稍后启动主任务。', 5000)

@@ -74,3 +74,12 @@ validation/
 
 .build-python/
 .venv-build/
+
+# Optional local Agent weights and runtime
+.agent-runtime/
+
+# Private Agent API is maintained in a separate private repository
+.private-agent/
+private_agent/
+anclicker_private_agent/
+*.private.*

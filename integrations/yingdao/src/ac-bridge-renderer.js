@@ -15,6 +15,8 @@ window.acHost.onRequest(async msg => {
       if (!cmd || typeof cmd.id !== 'string') throw new Error('缺少指令');
       if (cmd.id === 'acRecordStart' || cmd.id === 'acRecordStop' || cmd.id === 'acRecordStatus') {
         result = await window.acHost.recordControl({acRecordStart:'start',acRecordStop:'stop',acRecordStatus:'status'}[cmd.id]);
+      } else if (cmd.id === 'acAgent') {
+        result = await window.acHost.agent(cmd.params);
       } else if (cmd.id === 'acInspect') {
         result = {tabs:await window.yingdao.browser.getTabs(), titles:await window.acHost.windowTitles()};
       } else if (cmd.id === 'screenshot') {

@@ -31,7 +31,7 @@ def test_five_regions_multiple_panels_and_center_fixed(host):
     d.move_panel('code','right','main','tabs')
     assert d.docks['code'] in d.host.tabifiedDockWidgets(d.docks['main'])
     for key in ('main','code','recording'): assert d.return_center(key)
-    assert v.tabs.count()==6
+    assert v.tabs.count()==len(v._remembered_pages())
     assert v.tabs.widget(2) is v.editor_page
 
 

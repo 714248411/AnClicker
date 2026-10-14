@@ -103,6 +103,7 @@ contextBridge.exposeInMainWorld('yingdao', {
 
 // Only the local hidden renderer receives the host's instruction requests.
 contextBridge.exposeInMainWorld('acHost', {
+  agent: params => ipcRenderer.invoke('ac:agent',params),
   recordControl: action => ipcRenderer.invoke('ac:recordControl',action),
   windowTitles: () => ipcRenderer.invoke('ac:windowTitles'),
   ready: () => ipcRenderer.send('ac:ready'),

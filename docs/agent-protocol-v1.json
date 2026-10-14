@@ -1,0 +1,6809 @@
+{
+  "protocol": "anclicker.agent.v1",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "browser",
+        "description": "操作 Agent 的独立浏览器。先 open 或 view 获取元素 ref；每次操作后重新 view。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "",
+              "enum": [
+                "open",
+                "view",
+                "click",
+                "type",
+                "scroll"
+              ]
+            },
+            "url": {
+              "type": "string",
+              "description": "open 的完整网址"
+            },
+            "ref": {
+              "type": "string",
+              "description": "最近 view 返回的元素编号"
+            },
+            "text": {
+              "type": "string",
+              "description": "type 输入内容"
+            },
+            "direction": {
+              "type": "string",
+              "description": "",
+              "enum": [
+                "up",
+                "down"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "instructions_search",
+        "description": "搜索指令栏全部指令；空关键词列出全部类型。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "instruction_schema",
+        "description": "获取指令的参数名称、类型、默认值和选项；编写前先查询。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type_id": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          "required": [
+            "type_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "draft_read",
+        "description": "读取当前尚未写入的指令草稿。",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "draft_append",
+        "description": "追加一条指令草稿，不立即执行。参数必须来自 instruction_schema。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type_id": {
+              "type": "string",
+              "description": ""
+            },
+            "parameters": {
+              "type": "object"
+            },
+            "repeat_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "note": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          "required": [
+            "type_id",
+            "parameters"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "draft_update",
+        "description": "修改草稿的一行，参数合并到该行；行号从 1 开始。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "parameters": {
+              "type": "object"
+            },
+            "repeat_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          "required": [
+            "row",
+            "parameters"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "catalog": [
+    {
+      "type_id": "绑定选择窗口",
+      "name": "绑定选择窗口",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "解除后台绑定",
+      "name": "解除后台绑定",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台文字识别",
+      "name": "后台文字识别",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台字库管理",
+      "name": "后台字库管理",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台图色操作",
+      "name": "后台图色操作",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台键鼠操作",
+      "name": "后台键鼠操作",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台窗口操作",
+      "name": "后台窗口操作",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台信息窗口",
+      "name": "后台信息窗口",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台内存操作",
+      "name": "后台内存操作",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台汇编操作",
+      "name": "后台汇编操作",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "后台答题器",
+      "name": "本地Word答题器",
+      "category": "后台功能"
+    },
+    {
+      "type_id": "图像点击",
+      "name": "图像点击",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "多图点击",
+      "name": "多图点击",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "坐标点击",
+      "name": "坐标点击",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "多坐标点击",
+      "name": "多坐标点击",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "移动鼠标",
+      "name": "移动鼠标",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "鼠标点击",
+      "name": "鼠标点击",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "滚轮滑动",
+      "name": "滚轮滑动",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "按下键盘",
+      "name": "按下键盘",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "文本输入",
+      "name": "文本输入",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "中键激活",
+      "name": "中键激活",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "鼠标拖拽",
+      "name": "鼠标拖拽",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "悬停后点击",
+      "name": "悬停后点击",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "颜色判断",
+      "name": "颜色判断",
+      "category": "键鼠"
+    },
+    {
+      "type_id": "时间等待",
+      "name": "时间等待",
+      "category": "等待"
+    },
+    {
+      "type_id": "图像等待",
+      "name": "图像等待",
+      "category": "等待"
+    },
+    {
+      "type_id": "倒计时窗口",
+      "name": "倒计时窗口",
+      "category": "等待"
+    },
+    {
+      "type_id": "按键等待",
+      "name": "按键等待",
+      "category": "等待"
+    },
+    {
+      "type_id": "窗口焦点等待",
+      "name": "窗口焦点等待",
+      "category": "等待"
+    },
+    {
+      "type_id": "获取时间",
+      "name": "获取时间",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "获取Excel",
+      "name": "获取Excel",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "获取鼠标位置",
+      "name": "获取鼠标位置",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "获取剪切板",
+      "name": "获取剪切板",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "获取对话框",
+      "name": "获取对话框",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "数字验证码",
+      "name": "数字验证码",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "OCR识别",
+      "name": "OCR识别",
+      "category": "获取变量"
+    },
+    {
+      "type_id": "写入单元格",
+      "name": "写入单元格（独立文件）",
+      "category": "Excel"
+    },
+    {
+      "type_id": "OCR文字提取",
+      "name": "OCR文字提取",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR精准找字点击",
+      "name": "OCR精准找字点击",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR模糊找字返回坐标",
+      "name": "OCR模糊找字返回坐标",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR范围找字",
+      "name": "OCR范围找字",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR等待文字出现",
+      "name": "OCR等待文字出现",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR等待文字消失",
+      "name": "OCR等待文字消失",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "截图OCR",
+      "name": "截图OCR",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR复制",
+      "name": "OCR复制",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR粘贴",
+      "name": "OCR粘贴",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR识别区域返回坐标",
+      "name": "OCR识别区域返回坐标",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "OCR点击识别区域",
+      "name": "OCR点击识别区域",
+      "category": "本地OCR"
+    },
+    {
+      "type_id": "运行Python",
+      "name": "运行Python",
+      "category": "其他"
+    },
+    {
+      "type_id": "运行cmd",
+      "name": "运行cmd",
+      "category": "其他"
+    },
+    {
+      "type_id": "运行外部文件",
+      "name": "运行外部文件",
+      "category": "其他"
+    },
+    {
+      "type_id": "窗口控制",
+      "name": "窗口控制",
+      "category": "其他"
+    },
+    {
+      "type_id": "信息录入",
+      "name": "信息录入",
+      "category": "其他"
+    },
+    {
+      "type_id": "屏幕截图",
+      "name": "屏幕截图",
+      "category": "其他"
+    },
+    {
+      "type_id": "提示音",
+      "name": "提示音",
+      "category": "其他"
+    },
+    {
+      "type_id": "提示窗口",
+      "name": "提示窗口",
+      "category": "其他"
+    },
+    {
+      "type_id": "发送消息",
+      "name": "发送消息",
+      "category": "其他"
+    },
+    {
+      "type_id": "粘贴到单元格",
+      "name": "粘贴到单元格",
+      "category": "Excel"
+    },
+    {
+      "type_id": "打开Excel",
+      "name": "打开Excel",
+      "category": "Excel"
+    },
+    {
+      "type_id": "读取单元格",
+      "name": "读取单元格",
+      "category": "Excel"
+    },
+    {
+      "type_id": "Excel写入单元格",
+      "name": "写入单元格",
+      "category": "Excel"
+    },
+    {
+      "type_id": "读取区域",
+      "name": "读取区域",
+      "category": "Excel"
+    },
+    {
+      "type_id": "写入区域",
+      "name": "写入区域",
+      "category": "Excel"
+    },
+    {
+      "type_id": "复制粘贴（选择性粘贴）",
+      "name": "复制粘贴(选择性粘贴)",
+      "category": "Excel"
+    },
+    {
+      "type_id": "表格复制粘贴",
+      "name": "表格复制粘贴",
+      "category": "Excel"
+    },
+    {
+      "type_id": "插入行",
+      "name": "插入行",
+      "category": "Excel"
+    },
+    {
+      "type_id": "插入列",
+      "name": "插入列",
+      "category": "Excel"
+    },
+    {
+      "type_id": "删除行",
+      "name": "删除行",
+      "category": "Excel"
+    },
+    {
+      "type_id": "删除列",
+      "name": "删除列",
+      "category": "Excel"
+    },
+    {
+      "type_id": "获取行数",
+      "name": "获取行数",
+      "category": "Excel"
+    },
+    {
+      "type_id": "新建Excel",
+      "name": "新建Excel",
+      "category": "Excel"
+    },
+    {
+      "type_id": "保存Excel",
+      "name": "保存Excel",
+      "category": "Excel"
+    },
+    {
+      "type_id": "表格另存为",
+      "name": "表格另存为",
+      "category": "Excel"
+    },
+    {
+      "type_id": "处理文件（白话）",
+      "name": "处理文件(白话)",
+      "category": "白话指令"
+    },
+    {
+      "type_id": "重命名文件（白话）",
+      "name": "重命名文件(白话)",
+      "category": "白话指令"
+    },
+    {
+      "type_id": "查找文件（白话）",
+      "name": "查找文件(白话)",
+      "category": "白话指令"
+    },
+    {
+      "type_id": "统计文件（白话）",
+      "name": "统计文件(白话)",
+      "category": "白话指令"
+    },
+    {
+      "type_id": "表格复制粘贴（白话）",
+      "name": "表格复制粘贴(白话)",
+      "category": "白话指令"
+    },
+    {
+      "type_id": "打开网页",
+      "name": "打开网页",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "点击元素",
+      "name": "点击元素",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "输入文本",
+      "name": "输入文本",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "获取文本",
+      "name": "获取文本",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "网页截图",
+      "name": "网页截图",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "等待元素出现",
+      "name": "等待元素出现",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "等待页面加载完成",
+      "name": "等待页面加载完成",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "诊断页面（排错）",
+      "name": "诊断页面(排错)",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "坐标点击（可多点）",
+      "name": "网页内坐标点击（可多点）",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "等待（秒）",
+      "name": "等待(秒)",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "按键",
+      "name": "按键",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "点击并全选复制",
+      "name": "点击并全选复制",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "点击并粘贴",
+      "name": "点击并粘贴",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "复制到剪贴板",
+      "name": "复制到剪贴板",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "粘贴到网页元素",
+      "name": "粘贴到网页元素",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "提取文本到表格",
+      "name": "提取文本到表格",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "拾取元素",
+      "name": "拾取元素",
+      "category": "网页自动化"
+    },
+    {
+      "type_id": "抓取文本",
+      "name": "抓取文本",
+      "category": "数据抓取"
+    },
+    {
+      "type_id": "抓取属性",
+      "name": "抓取属性",
+      "category": "数据抓取"
+    },
+    {
+      "type_id": "抓取列表",
+      "name": "抓取列表",
+      "category": "数据抓取"
+    },
+    {
+      "type_id": "抓取导出Excel",
+      "name": "抓取导出Excel",
+      "category": "数据抓取"
+    },
+    {
+      "type_id": "暂不运行以下指令",
+      "name": "暂不运行以下指令",
+      "category": "流程"
+    },
+    {
+      "type_id": "暂不运行以上指令",
+      "name": "暂不运行以上指令",
+      "category": "流程"
+    },
+    {
+      "type_id": "终止流程",
+      "name": "终止流程",
+      "category": "流程"
+    },
+    {
+      "type_id": "运行项目",
+      "name": "运行项目",
+      "category": "流程"
+    },
+    {
+      "type_id": "报错跳转",
+      "name": "报错跳转",
+      "category": "流程"
+    },
+    {
+      "type_id": "变量比较",
+      "name": "变量比较",
+      "category": "流程"
+    },
+    {
+      "type_id": "循环",
+      "name": "循环",
+      "category": "流程"
+    },
+    {
+      "type_id": "条件判断",
+      "name": "条件判断",
+      "category": "流程"
+    },
+    {
+      "type_id": "条件循环",
+      "name": "条件循环",
+      "category": "流程"
+    }
+  ],
+  "instructions": [
+    {
+      "type_id": "绑定选择窗口",
+      "name": "绑定选择窗口",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "窗口句柄": {
+            "type": "string",
+            "description": "目标窗口句柄",
+            "default": ""
+          },
+          "窗口标题": {
+            "type": "string",
+            "description": "窗口标题",
+            "default": ""
+          },
+          "窗口类名": {
+            "type": "string",
+            "description": "窗口类名",
+            "default": ""
+          },
+          "进程路径": {
+            "type": "string",
+            "description": "进程路径",
+            "default": ""
+          },
+          "进程ID": {
+            "type": "integer",
+            "description": "进程 ID",
+            "default": 0,
+            "minimum": -1000000,
+            "maximum": 2147483647
+          },
+          "图像模式": {
+            "type": "string",
+            "description": "后台图像模式",
+            "default": "dx1",
+            "enum": [
+              "dx1",
+              "dx2",
+              "dx3",
+              "gdi",
+              "gdi2",
+              "dx"
+            ]
+          },
+          "鼠标模式": {
+            "type": "string",
+            "description": "后台鼠标模式",
+            "default": "dx",
+            "enum": [
+              "dx",
+              "dx2",
+              "windows",
+              "windows2",
+              "windows3"
+            ]
+          },
+          "键盘模式": {
+            "type": "string",
+            "description": "后台键盘模式",
+            "default": "dx",
+            "enum": [
+              "dx",
+              "windows"
+            ]
+          },
+          "绑定模式": {
+            "type": "string",
+            "description": "绑定方式",
+            "default": "0",
+            "enum": [
+              "0",
+              "2"
+            ]
+          },
+          "绑定等待": {
+            "type": "number",
+            "description": "绑定后等待（秒）",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 10
+          },
+          "绑定方案": {
+            "type": "string",
+            "description": "绑定方案",
+            "default": "自动优先 DX1 → DX2",
+            "enum": [
+              "自动优先 DX1 → DX2",
+              "DX1",
+              "DX2",
+              "GDI 兼容",
+              "GDI2 兼容",
+              "自定义"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "窗口句柄": "",
+        "窗口标题": "",
+        "窗口类名": "",
+        "进程路径": "",
+        "进程ID": 0,
+        "图像模式": "dx1",
+        "鼠标模式": "dx",
+        "键盘模式": "dx",
+        "绑定模式": "0",
+        "绑定等待": 0,
+        "绑定方案": "自动优先 DX1 → DX2"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "解除后台绑定",
+      "name": "解除后台绑定",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {},
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台文字识别",
+      "name": "后台文字识别",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "文字识别 · Ocr",
+            "enum": [
+              "文字识别 · Ocr",
+              "文字识别及位置 · OcrEx",
+              "识别图片文字 · OcrInFile",
+              "查找文字 · FindStr",
+              "查找全部文字位置 · FindStrEx",
+              "FindStrE",
+              "FindStrFast",
+              "FindStrFastEx",
+              "FindStrFastE",
+              "FindStrWithFont",
+              "FindStrWithFontE",
+              "FindStrWithFontEx",
+              "识别词组 · GetWords",
+              "无字库词组识别 · GetWordsNoDict",
+              "GetWordResultCount",
+              "GetWordResultPos",
+              "GetWordResultStr",
+              "GetResultCount",
+              "GetResultPos",
+              "SetExactOcr",
+              "SetMinRowGap",
+              "SetMinColGap",
+              "SetWordLineHeight",
+              "SetWordGap",
+              "SetRowGapNoDict",
+              "SetColGapNoDict",
+              "SetWordLineHeightNoDict",
+              "SetWordGapNoDict",
+              "FetchWord"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "文字识别 · Ocr",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台字库管理",
+      "name": "后台字库管理",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "SetPath",
+            "enum": [
+              "SetPath",
+              "加载字库 · SetDict",
+              "切换字库 · UseDict",
+              "GetNowDict",
+              "添加字库文字 · AddDict",
+              "清空字库 · ClearDict",
+              "GetDictCount",
+              "GetDictInfo",
+              "GetDict",
+              "SaveDict",
+              "设置字库密码 · SetDictPwd",
+              "SetExportDict",
+              "EncodeFile",
+              "DecodeFile"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "SetPath",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台图色操作",
+      "name": "后台图色操作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "读取 RGB 颜色 · GetColor",
+            "enum": [
+              "读取 RGB 颜色 · GetColor",
+              "读取 HSV 颜色 · GetColorHSV",
+              "GetColorBGR",
+              "比较颜色 · CmpColor",
+              "区域 RGB 均值 · GetAveRGB",
+              "区域 HSV 均值 · GetAveHSV",
+              "RGB2BGR",
+              "BGR2RGB",
+              "查找颜色 · FindColor",
+              "查找全部颜色位置 · FindColorEx",
+              "FindColorE",
+              "多点找色 · FindMultiColor",
+              "多点找色全部位置 · FindMultiColorEx",
+              "FindMultiColorE",
+              "查找图片 · FindPic",
+              "查找全部图片位置 · FindPicEx",
+              "FindPicE",
+              "截图保存 BMP · Capture",
+              "截图保存 PNG · CapturePng",
+              "截图保存 JPG · CaptureJpg",
+              "录制区域动图 · CaptureGif",
+              "LoadPic",
+              "FreePic",
+              "SetPicPwd",
+              "GetPicSize",
+              "MatchPicName",
+              "GetColorNum",
+              "FindShape",
+              "FindShapeE",
+              "FindShapeEx",
+              "ImageToBmp",
+              "FindColorBlock",
+              "FindColorBlockEx",
+              "FindPicSim",
+              "FindPicSimEx",
+              "获取图像数组 · CaptureArray"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "读取 RGB 颜色 · GetColor",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台键鼠操作",
+      "name": "后台键鼠操作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "移动至坐标 · MoveTo",
+            "enum": [
+              "移动至坐标 · MoveTo",
+              "相对移动 · MoveR",
+              "MoveToEx",
+              "鼠标左键单击 · LeftClick",
+              "鼠标右键单击 · RightClick",
+              "鼠标中键单击 · MiddleClick",
+              "鼠标左键双击 · LeftDoubleClick",
+              "按住左键 · LeftDown",
+              "松开左键 · LeftUp",
+              "按住右键 · RightDown",
+              "松开右键 · RightUp",
+              "滚轮向上 · WheelUp",
+              "滚轮向下 · WheelDown",
+              "按住按键 · KeyDown",
+              "松开按键 · KeyUp",
+              "按一下按键 · KeyPress",
+              "KeyDownChar",
+              "KeyUpChar",
+              "KeyPressChar",
+              "KeyPressStr",
+              "发送文本 · SendString",
+              "发送文本（方式二） · SendString2",
+              "SetMouseDelay",
+              "SetKeypadDelay",
+              "按住中键 · MiddleDown",
+              "松开中键 · MiddleUp"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "移动至坐标 · MoveTo",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台窗口操作",
+      "name": "后台窗口操作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "枚举窗口 · EnumWindow",
+            "enum": [
+              "枚举窗口 · EnumWindow",
+              "EnumWindowByProcess",
+              "EnumWindowSuper",
+              "查找窗口 · FindWindow",
+              "FindWindowEx",
+              "FindWindowByProcess",
+              "FindWindowByProcessId",
+              "GetWindow",
+              "读取窗口状态 · GetWindowState",
+              "读取窗口标题 · GetWindowTitle",
+              "读取窗口类名 · GetWindowClass",
+              "GetWindowProcessId",
+              "GetWindowProcessPath",
+              "获取窗口矩形 · GetWindowRect",
+              "GetClientRect",
+              "获取内容区大小 · GetClientSize",
+              "GetPointWindow",
+              "GetMousePointWindow",
+              "ClientToScreen",
+              "ScreenToClient",
+              "SetWindowText",
+              "调整窗口大小 · SetWindowSize",
+              "调整内容区大小 · SetClientSize",
+              "移动窗口 · MoveWindow",
+              "设置窗口状态 · SetWindowState",
+              "SetWindowTransparent"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "枚举窗口 · EnumWindow",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台信息窗口",
+      "name": "后台信息窗口",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "创建矩形信息窗口 · CreateFoobarRect",
+            "enum": [
+              "创建矩形信息窗口 · CreateFoobarRect",
+              "创建圆角信息窗口 · CreateFoobarRoundRect",
+              "创建椭圆信息窗口 · CreateFoobarEllipse",
+              "创建自定义信息窗口 · CreateFoobarCustom",
+              "FoobarFillRect",
+              "绘制文字 · FoobarDrawText",
+              "绘制图片 · FoobarDrawPic",
+              "FoobarDrawLine",
+              "刷新信息窗口 · FoobarUpdate",
+              "FoobarLock",
+              "FoobarUnlock",
+              "FoobarSetFont",
+              "FoobarTextRect",
+              "FoobarPrintText",
+              "FoobarClearText",
+              "FoobarTextLineGap",
+              "FoobarTextPrintDir",
+              "FoobarSetSave",
+              "关闭信息窗口 · FoobarClose",
+              "FoobarStartGif",
+              "FoobarStopGif",
+              "FoobarSetTrans"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "创建矩形信息窗口 · CreateFoobarRect",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台内存操作",
+      "name": "后台内存操作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "读取整数 · ReadInt",
+            "enum": [
+              "读取整数 · ReadInt",
+              "读取单精度数值 · ReadFloat",
+              "读取双精度数值 · ReadDouble",
+              "读取字符串 · ReadString",
+              "读取字节数据 · ReadData",
+              "写入整数 · WriteInt",
+              "写入单精度数值 · WriteFloat",
+              "写入双精度数值 · WriteDouble",
+              "写入字符串 · WriteString",
+              "写入字节数据 · WriteData",
+              "搜索整数 · FindInt",
+              "搜索单精度数值 · FindFloat",
+              "搜索双精度数值 · FindDouble",
+              "搜索字符串 · FindString",
+              "搜索字节数据 · FindData",
+              "FindIntEx",
+              "FindFloatEx",
+              "FindDoubleEx",
+              "FindStringEx",
+              "FindDataEx",
+              "获取模块基址 · GetModuleBaseAddr",
+              "IntToData",
+              "FloatToData",
+              "DoubleToData",
+              "StringToData"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "读取整数 · ReadInt",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台汇编操作",
+      "name": "后台汇编操作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "接口": {
+            "type": "string",
+            "description": "操作",
+            "default": "添加 MASM 语句 · AsmAdd",
+            "enum": [
+              "添加 MASM 语句 · AsmAdd",
+              "清空 MASM 语句 · AsmClear",
+              "执行 MASM · AsmCall",
+              "执行 MASM 并指定参数 · AsmCallEx",
+              "MASM 转机器码 · Assemble",
+              "机器码转 MASM · DisAssemble",
+              "设置汇编执行超时 · AsmSetTimeout"
+            ]
+          },
+          "参数": {
+            "type": "string",
+            "description": "接口参数",
+            "default": "{}"
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "接口": "添加 MASM 语句 · AsmAdd",
+        "参数": "{}",
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "后台答题器",
+      "name": "本地Word答题器",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "题库路径": {
+            "type": "string",
+            "description": "Word 题库 (.docx)",
+            "default": ""
+          },
+          "题目来源": {
+            "type": "string",
+            "description": "题目来源",
+            "default": "输入题目",
+            "enum": [
+              "输入题目",
+              "最近OCR文字",
+              "变量"
+            ]
+          },
+          "题目": {
+            "type": "string",
+            "description": "题目内容 / 变量名",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "匹配方式",
+            "default": "精准",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊匹配相似度",
+            "default": 0.85,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到答案",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "变量": {
+            "type": "string",
+            "description": "答案变量",
+            "default": "答案"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "题库路径": "",
+        "题目来源": "输入题目",
+        "题目": "",
+        "匹配方式": "精准",
+        "相似度": 0.85,
+        "未找到": "报错",
+        "变量": "答案"
+      },
+      "required_fields": [
+        "题库路径",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "图像点击",
+      "name": "图像点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "图像路径": {
+            "type": "string",
+            "description": "图像路径",
+            "default": ""
+          },
+          "动作": {
+            "type": "string",
+            "description": "鼠标动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "左键三击",
+              "右键单击",
+              "右键双击",
+              "仅移动鼠标",
+              "无操作"
+            ]
+          },
+          "异常": {
+            "type": "string",
+            "description": "未找到图像",
+            "default": "自动略过"
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h",
+            "default": ""
+          },
+          "灰度": {
+            "type": "boolean",
+            "description": "灰度识别",
+            "default": false
+          },
+          "精度": {
+            "type": "number",
+            "description": "识别精度",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1.0
+          },
+          "点击位置": {
+            "type": "string",
+            "description": "点击偏移 x,y",
+            "default": "(0,0)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "图像路径": "",
+        "动作": "左键单击",
+        "异常": "自动略过",
+        "区域": "",
+        "灰度": false,
+        "精度": 0.8,
+        "点击位置": "(0,0)"
+      },
+      "required_fields": [
+        "图像路径"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "多图点击",
+      "name": "多图点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "图像路径": {
+            "type": "string",
+            "description": "图像路径（每行一个）",
+            "default": ""
+          },
+          "动作": {
+            "type": "string",
+            "description": "鼠标动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击",
+              "右键双击",
+              "仅移动鼠标"
+            ]
+          },
+          "异常": {
+            "type": "string",
+            "description": "全部未找到",
+            "default": "自动略过"
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h",
+            "default": ""
+          },
+          "灰度": {
+            "type": "boolean",
+            "description": "灰度识别",
+            "default": false
+          },
+          "精度": {
+            "type": "number",
+            "description": "识别精度",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1.0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "图像路径": "",
+        "动作": "左键单击",
+        "异常": "自动略过",
+        "区域": "",
+        "灰度": false,
+        "精度": 0.8
+      },
+      "required_fields": [
+        "图像路径"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "坐标点击",
+      "name": "坐标点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "动作": {
+            "type": "string",
+            "description": "鼠标动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击",
+              "右键双击",
+              "左键（自定义次数）",
+              "仅移动鼠标"
+            ]
+          },
+          "坐标": {
+            "type": "string",
+            "description": "坐标 x-y",
+            "default": "0-0"
+          },
+          "自定义次数": {
+            "type": "integer",
+            "description": "点击次数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 9999
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "动作": "左键单击",
+        "坐标": "0-0",
+        "自定义次数": 1
+      },
+      "required_fields": [
+        "坐标"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "多坐标点击",
+      "name": "多坐标点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "坐标列表": {
+            "type": "string",
+            "description": "点击坐标",
+            "default": ""
+          },
+          "动作": {
+            "type": "string",
+            "description": "点击方式",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击",
+              "中键单击"
+            ]
+          },
+          "间隔": {
+            "type": "number",
+            "description": "各点间隔（秒）",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "随机偏移": {
+            "type": "string",
+            "description": "随机偏移",
+            "default": "关闭",
+            "enum": [
+              "关闭",
+              "启用"
+            ]
+          },
+          "水平偏移": {
+            "type": "integer",
+            "description": "水平随机范围",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "垂直偏移": {
+            "type": "integer",
+            "description": "垂直随机范围",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "坐标列表": "",
+        "动作": "左键单击",
+        "间隔": 1,
+        "随机偏移": "关闭",
+        "水平偏移": 0,
+        "垂直偏移": 0
+      },
+      "required_fields": [
+        "坐标列表"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "移动鼠标",
+      "name": "移动鼠标",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "类型": {
+            "type": "string",
+            "description": "移动类型",
+            "default": "直线移动",
+            "enum": [
+              "直线移动",
+              "随机移动",
+              "指定坐标",
+              "变量坐标"
+            ]
+          },
+          "方向": {
+            "type": "string",
+            "description": "方向",
+            "default": "→",
+            "enum": [
+              "↑",
+              "↓",
+              "←",
+              "→"
+            ]
+          },
+          "距离": {
+            "type": "integer",
+            "description": "距离",
+            "default": 100,
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "随机": {
+            "type": "string",
+            "description": "随机方式",
+            "default": "类型1",
+            "enum": [
+              "类型1",
+              "类型2"
+            ]
+          },
+          "坐标": {
+            "type": "string",
+            "description": "目标坐标 x,y",
+            "default": "0,0"
+          },
+          "持续": {
+            "type": "number",
+            "description": "持续秒数",
+            "default": 0.2,
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "变量": {
+            "type": "string",
+            "description": "坐标变量",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "类型": "直线移动",
+        "方向": "→",
+        "距离": 100,
+        "随机": "类型1",
+        "坐标": "0,0",
+        "持续": 0.2,
+        "变量": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "鼠标点击",
+      "name": "鼠标点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "鼠标": {
+            "type": "string",
+            "description": "鼠标按键",
+            "default": "左键",
+            "enum": [
+              "左键",
+              "右键",
+              "中键",
+              "侧键1",
+              "侧键2",
+              "其他（录制）"
+            ]
+          },
+          "次数": {
+            "type": "integer",
+            "description": "点击次数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "间隔": {
+            "type": "integer",
+            "description": "点击间隔（毫秒）",
+            "default": 100,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "按压": {
+            "type": "integer",
+            "description": "按压时长（毫秒）",
+            "default": 50,
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "辅助键": {
+            "type": "string",
+            "description": "辅助键",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "鼠标": "左键",
+        "次数": 1,
+        "间隔": 100,
+        "按压": 50,
+        "辅助键": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "滚轮滑动",
+      "name": "滚轮滑动",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "类型": {
+            "type": "string",
+            "description": "滑动类型",
+            "default": "滚轮滑动",
+            "enum": [
+              "滚轮滑动",
+              "随机滚轮滑动"
+            ]
+          },
+          "方向": {
+            "type": "string",
+            "description": "方向",
+            "default": "向下",
+            "enum": [
+              "向上",
+              "向下"
+            ]
+          },
+          "距离": {
+            "type": "integer",
+            "description": "距离",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "最小距离": {
+            "type": "integer",
+            "description": "随机最小距离",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "最大距离": {
+            "type": "integer",
+            "description": "随机最大距离",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "类型": "滚轮滑动",
+        "方向": "向下",
+        "距离": 5,
+        "最小距离": 1,
+        "最大距离": 10
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "按下键盘",
+      "name": "按下键盘",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "按键": {
+            "type": "string",
+            "description": "按键（用 + 组合）",
+            "default": "enter"
+          },
+          "按压时长": {
+            "type": "integer",
+            "description": "按压时长（毫秒）",
+            "default": 50,
+            "minimum": 0,
+            "maximum": 3600000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "按键": "enter",
+        "按压时长": 50
+      },
+      "required_fields": [
+        "按键"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "文本输入",
+      "name": "文本输入",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "内容": {
+            "type": "string",
+            "description": "输入内容",
+            "default": ""
+          },
+          "手动输入": {
+            "type": "boolean",
+            "description": "特殊控件手动输入",
+            "default": false
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "内容": "",
+        "手动输入": false
+      },
+      "required_fields": [
+        "内容"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "中键激活",
+      "name": "中键激活",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "类型": {
+            "type": "string",
+            "description": "激活类型",
+            "default": "模拟点击",
+            "enum": [
+              "模拟点击",
+              "结束等待"
+            ]
+          },
+          "次数": {
+            "type": "integer",
+            "description": "次数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 9999
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "类型": "模拟点击",
+        "次数": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "鼠标拖拽",
+      "name": "鼠标拖拽",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "开始位置": {
+            "type": "string",
+            "description": "开始位置 x,y",
+            "default": "0,0"
+          },
+          "结束位置": {
+            "type": "string",
+            "description": "结束位置 x,y",
+            "default": "0,0"
+          },
+          "开始随机": {
+            "type": "boolean",
+            "description": "开始位置随机偏移",
+            "default": false
+          },
+          "结束随机": {
+            "type": "boolean",
+            "description": "结束位置随机偏移",
+            "default": false
+          },
+          "移动速度": {
+            "type": "number",
+            "description": "移动秒数",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "移动轨迹": {
+            "type": "string",
+            "description": "移动轨迹",
+            "default": "直线",
+            "enum": [
+              "直线",
+              "模拟人类曲线（贝塞尔）"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "开始位置": "0,0",
+        "结束位置": "0,0",
+        "开始随机": false,
+        "结束随机": false,
+        "移动速度": 0.5,
+        "移动轨迹": "直线"
+      },
+      "required_fields": [
+        "开始位置",
+        "结束位置"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "悬停后点击",
+      "name": "悬停后点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "悬停位置": {
+            "type": "string",
+            "description": "悬停位置 x,y",
+            "default": "0,0"
+          },
+          "点击位置": {
+            "type": "string",
+            "description": "点击位置 x,y",
+            "default": "0,0"
+          },
+          "停留时间": {
+            "type": "number",
+            "description": "悬停等待（秒）",
+            "default": 1.5,
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "移动秒数": {
+            "type": "number",
+            "description": "连续移动（秒）",
+            "default": 1.0,
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "点击前停留": {
+            "type": "number",
+            "description": "点击前等待（秒）",
+            "default": 0.3,
+            "minimum": 0,
+            "maximum": 3600
+          },
+          "动作": {
+            "type": "string",
+            "description": "点击动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击",
+              "中键单击"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "悬停位置": "0,0",
+        "点击位置": "0,0",
+        "停留时间": 1.5,
+        "移动秒数": 1.0,
+        "点击前停留": 0.3,
+        "动作": "左键单击"
+      },
+      "required_fields": [
+        "悬停位置",
+        "点击位置"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "颜色判断",
+      "name": "颜色判断",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "坐标": {
+            "type": "string",
+            "description": "检测坐标 x,y",
+            "default": "0,0"
+          },
+          "颜色": {
+            "type": "string",
+            "description": "目标颜色",
+            "default": "#FFFFFF"
+          },
+          "容差": {
+            "type": "integer",
+            "description": "RGB 单通道容差",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 255
+          },
+          "比较": {
+            "type": "string",
+            "description": "判断方式",
+            "default": "相等",
+            "enum": [
+              "相等",
+              "不相等"
+            ]
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可选）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "坐标": "0,0",
+        "颜色": "#FFFFFF",
+        "容差": 0,
+        "比较": "相等",
+        "变量": ""
+      },
+      "required_fields": [
+        "坐标",
+        "颜色"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "时间等待",
+      "name": "时间等待",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "类型": {
+            "type": "string",
+            "description": "等待类型",
+            "default": "时间等待",
+            "enum": [
+              "时间等待",
+              "随机等待",
+              "定时等待"
+            ]
+          },
+          "时长": {
+            "type": "number",
+            "description": "时长",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "单位": {
+            "type": "string",
+            "description": "单位",
+            "default": "秒",
+            "enum": [
+              "毫秒",
+              "秒",
+              "分钟"
+            ]
+          },
+          "最小": {
+            "type": "number",
+            "description": "随机最小秒数",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "最小单位": {
+            "type": "string",
+            "description": "随机最小值单位",
+            "default": "秒",
+            "enum": [
+              "毫秒",
+              "秒",
+              "分钟"
+            ]
+          },
+          "最大": {
+            "type": "number",
+            "description": "随机最大秒数",
+            "default": 3,
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "最大单位": {
+            "type": "string",
+            "description": "随机最大值单位",
+            "default": "秒",
+            "enum": [
+              "毫秒",
+              "秒",
+              "分钟"
+            ]
+          },
+          "时间": {
+            "type": "string",
+            "description": "目标时间 HH:MM:SS",
+            "default": ""
+          },
+          "检测频率": {
+            "type": "number",
+            "description": "检测频率",
+            "default": 0.2,
+            "minimum": 0.01,
+            "maximum": 60
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "类型": "时间等待",
+        "时长": 1,
+        "单位": "秒",
+        "最小": 1,
+        "最小单位": "秒",
+        "最大": 3,
+        "最大单位": "秒",
+        "时间": "",
+        "检测频率": 0.2
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "图像等待",
+      "name": "图像等待",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "图像路径": {
+            "type": "string",
+            "description": "图像路径",
+            "default": ""
+          },
+          "等待类型": {
+            "type": "string",
+            "description": "等待类型",
+            "default": "等待出现",
+            "enum": [
+              "等待出现",
+              "等待消失"
+            ]
+          },
+          "超时时间": {
+            "type": "number",
+            "description": "超时秒数（0 不限）",
+            "default": 10,
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h",
+            "default": ""
+          },
+          "精度": {
+            "type": "number",
+            "description": "识别精度",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1.0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "图像路径": "",
+        "等待类型": "等待出现",
+        "超时时间": 10,
+        "区域": "",
+        "精度": 0.8
+      },
+      "required_fields": [
+        "图像路径"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "倒计时窗口",
+      "name": "倒计时窗口",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "标题": {
+            "type": "string",
+            "description": "窗口标题",
+            "default": "倒计时"
+          },
+          "内容": {
+            "type": "string",
+            "description": "提示内容",
+            "default": "请稍候"
+          },
+          "秒数": {
+            "type": "integer",
+            "description": "倒计时秒数",
+            "default": 5,
+            "minimum": 0,
+            "maximum": 86400
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "标题": "倒计时",
+        "内容": "请稍候",
+        "秒数": 5
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "按键等待",
+      "name": "按键等待",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "按键": {
+            "type": "string",
+            "description": "等待按键",
+            "default": "enter"
+          },
+          "等待类型": {
+            "type": "string",
+            "description": "等待类型",
+            "default": "按键等待",
+            "enum": [
+              "按键等待"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "按键": "enter",
+        "等待类型": "按键等待"
+      },
+      "required_fields": [
+        "按键"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "窗口焦点等待",
+      "name": "窗口焦点等待",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "标题包含": {
+            "type": "string",
+            "description": "窗口标题包含",
+            "default": ""
+          },
+          "检测频率": {
+            "type": "number",
+            "description": "检测频率",
+            "default": 0.2,
+            "minimum": 0.01,
+            "maximum": 60
+          },
+          "等待时间": {
+            "type": "number",
+            "description": "超时时间",
+            "default": 30,
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "等待类型": {
+            "type": "string",
+            "description": "等待类型",
+            "default": "获得焦点",
+            "enum": [
+              "获得焦点",
+              "失去焦点"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "标题包含": "",
+        "检测频率": 0.2,
+        "等待时间": 30,
+        "等待类型": "获得焦点"
+      },
+      "required_fields": [
+        "标题包含"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取时间",
+      "name": "获取时间",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "当前时间"
+          },
+          "时间格式": {
+            "type": "string",
+            "description": "时间格式",
+            "default": "年-月-日 小时:分钟:秒",
+            "enum": [
+              "年-月-日 小时:分钟:秒",
+              "年/月/日 小时:分钟:秒",
+              "月/日/年 小时:分钟:秒",
+              "日-月-年 小时:分钟:秒",
+              "年-月-日",
+              "月/日/年",
+              "日-月-年",
+              "月/年",
+              "时间戳"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "变量": "当前时间",
+        "时间格式": "年-月-日 小时:分钟:秒"
+      },
+      "required_fields": [
+        "变量",
+        "时间格式"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取Excel",
+      "name": "获取Excel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "工作簿": {
+            "type": "string",
+            "description": "工作簿路径",
+            "default": ""
+          },
+          "工作表": {
+            "type": "string",
+            "description": "工作表",
+            "default": ""
+          },
+          "单元格": {
+            "type": "string",
+            "description": "单元格",
+            "default": "A1"
+          },
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "Excel值"
+          },
+          "递增": {
+            "type": "boolean",
+            "description": "按循环次数递增行",
+            "default": false
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "工作簿": "",
+        "工作表": "",
+        "单元格": "A1",
+        "变量": "Excel值",
+        "递增": false
+      },
+      "required_fields": [
+        "工作簿",
+        "单元格",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取鼠标位置",
+      "name": "获取鼠标位置",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "鼠标位置"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "变量": "鼠标位置"
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取剪切板",
+      "name": "获取剪切板",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "剪切板"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "变量": "剪切板"
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取对话框",
+      "name": "获取对话框",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "标题": {
+            "type": "string",
+            "description": "对话框标题",
+            "default": "请输入"
+          },
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "输入值"
+          },
+          "提示": {
+            "type": "string",
+            "description": "提示内容",
+            "default": "请输入内容"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "标题": "请输入",
+        "变量": "输入值",
+        "提示": "请输入内容"
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "数字验证码",
+      "name": "数字验证码",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "区域": {
+            "type": "string",
+            "description": "验证码区域 x,y,w,h",
+            "default": ""
+          },
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "验证码"
+          },
+          "验证码类型": {
+            "type": "string",
+            "description": "验证码类型",
+            "default": "通用数英1-4位",
+            "enum": [
+              "通用数英1-4位",
+              "通用数英5-8位",
+              "通用数英9~11位",
+              "通用数英12位及以上",
+              "通用数英1~6位plus",
+              "定制-数英5位~qcs",
+              "定制-纯数字4位",
+              "通用中文字符1~2位",
+              "通用中文字符3~5位",
+              "通用中文字符6~8位",
+              "通用中文字符9位及以上",
+              "定制-XX西游苦行中文字符",
+              "通用数字计算题",
+              "通用中文计算题"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "区域": "",
+        "变量": "验证码",
+        "验证码类型": "通用数英1-4位"
+      },
+      "required_fields": [
+        "区域",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR识别",
+      "name": "OCR识别",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h",
+            "default": ""
+          },
+          "变量": {
+            "type": "string",
+            "description": "变量名称",
+            "default": "OCR结果"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "区域": "",
+        "变量": "OCR结果"
+      },
+      "required_fields": [
+        "区域",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "写入单元格",
+      "name": "写入单元格（独立文件）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "工作簿": {
+            "type": "string",
+            "description": "工作簿路径",
+            "default": ""
+          },
+          "工作表": {
+            "type": "string",
+            "description": "工作表",
+            "default": ""
+          },
+          "单元格": {
+            "type": "string",
+            "description": "单元格",
+            "default": "A1"
+          },
+          "递增": {
+            "type": "boolean",
+            "description": "按循环次数递增行",
+            "default": false
+          },
+          "文本": {
+            "type": "string",
+            "description": "写入文本",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "工作簿": "",
+        "工作表": "",
+        "单元格": "A1",
+        "递增": false,
+        "文本": ""
+      },
+      "required_fields": [
+        "工作簿",
+        "单元格"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR文字提取",
+      "name": "OCR文字提取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "图像路径": {
+            "type": "string",
+            "description": "图片文件（空为屏幕截图）",
+            "default": ""
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR文字"
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "图像路径": "",
+        "置信度": 0.5,
+        "变量": "OCR文字",
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR精准找字点击",
+      "name": "OCR精准找字点击",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR坐标"
+          },
+          "动作": {
+            "type": "string",
+            "description": "点击动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击"
+            ]
+          },
+          "点击位置": {
+            "type": "string",
+            "description": "相对文字框中心偏移 x,y",
+            "default": "(0,0)"
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "OCR坐标",
+        "动作": "左键单击",
+        "点击位置": "(0,0)",
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "目标文字",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR模糊找字返回坐标",
+      "name": "OCR模糊找字返回坐标",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "文字匹配方式",
+            "default": "模糊",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR坐标"
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "匹配方式": "模糊",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "OCR坐标",
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "目标文字",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR范围找字",
+      "name": "OCR范围找字",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "文字匹配方式",
+            "default": "包含",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR坐标"
+          },
+          "找到后": {
+            "type": "string",
+            "description": "找到后的操作",
+            "default": "返回坐标",
+            "enum": [
+              "返回坐标",
+              "点击区域"
+            ]
+          },
+          "动作": {
+            "type": "string",
+            "description": "点击动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击"
+            ]
+          },
+          "点击位置": {
+            "type": "string",
+            "description": "相对文字框中心偏移 x,y",
+            "default": "(0,0)"
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "匹配方式": "包含",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "OCR坐标",
+        "找到后": "返回坐标",
+        "动作": "左键单击",
+        "点击位置": "(0,0)",
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "区域",
+        "目标文字",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR等待文字出现",
+      "name": "OCR等待文字出现",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "文字匹配方式",
+            "default": "包含",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR坐标"
+          },
+          "等待超时": {
+            "type": "number",
+            "description": "等待超时（秒，不含暂停）",
+            "default": 30,
+            "minimum": 0.1,
+            "maximum": 86400
+          },
+          "检测间隔": {
+            "type": "number",
+            "description": "检测间隔（秒）",
+            "default": 0.5,
+            "minimum": 0.1,
+            "maximum": 60
+          },
+          "连续次数": {
+            "type": "integer",
+            "description": "连续满足次数（降低误判）",
+            "default": 2,
+            "minimum": 1,
+            "maximum": 100
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "匹配方式": "包含",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "OCR坐标",
+        "等待超时": 30,
+        "检测间隔": 0.5,
+        "连续次数": 2,
+        "识别超时": 30
+      },
+      "required_fields": [
+        "目标文字",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR等待文字消失",
+      "name": "OCR等待文字消失",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "文字匹配方式",
+            "default": "包含",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR坐标"
+          },
+          "等待超时": {
+            "type": "number",
+            "description": "等待超时（秒，不含暂停）",
+            "default": 30,
+            "minimum": 0.1,
+            "maximum": 86400
+          },
+          "检测间隔": {
+            "type": "number",
+            "description": "检测间隔（秒）",
+            "default": 0.5,
+            "minimum": 0.1,
+            "maximum": 60
+          },
+          "连续次数": {
+            "type": "integer",
+            "description": "连续满足次数（降低误判）",
+            "default": 2,
+            "minimum": 1,
+            "maximum": 100
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "匹配方式": "包含",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "OCR坐标",
+        "等待超时": 30,
+        "检测间隔": 0.5,
+        "连续次数": 2,
+        "识别超时": 30
+      },
+      "required_fields": [
+        "目标文字",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "截图OCR",
+      "name": "截图OCR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "识别后": {
+            "type": "string",
+            "description": "识别后操作（无需变量）",
+            "default": "复制到剪贴板",
+            "enum": [
+              "仅保存最近OCR结果",
+              "复制到剪贴板",
+              "复制并粘贴"
+            ]
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "识别后": "复制到剪贴板",
+        "置信度": 0.5,
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "区域"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR复制",
+      "name": "OCR复制",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "识别后": {
+            "type": "string",
+            "description": "识别后操作（无需变量）",
+            "default": "复制到剪贴板",
+            "enum": [
+              "仅保存最近OCR结果",
+              "复制到剪贴板",
+              "复制并粘贴"
+            ]
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "识别后": "复制到剪贴板",
+        "置信度": 0.5,
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "区域"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR粘贴",
+      "name": "OCR粘贴",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "内容来源": {
+            "type": "string",
+            "description": "粘贴内容来源（无需变量）",
+            "default": "最近OCR结果",
+            "enum": [
+              "最近OCR结果",
+              "剪贴板"
+            ]
+          },
+          "粘贴前等待": {
+            "type": "number",
+            "description": "粘贴前等待（秒）",
+            "default": 0.3,
+            "minimum": 0,
+            "maximum": 60
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "内容来源": "最近OCR结果",
+        "粘贴前等待": 0.3
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR识别区域返回坐标",
+      "name": "OCR识别区域返回坐标",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "文字匹配方式",
+            "default": "包含",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "OCR坐标"
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "匹配方式": "包含",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "OCR坐标",
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "OCR点击识别区域",
+      "name": "OCR点击识别区域",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "点击来源": {
+            "type": "string",
+            "description": "点击来源",
+            "default": "前序OCR变量",
+            "enum": [
+              "前序OCR变量",
+              "重新识别"
+            ]
+          },
+          "引擎": {
+            "type": "string",
+            "description": "离线引擎",
+            "default": "RapidOCR",
+            "enum": [
+              "RapidOCR",
+              "微信OCR"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "识别区域 x,y,w,h（空为全屏）",
+            "default": ""
+          },
+          "目标文字": {
+            "type": "string",
+            "description": "目标文字（区域模块可留空匹配全部文字框）",
+            "default": ""
+          },
+          "匹配方式": {
+            "type": "string",
+            "description": "文字匹配方式",
+            "default": "包含",
+            "enum": [
+              "精准",
+              "包含",
+              "模糊"
+            ]
+          },
+          "相似度": {
+            "type": "number",
+            "description": "模糊相似度 0–1",
+            "default": 0.8,
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "第几个": {
+            "type": "integer",
+            "description": "排序后的第几个区域（从1开始）",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "排序方式": {
+            "type": "string",
+            "description": "匹配区域排序",
+            "default": "从上到下",
+            "enum": [
+              "从上到下",
+              "离锚点最近"
+            ]
+          },
+          "中心锚点": {
+            "type": "string",
+            "description": "屏幕锚点 x,y（空为识别范围中心）",
+            "default": ""
+          },
+          "忽略大小写": {
+            "type": "boolean",
+            "description": "忽略英文大小写",
+            "default": true
+          },
+          "忽略空白": {
+            "type": "boolean",
+            "description": "忽略空白字符",
+            "default": true
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低识别置信度 0–1",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "变量": {
+            "type": "string",
+            "description": "结果变量（可自定义）",
+            "default": "最近OCR结果"
+          },
+          "动作": {
+            "type": "string",
+            "description": "点击动作",
+            "default": "左键单击",
+            "enum": [
+              "左键单击",
+              "左键双击",
+              "右键单击"
+            ]
+          },
+          "点击位置": {
+            "type": "string",
+            "description": "相对文字框中心偏移 x,y",
+            "default": "(0,0)"
+          },
+          "未找到": {
+            "type": "string",
+            "description": "未找到文字时",
+            "default": "报错",
+            "enum": [
+              "报错",
+              "返回空值"
+            ]
+          },
+          "识别超时": {
+            "type": "number",
+            "description": "单次识别超时（秒，含引擎启动）",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "点击来源": "前序OCR变量",
+        "引擎": "RapidOCR",
+        "区域": "",
+        "目标文字": "",
+        "匹配方式": "包含",
+        "相似度": 0.8,
+        "第几个": 1,
+        "排序方式": "从上到下",
+        "中心锚点": "",
+        "忽略大小写": true,
+        "忽略空白": true,
+        "置信度": 0.5,
+        "变量": "最近OCR结果",
+        "动作": "左键单击",
+        "点击位置": "(0,0)",
+        "未找到": "报错",
+        "识别超时": 30
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "运行Python",
+      "name": "运行Python",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "代码": {
+            "type": "string",
+            "description": "Python代码",
+            "default": ""
+          },
+          "返回值": {
+            "type": "string",
+            "description": "结果变量名",
+            "default": "result"
+          },
+          "变量": {
+            "type": "string",
+            "description": "写入变量池",
+            "default": "Python返回值"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "代码": "",
+        "返回值": "result",
+        "变量": "Python返回值"
+      },
+      "required_fields": [
+        "代码"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "运行cmd",
+      "name": "运行cmd",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "命令": {
+            "type": "string",
+            "description": "CMD命令",
+            "default": ""
+          },
+          "等待完成": {
+            "type": "boolean",
+            "description": "等待命令完成",
+            "default": true
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "命令": "",
+        "等待完成": true
+      },
+      "required_fields": [
+        "命令"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "运行外部文件",
+      "name": "运行外部文件",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "文件路径": {
+            "type": "string",
+            "description": "文件路径",
+            "default": ""
+          },
+          "参数": {
+            "type": "string",
+            "description": "启动参数",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "文件路径": "",
+        "参数": ""
+      },
+      "required_fields": [
+        "文件路径"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "窗口控制",
+      "name": "窗口控制",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "标题包含": {
+            "type": "string",
+            "description": "窗口标题包含",
+            "default": ""
+          },
+          "操作": {
+            "type": "string",
+            "description": "窗口操作",
+            "default": "激活",
+            "enum": [
+              "激活",
+              "最小化",
+              "最大化",
+              "还原",
+              "关闭"
+            ]
+          },
+          "报错": {
+            "type": "boolean",
+            "description": "未找到时报错",
+            "default": true
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "标题包含": "",
+        "操作": "激活",
+        "报错": true
+      },
+      "required_fields": [
+        "标题包含"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "信息录入",
+      "name": "信息录入",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "图像路径": {
+            "type": "string",
+            "description": "输入位置图像",
+            "default": ""
+          },
+          "工作簿": {
+            "type": "string",
+            "description": "工作簿路径",
+            "default": ""
+          },
+          "工作表": {
+            "type": "string",
+            "description": "工作表",
+            "default": ""
+          },
+          "单元格": {
+            "type": "string",
+            "description": "单元格",
+            "default": "A1"
+          },
+          "递增": {
+            "type": "boolean",
+            "description": "按循环次数递增行",
+            "default": false
+          },
+          "模拟输入": {
+            "type": "boolean",
+            "description": "逐字符模拟输入",
+            "default": false
+          },
+          "异常": {
+            "type": "string",
+            "description": "图像查找超时",
+            "default": "自动略过"
+          },
+          "空值处理": {
+            "type": "string",
+            "description": "Excel空值处理",
+            "default": "抛出异常",
+            "enum": [
+              "抛出异常",
+              "自动跳过"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "图像路径": "",
+        "工作簿": "",
+        "工作表": "",
+        "单元格": "A1",
+        "递增": false,
+        "模拟输入": false,
+        "异常": "自动略过",
+        "空值处理": "抛出异常"
+      },
+      "required_fields": [
+        "图像路径",
+        "工作簿",
+        "单元格"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "屏幕截图",
+      "name": "屏幕截图",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "截图类型": {
+            "type": "string",
+            "description": "截图类型",
+            "default": "全屏截图",
+            "enum": [
+              "全屏截图",
+              "区域截图"
+            ]
+          },
+          "区域": {
+            "type": "string",
+            "description": "截图区域 x,y,w,h",
+            "default": ""
+          },
+          "保存路径": {
+            "type": "string",
+            "description": "保存路径",
+            "default": ""
+          },
+          "截图后": {
+            "type": "string",
+            "description": "截图后操作",
+            "default": "保存到路径",
+            "enum": [
+              "保存到路径",
+              "写入剪切板"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "截图类型": "全屏截图",
+        "区域": "",
+        "保存路径": "",
+        "截图后": "保存到路径"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "提示音",
+      "name": "提示音",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "类型": {
+            "type": "string",
+            "description": "提示音类型",
+            "default": "系统提示音",
+            "enum": [
+              "系统提示音",
+              "蜂鸣",
+              "TTS"
+            ]
+          },
+          "频率": {
+            "type": "integer",
+            "description": "蜂鸣频率",
+            "default": 800,
+            "minimum": 37,
+            "maximum": 32767
+          },
+          "持续": {
+            "type": "integer",
+            "description": "持续毫秒",
+            "default": 300,
+            "minimum": 1,
+            "maximum": 60000
+          },
+          "次数": {
+            "type": "integer",
+            "description": "播放次数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 999
+          },
+          "间隔": {
+            "type": "number",
+            "description": "播放间隔",
+            "default": 0.1,
+            "minimum": 0,
+            "maximum": 60
+          },
+          "提示类型": {
+            "type": "string",
+            "description": "系统提示类型",
+            "default": "信息",
+            "enum": [
+              "警告",
+              "错误",
+              "询问",
+              "信息",
+              "系统启动",
+              "系统关闭"
+            ]
+          },
+          "内容": {
+            "type": "string",
+            "description": "TTS内容",
+            "default": ""
+          },
+          "语速": {
+            "type": "integer",
+            "description": "TTS语速",
+            "default": 200,
+            "minimum": 50,
+            "maximum": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "类型": "系统提示音",
+        "频率": 800,
+        "持续": 300,
+        "次数": 1,
+        "间隔": 0.1,
+        "提示类型": "信息",
+        "内容": "",
+        "语速": 200
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "提示窗口",
+      "name": "提示窗口",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "标题": {
+            "type": "string",
+            "description": "窗口标题",
+            "default": "提示"
+          },
+          "内容": {
+            "type": "string",
+            "description": "提示内容",
+            "default": ""
+          },
+          "图标": {
+            "type": "string",
+            "description": "图标",
+            "default": "信息",
+            "enum": [
+              "无",
+              "信息",
+              "警告",
+              "错误",
+              "询问"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "标题": "提示",
+        "内容": "",
+        "图标": "信息"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "发送消息",
+      "name": "发送消息",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "联系人": {
+            "type": "string",
+            "description": "微信联系人（精确名称）",
+            "default": ""
+          },
+          "消息内容": {
+            "type": "string",
+            "description": "消息内容",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "联系人": "",
+        "消息内容": ""
+      },
+      "required_fields": [
+        "联系人",
+        "消息内容"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "粘贴到单元格",
+      "name": "粘贴到单元格",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "toPath": {
+            "type": "string",
+            "description": "写到哪个表格(可拖文件进来，留空=新建到桌面)",
+            "default": ""
+          },
+          "toSheet": {
+            "type": "string",
+            "description": "工作表名(留空=第一个表)",
+            "default": ""
+          },
+          "toCell": {
+            "type": "string",
+            "description": "从哪个单元格开始粘贴(如 A1、B2)",
+            "default": "A1"
+          },
+          "save": {
+            "type": "string",
+            "description": "保存方式",
+            "default": "保存",
+            "enum": [
+              "保存",
+              "另存为"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "toPath": "",
+        "toSheet": "",
+        "toCell": "A1",
+        "save": "保存"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "打开Excel",
+      "name": "打开Excel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "文件路径",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "path": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "读取单元格",
+      "name": "读取单元格",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cell": {
+            "type": "string",
+            "description": "单元格(如A1)",
+            "default": "A1"
+          },
+          "varName": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "变量1"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "cell": "A1",
+        "varName": "变量1"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "Excel写入单元格",
+      "name": "写入单元格",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cell": {
+            "type": "string",
+            "description": "单元格(如A1)",
+            "default": "A1"
+          },
+          "value": {
+            "type": "string",
+            "description": "写入内容",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "cell": "A1",
+        "value": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "读取区域",
+      "name": "读取区域",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "description": "区域(如A1:C5)",
+            "default": "A1:C5"
+          },
+          "varName": {
+            "type": "string",
+            "description": "保存到变量(二维数组)",
+            "default": "变量1"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "range": "A1:C5",
+        "varName": "变量1"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "写入区域",
+      "name": "写入区域",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string",
+            "description": "起始单元格(如A1)",
+            "default": "A1"
+          },
+          "data": {
+            "type": "string",
+            "description": "数据(变量名,二维数组)",
+            "default": "变量1"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "range": "A1",
+        "data": "变量1"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "复制粘贴（选择性粘贴）",
+      "name": "复制粘贴(选择性粘贴)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "源区域(如A1:B5)",
+            "default": "A1:B5"
+          },
+          "to": {
+            "type": "string",
+            "description": "目标起始单元格(如D1)",
+            "default": "D1"
+          },
+          "mode": {
+            "type": "string",
+            "description": "粘贴方式",
+            "default": "全部粘贴",
+            "enum": [
+              "全部粘贴",
+              "只粘贴值",
+              "只粘贴公式",
+              "只粘贴格式",
+              "保留公式",
+              "值与数字格式",
+              "公式与数字格式",
+              "不覆盖原有内容"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "from": "A1:B5",
+        "to": "D1",
+        "mode": "全部粘贴"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "表格复制粘贴",
+      "name": "表格复制粘贴",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fromBook": {
+            "type": "string",
+            "description": "源表格(留空=当前)",
+            "default": ""
+          },
+          "fromSheet": {
+            "type": "string",
+            "description": "源工作表",
+            "default": "Sheet1"
+          },
+          "fromRange": {
+            "type": "string",
+            "description": "源区域(如A1:C5)",
+            "default": "A1:C5"
+          },
+          "toBook": {
+            "type": "string",
+            "description": "目标表格(留空=当前)",
+            "default": ""
+          },
+          "toSheet": {
+            "type": "string",
+            "description": "目标工作表",
+            "default": "Sheet1"
+          },
+          "toRange": {
+            "type": "string",
+            "description": "目标起始单元格(如A1)",
+            "default": "A1"
+          },
+          "mode": {
+            "type": "string",
+            "description": "粘贴方式",
+            "default": "全部粘贴",
+            "enum": [
+              "全部粘贴",
+              "只粘贴值",
+              "只粘贴公式",
+              "只粘贴格式",
+              "保留公式",
+              "值与数字格式",
+              "公式与数字格式",
+              "不覆盖原有内容"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "fromBook": "",
+        "fromSheet": "Sheet1",
+        "fromRange": "A1:C5",
+        "toBook": "",
+        "toSheet": "Sheet1",
+        "toRange": "A1",
+        "mode": "全部粘贴"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "插入行",
+      "name": "插入行",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "integer",
+            "description": "在第几行前插入",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "count": {
+            "type": "integer",
+            "description": "插入行数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "row": 1,
+        "count": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "插入列",
+      "name": "插入列",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "col": {
+            "type": "integer",
+            "description": "在第几列前插入",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "count": {
+            "type": "integer",
+            "description": "插入列数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "col": 1,
+        "count": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "删除行",
+      "name": "删除行",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "integer",
+            "description": "起始行",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "count": {
+            "type": "integer",
+            "description": "删除行数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "row": 1,
+        "count": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "删除列",
+      "name": "删除列",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "col": {
+            "type": "integer",
+            "description": "起始列",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "count": {
+            "type": "integer",
+            "description": "删除列数",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "col": 1,
+        "count": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取行数",
+      "name": "获取行数",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "varName": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "行数"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "varName": "行数"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "新建Excel",
+      "name": "新建Excel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "保存路径",
+            "default": ""
+          },
+          "sheetName": {
+            "type": "string",
+            "description": "工作表名",
+            "default": "Sheet1"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "path": "",
+        "sheetName": "Sheet1"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "保存Excel",
+      "name": "保存Excel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "另存为(留空保存原文件)",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "path": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "表格另存为",
+      "name": "表格另存为",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "naming": {
+            "type": "string",
+            "description": "命名方式",
+            "default": "后缀递增",
+            "enum": [
+              "后缀递增",
+              "加前缀",
+              "覆盖"
+            ]
+          },
+          "prefix": {
+            "type": "string",
+            "description": "前缀(选「加前缀」时用)",
+            "default": ""
+          },
+          "startIndex": {
+            "type": "integer",
+            "description": "后缀从几开始(默认1)",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "naming": "后缀递增",
+        "prefix": "",
+        "startIndex": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "处理文件（白话）",
+      "name": "处理文件(白话)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "做什么",
+            "default": "删除",
+            "enum": [
+              "删除",
+              "复制",
+              "移动",
+              "列出文件名"
+            ]
+          },
+          "folder": {
+            "type": "string",
+            "description": "哪个文件夹",
+            "default": ""
+          },
+          "sortBy": {
+            "type": "string",
+            "description": "按什么排序",
+            "default": "文件名",
+            "enum": [
+              "文件名",
+              "修改时间",
+              "文件大小"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "description": "排序方向",
+            "default": "从小到大",
+            "enum": [
+              "从小到大",
+              "从大到小"
+            ]
+          },
+          "index": {
+            "type": "string",
+            "description": "第几个文件(如 1、1,3,5、1-3、-1=倒数第1)",
+            "default": "1"
+          },
+          "dst": {
+            "type": "string",
+            "description": "复制/移动到哪(文件夹或新路径)",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "action": "删除",
+        "folder": "",
+        "sortBy": "文件名",
+        "order": "从小到大",
+        "index": "1",
+        "dst": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "重命名文件（白话）",
+      "name": "重命名文件(白话)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "哪个文件夹",
+            "default": ""
+          },
+          "sortBy": {
+            "type": "string",
+            "description": "按什么排序",
+            "default": "文件名",
+            "enum": [
+              "文件名",
+              "修改时间",
+              "文件大小"
+            ]
+          },
+          "order": {
+            "type": "string",
+            "description": "排序方向",
+            "default": "从小到大",
+            "enum": [
+              "从小到大",
+              "从大到小"
+            ]
+          },
+          "index": {
+            "type": "string",
+            "description": "第几个文件(如 1、1-3、1,3,5、-1=倒数第1)",
+            "default": "1"
+          },
+          "mode": {
+            "type": "string",
+            "description": "命名方式",
+            "default": "加前缀",
+            "enum": [
+              "加前缀",
+              "删前缀",
+              "加后缀",
+              "删后缀",
+              "替换文字",
+              "删除文字",
+              "按分隔符重组"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "标识内容(前缀/后缀/替换文字)",
+            "default": ""
+          },
+          "type": {
+            "type": "string",
+            "description": "标识类型(留空=用上面文字)",
+            "default": "自定义文字",
+            "enum": [
+              "自定义文字",
+              "数字序号",
+              "字母序号",
+              "日期"
+            ]
+          },
+          "sep": {
+            "type": "string",
+            "description": "分隔符(重组用，如 _ - 空格)",
+            "default": "_"
+          },
+          "parts": {
+            "type": "string",
+            "description": "取哪几段重组(如 2,1，留空=全部)",
+            "default": ""
+          },
+          "replacement": {
+            "type": "string",
+            "description": "替换为（替换文字时使用）",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "folder": "",
+        "sortBy": "文件名",
+        "order": "从小到大",
+        "index": "1",
+        "mode": "加前缀",
+        "text": "",
+        "type": "自定义文字",
+        "sep": "_",
+        "parts": "",
+        "replacement": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "查找文件（白话）",
+      "name": "查找文件(白话)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "在哪个文件夹找",
+            "default": ""
+          },
+          "keyword": {
+            "type": "string",
+            "description": "文件名包含什么字(留空=列出全部)",
+            "default": ""
+          },
+          "ext": {
+            "type": "string",
+            "description": "只找这种类型(如 txt，留空=全部)",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "folder": "",
+        "keyword": "",
+        "ext": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "统计文件（白话）",
+      "name": "统计文件(白话)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "统计哪个文件夹",
+            "default": ""
+          },
+          "ext": {
+            "type": "string",
+            "description": "只统计这种类型(如 txt，留空=全部)",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "folder": "",
+        "ext": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "表格复制粘贴（白话）",
+      "name": "表格复制粘贴(白话)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fromPath": {
+            "type": "string",
+            "description": "① 源表格路径(可把Excel文件拖进来)",
+            "default": ""
+          },
+          "fromRanges": {
+            "type": "string",
+            "description": "② 复制哪几列/区域(如 A1-A9,B2-B4；留空=整个表格)",
+            "default": ""
+          },
+          "fromSheet": {
+            "type": "string",
+            "description": "③ 源工作表名(留空=第一个表)",
+            "default": ""
+          },
+          "toPath": {
+            "type": "string",
+            "description": "④ 目标表格路径(可拖文件进来，留空=新建到桌面)",
+            "default": ""
+          },
+          "toSheet": {
+            "type": "string",
+            "description": "⑤ 目标工作表名(留空=第一个表)",
+            "default": ""
+          },
+          "toCell": {
+            "type": "string",
+            "description": "⑥ 从哪个单元格开始粘贴(如 B1、D2)",
+            "default": "A1"
+          },
+          "mode": {
+            "type": "string",
+            "description": "⑦ 粘贴方式",
+            "default": "只粘贴文本",
+            "enum": [
+              "只粘贴文本",
+              "全部粘贴",
+              "只粘贴值",
+              "只粘贴公式",
+              "只粘贴格式",
+              "保留公式",
+              "值与数字格式",
+              "公式与数字格式",
+              "不覆盖原有内容"
+            ]
+          },
+          "save": {
+            "type": "string",
+            "description": "⑧ 粘贴后是否保存表格",
+            "default": "保存",
+            "enum": [
+              "保存",
+              "不保存"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "fromPath": "",
+        "fromRanges": "",
+        "fromSheet": "",
+        "toPath": "",
+        "toSheet": "",
+        "toCell": "A1",
+        "mode": "只粘贴文本",
+        "save": "保存"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "打开网页",
+      "name": "打开网页",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "网页地址",
+            "default": "https://"
+          },
+          "engine": {
+            "type": "string",
+            "description": "用哪个内核(朗坤6.5等老系统选Edge)",
+            "default": "跟随当前",
+            "enum": [
+              "跟随当前",
+              "Chrome",
+              "Edge"
+            ]
+          },
+          "target": {
+            "type": "string",
+            "description": "打开方式",
+            "default": "新窗口",
+            "enum": [
+              "新窗口",
+              "当前标签页",
+              "新标签页"
+            ]
+          },
+          "loginMode": {
+            "type": "string",
+            "description": "登录方式(多账号做隔离)",
+            "default": "独立登录(每次全新)",
+            "enum": [
+              "独立登录(每次全新)",
+              "独立登录(按账号位保存)",
+              "共用登录(沿用已有登录)"
+            ]
+          },
+          "waitType": {
+            "type": "string",
+            "description": "等待加载",
+            "default": "加载完成",
+            "enum": [
+              "加载完成",
+              "立即返回"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "url": "https://",
+        "engine": "跟随当前",
+        "target": "新窗口",
+        "loginMode": "独立登录(每次全新)",
+        "waitType": "加载完成"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "点击元素",
+      "name": "点击元素",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "clickType": {
+            "type": "string",
+            "description": "点击方式",
+            "default": "单击",
+            "enum": [
+              "单击",
+              "双击",
+              "右键"
+            ]
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "坐标定位",
+              "智能匹配",
+              "锚点定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "clickType": "单击",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "输入文本",
+      "name": "输入文本",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "下方第1个",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "输入内容",
+            "default": ""
+          },
+          "pressEnter": {
+            "type": "string",
+            "description": "输入后按回车",
+            "default": "否",
+            "enum": [
+              "否",
+              "是"
+            ]
+          },
+          "clear": {
+            "type": "string",
+            "description": "输入前清空",
+            "default": "是",
+            "enum": [
+              "是",
+              "否"
+            ]
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "text": "",
+        "pressEnter": "否",
+        "clear": "是",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "获取文本",
+      "name": "获取文本",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "varName": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "变量1"
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "varName": "变量1",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "网页截图",
+      "name": "网页截图",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位(可选)",
+            "default": ""
+          },
+          "path": {
+            "type": "string",
+            "description": "保存路径",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "path": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "等待元素出现",
+      "name": "等待元素出现",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "timeout": {
+            "type": "number",
+            "description": "超时(秒)",
+            "default": 10,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "fallbackToXY": {
+            "type": "string",
+            "description": "超时还没出现怎么办",
+            "default": "只报错",
+            "enum": [
+              "只报错",
+              "点击坐标"
+            ]
+          },
+          "xyPoints": {
+            "type": "string",
+            "description": "兜底点击坐标(没出现时点这里，最多9个点用;分隔)",
+            "default": ""
+          },
+          "xyInterval": {
+            "type": "number",
+            "description": "兜底点击的间隔(秒)",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "timeout": 10,
+        "fallbackToXY": "只报错",
+        "xyPoints": "",
+        "xyInterval": 1,
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "等待页面加载完成",
+      "name": "等待页面加载完成",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "number",
+            "description": "最长等多久(秒)",
+            "default": 20,
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "timeout": 20
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "诊断页面（排错）",
+      "name": "诊断页面(排错)",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {},
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "坐标点击（可多点）",
+      "name": "网页内坐标点击（可多点）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "points": {
+            "type": "string",
+            "description": "点击坐标（按顺序执行，用分号分隔）",
+            "default": ""
+          },
+          "interval": {
+            "type": "number",
+            "description": "每个点之间间隔(秒)",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "clickType": {
+            "type": "string",
+            "description": "点击方式",
+            "default": "单击",
+            "enum": [
+              "单击",
+              "双击",
+              "右键"
+            ]
+          },
+          "x": {
+            "type": "number",
+            "description": "X坐标(只在单点、且上面没填时用)",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "y": {
+            "type": "number",
+            "description": "Y坐标(只在单点、且上面没填时用)",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "randomOffset": {
+            "type": "string",
+            "description": "随机偏移",
+            "default": "关闭",
+            "enum": [
+              "关闭",
+              "启用"
+            ]
+          },
+          "offsetX": {
+            "type": "integer",
+            "description": "水平偏移范围 ± 像素",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "offsetY": {
+            "type": "integer",
+            "description": "垂直偏移范围 ± 像素",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "points": "",
+        "interval": 1,
+        "clickType": "单击",
+        "x": 0,
+        "y": 0,
+        "randomOffset": "关闭",
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "等待（秒）",
+      "name": "等待(秒)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "number",
+            "description": "等待时间(秒)",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "seconds": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "按键",
+      "name": "按键",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "按哪个键",
+            "default": "回车(Enter)",
+            "enum": [
+              "回车(Enter)",
+              "Tab",
+              "ESC(Esc)",
+              "空格(Space)",
+              "退格(Backspace)",
+              "删除(Delete)",
+              "方向键↑",
+              "方向键↓",
+              "方向键←",
+              "方向键→",
+              "F5(刷新页面)",
+              "Ctrl+A(全选)",
+              "Ctrl+C(复制)",
+              "Ctrl+V(粘贴)",
+              "Ctrl+X(剪切)",
+              "Ctrl+Z(撤销)",
+              "Ctrl+F(查找)",
+              "Ctrl+S(保存)",
+              "自定义"
+            ]
+          },
+          "customKey": {
+            "type": "string",
+            "description": "自定义按键(选「自定义」时填，如 F5、a、Ctrl+Shift+A)",
+            "default": ""
+          },
+          "times": {
+            "type": "integer",
+            "description": "按几次",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "key": "回车(Enter)",
+        "customKey": "",
+        "times": 1
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "点击并全选复制",
+      "name": "点击并全选复制",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位(点它并把它里面的内容全选复制)",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "clickType": {
+            "type": "string",
+            "description": "点击方式",
+            "default": "单击",
+            "enum": [
+              "单击",
+              "双击",
+              "右键"
+            ]
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "clickType": "单击",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "点击并粘贴",
+      "name": "点击并粘贴",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位(点它然后粘贴；也可填坐标如 100,200)",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "clickType": {
+            "type": "string",
+            "description": "点击方式",
+            "default": "单击",
+            "enum": [
+              "单击",
+              "双击",
+              "右键"
+            ]
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位",
+              "坐标定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "clickType": "单击",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "复制到剪贴板",
+      "name": "复制到剪贴板",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "复制什么",
+            "default": "文本(下面填的内容)",
+            "enum": [
+              "文本(下面填的内容)",
+              "网页里选中的内容",
+              "元素里的文本"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "description": "要复制的文本(可用 ${变量})",
+            "default": ""
+          },
+          "selector": {
+            "type": "string",
+            "description": "元素定位(上面选「元素里的文本」时填)",
+            "default": ""
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "from": "文本(下面填的内容)",
+        "content": "",
+        "selector": "",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "粘贴到网页元素",
+      "name": "粘贴到网页元素",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位(要粘贴到哪个元素)",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "description": "粘贴方式",
+            "default": "真实粘贴(Ctrl+V)",
+            "enum": [
+              "真实粘贴(Ctrl+V)",
+              "直接把内容写进去"
+            ]
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "mode": "真实粘贴(Ctrl+V)",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "提取文本到表格",
+      "name": "提取文本到表格",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位(要提取哪些元素的文本)",
+            "default": ""
+          },
+          "anchor": {
+            "type": "string",
+            "description": "锚点元素(可选，多个用;分隔)",
+            "default": ""
+          },
+          "anchorRel": {
+            "type": "string",
+            "description": "目标相对锚点的方位",
+            "default": "下方",
+            "enum": [
+              "下方",
+              "上方",
+              "右侧",
+              "左侧",
+              "内部",
+              "相邻"
+            ]
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配",
+              "锚点定位"
+            ]
+          },
+          "all": {
+            "type": "string",
+            "description": "提取数量",
+            "default": "全部匹配",
+            "enum": [
+              "单个",
+              "全部匹配"
+            ]
+          },
+          "filter": {
+            "type": "string",
+            "description": "内容过滤(选一个，或直接填 2-3 表示取第2~3个字符)",
+            "default": "文本与数字"
+          },
+          "toPath": {
+            "type": "string",
+            "description": "写到哪个表格(可拖文件进来，留空=新建到桌面)",
+            "default": ""
+          },
+          "toSheet": {
+            "type": "string",
+            "description": "工作表名(留空=第一个表)",
+            "default": ""
+          },
+          "toCell": {
+            "type": "string",
+            "description": "从哪个单元格开始写(如 A1、B2)",
+            "default": "A1"
+          },
+          "save": {
+            "type": "string",
+            "description": "保存方式",
+            "default": "保存",
+            "enum": [
+              "保存",
+              "另存为"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "anchor": "",
+        "anchorRel": "下方",
+        "by": "智能匹配",
+        "all": "全部匹配",
+        "filter": "文本与数字",
+        "toPath": "",
+        "toSheet": "",
+        "toCell": "A1",
+        "save": "保存"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "拾取元素",
+      "name": "拾取元素",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "hint": {
+            "type": "string",
+            "description": "说明",
+            "default": "在浏览器里点击目标元素"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "hint": "在浏览器里点击目标元素"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "抓取文本",
+      "name": "抓取文本",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位",
+            "default": ""
+          },
+          "varName": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "抓取结果"
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "文本内容",
+              "智能匹配"
+            ]
+          },
+          "all": {
+            "type": "string",
+            "description": "抓取数量",
+            "default": "单个",
+            "enum": [
+              "单个",
+              "全部匹配"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "varName": "抓取结果",
+        "by": "智能匹配",
+        "all": "单个"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "抓取属性",
+      "name": "抓取属性",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "元素定位",
+            "default": ""
+          },
+          "attr": {
+            "type": "string",
+            "description": "属性名(如href)",
+            "default": "href"
+          },
+          "varName": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "抓取结果"
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "智能匹配"
+            ]
+          },
+          "all": {
+            "type": "string",
+            "description": "抓取数量",
+            "default": "全部匹配",
+            "enum": [
+              "单个",
+              "全部匹配"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "attr": "href",
+        "varName": "抓取结果",
+        "by": "智能匹配",
+        "all": "全部匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "抓取列表",
+      "name": "抓取列表",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "type": "string",
+            "description": "列表项定位",
+            "default": ""
+          },
+          "fields": {
+            "type": "string",
+            "description": "字段(定位:字段名,逗号分隔)",
+            "default": ""
+          },
+          "varName": {
+            "type": "string",
+            "description": "保存到变量(二维数组)",
+            "default": "抓取列表"
+          },
+          "by": {
+            "type": "string",
+            "description": "定位方式",
+            "default": "智能匹配",
+            "enum": [
+              "CSS选择器",
+              "XPath",
+              "智能匹配"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "selector": "",
+        "fields": "",
+        "varName": "抓取列表",
+        "by": "智能匹配"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "抓取导出Excel",
+      "name": "抓取导出Excel",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "varName": {
+            "type": "string",
+            "description": "数据变量(二维数组)",
+            "default": "抓取列表"
+          },
+          "path": {
+            "type": "string",
+            "description": "保存路径(留空存桌面)",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "varName": "抓取列表",
+        "path": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "暂不运行以下指令",
+      "name": "暂不运行以下指令",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {},
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "暂不运行以上指令",
+      "name": "暂不运行以上指令",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {},
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "终止流程",
+      "name": "终止流程",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "终止类型": {
+            "type": "string",
+            "description": "终止类型",
+            "default": "终止所有任务",
+            "enum": [
+              "终止所有任务"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "终止类型": "终止所有任务"
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "运行项目",
+      "name": "运行项目",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "项目路径": {
+            "type": "string",
+            "description": "项目文件",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "项目路径": ""
+      },
+      "required_fields": [
+        "项目路径"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "报错跳转",
+      "name": "报错跳转",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "跳转方式": {
+            "type": "string",
+            "description": "跳转方式",
+            "default": "连线节点",
+            "enum": [
+              "连线节点",
+              "当前项目行",
+              "其他项目行",
+              "继续执行"
+            ]
+          },
+          "目标行": {
+            "type": "integer",
+            "description": "目标行（表格序号，从 1 开始）",
+            "default": 1,
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "项目路径": {
+            "type": "string",
+            "description": "目标项目文件",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "跳转方式": "连线节点",
+        "目标行": 1,
+        "项目路径": ""
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "变量比较",
+      "name": "变量比较",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "变量": {
+            "type": "string",
+            "description": "左侧变量",
+            "default": ""
+          },
+          "比较条件": {
+            "type": "string",
+            "description": "比较条件",
+            "default": "等于",
+            "enum": [
+              "等于",
+              "不等于",
+              "大于",
+              "大于等于",
+              "小于",
+              "小于等于",
+              "包含",
+              "不包含"
+            ]
+          },
+          "比较对象": {
+            "type": "string",
+            "description": "右侧类型",
+            "default": "固定值",
+            "enum": [
+              "固定值",
+              "变量"
+            ]
+          },
+          "比较值": {
+            "type": "string",
+            "description": "右侧值 / 变量名",
+            "default": ""
+          },
+          "比较类型": {
+            "type": "string",
+            "description": "比较类型",
+            "default": "自动",
+            "enum": [
+              "自动",
+              "数字",
+              "文本"
+            ]
+          },
+          "是跳转方式": {
+            "type": "string",
+            "description": "是：跳转方式",
+            "default": "连线节点",
+            "enum": [
+              "连线节点",
+              "当前项目行",
+              "其他项目行",
+              "继续执行"
+            ]
+          },
+          "是目标行": {
+            "type": "integer",
+            "description": "是：目标行（从 1 开始）",
+            "default": 1,
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "是项目路径": {
+            "type": "string",
+            "description": "是：目标项目文件",
+            "default": ""
+          },
+          "否跳转方式": {
+            "type": "string",
+            "description": "否：跳转方式",
+            "default": "连线节点",
+            "enum": [
+              "连线节点",
+              "当前项目行",
+              "其他项目行",
+              "继续执行"
+            ]
+          },
+          "否目标行": {
+            "type": "integer",
+            "description": "否：目标行（从 1 开始）",
+            "default": 1,
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "否项目路径": {
+            "type": "string",
+            "description": "否：目标项目文件",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "变量": "",
+        "比较条件": "等于",
+        "比较对象": "固定值",
+        "比较值": "",
+        "比较类型": "自动",
+        "是跳转方式": "连线节点",
+        "是目标行": 1,
+        "是项目路径": "",
+        "否跳转方式": "连线节点",
+        "否目标行": 1,
+        "否项目路径": ""
+      },
+      "required_fields": [
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "循环",
+      "name": "循环",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "方式": {
+            "type": "string",
+            "description": "循环方式",
+            "default": "次数",
+            "enum": [
+              "次数",
+              "条件"
+            ]
+          },
+          "条件": {
+            "type": "string",
+            "description": "条件表达式",
+            "default": "True"
+          },
+          "次数": {
+            "type": "integer",
+            "description": "循环次数",
+            "default": 3,
+            "minimum": -1000000,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "方式": "次数",
+        "条件": "True",
+        "次数": 3
+      },
+      "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "条件判断",
+      "name": "条件判断",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "条件": {
+            "type": "string",
+            "description": "判断条件",
+            "default": "True"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "条件": "True"
+      },
+      "required_fields": [
+        "条件"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "条件循环",
+      "name": "条件循环",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "方式": {
+            "type": "string",
+            "description": "循环方式",
+            "default": "条件",
+            "enum": [
+              "次数",
+              "条件"
+            ]
+          },
+          "条件": {
+            "type": "string",
+            "description": "判断条件",
+            "default": "True"
+          },
+          "次数": {
+            "type": "integer",
+            "description": "循环次数",
+            "default": 3,
+            "minimum": -1000000,
+            "maximum": 1000000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "方式": "条件",
+        "条件": "True",
+        "次数": 3
+      },
+      "required_fields": [
+        "条件"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    }
+  ],
+  "response_examples": [
+    {
+      "type": "tool_call",
+      "name": "instructions_search",
+      "arguments": {
+        "query": "等待"
+      }
+    },
+    {
+      "type": "message",
+      "content": "请补充需要点击的图片路径。"
+    }
+  ],
+  "draft_format": {
+    "protocol": "anclicker.agent.v1",
+    "kind": "instruction_drafts",
+    "instructions": [
+      {
+        "type_id": "时间等待",
+        "parameters": {
+          "时长": 2
+        },
+        "repeat_count": 1,
+        "error_policy": "提示异常并暂停",
+        "note": ""
+      }
+    ]
+  }
+}

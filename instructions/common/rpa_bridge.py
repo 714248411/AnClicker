@@ -88,7 +88,12 @@ class RpaBridge:
             raise RuntimeError(message.get('error', '自动化执行引擎启动失败'))
     def execute(self, command, variables=None, context=None, timeout=180):
         with self.lock:
+            if context is not None and context.stop_requested:
+                raise InterruptedError('已停止自动化指令')
             self._start()
+            if context is not None and context.stop_requested:
+                self.close()
+                raise InterruptedError('已停止自动化指令')
             self.sequence += 1
             request = {'id':self.sequence, 'command':command, 'variables':dict(variables or {})}
             self.stream.write(json.dumps(request, ensure_ascii=False, allow_nan=False) + '\n')
