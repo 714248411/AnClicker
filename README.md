@@ -2,20 +2,15 @@
 
 通过表格与可视化流程图组织自动化任务，将键鼠操作、图像识别、OCR、Excel 和网页操作连接成可保存、可重复执行的流程。
 
-## v1.6.2 更新介绍
+## 开发中：v1.6.2（尚未发布）
 
-新增“对话 Agent”，可通过本地小模型或兼容模型服务编写指令草稿、修改参数，并操作独立浏览器。Windows 支持 CPU/GPU 自动调度、排队与空闲释放。
+当前分支已同步对话 Agent 与新对话修复代码，暂不发布新版安装包。最新正式版仍为 [v1.6.1](https://github.com/714248411/AnClicker/releases/tag/v1.6.1)。
 
-[下载完整应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.6.2)
+新增“对话 Agent”，可通过本地小模型或兼容模型服务编写指令草稿、修改参数，并操作独立浏览器。Windows 支持 CPU/GPU 自动调度、排队与空闲释放。新建对话会保留当前配置的会话模式。
 
-- 完整应用：AnClicker-v1.6.2-win.zip、AnClicker-v1.6.2-linux.zip、AnClicker-v1.6.2-mac.zip。
-- 对应源码：以上名称追加 -DaiMa；Mac 包含 Intel 与 Apple-Silicon 两个版本。
-- Windows 可选小模型包：AnClicker-v1.6.2-agent-win-x64.zip。将 .agent-runtime 解压到 current/AnClicker.exe 旁，发送消息时按需加载。
-- Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
+体验新增功能请使用本分支源码，按下方“开发与运行”以及 [开发版运行说明](docs/RPA_REBUILD.md) 准备环境。Windows 小模型可通过“准备本机小模型.cmd”准备；已有离线运行包时，将 .agent-runtime 解压到源码根目录。Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
 
-Windows 完整解压后启动根目录 An Clicker.exe。升级前备份自己的 data。Mac 未进行 Developer ID 公证；Linux 使用 Ubuntu 24.04 / X11 构建验证，Wayland 未验证。
-
-[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](packaging/PLATFORM_GUIDE.md) · [更新说明](packaging/RELEASE_NOTES.md)
+[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](packaging/PLATFORM_GUIDE.md) · [待发布更新说明](packaging/RELEASE_NOTES.md)
 
 ## 项目简介
 
