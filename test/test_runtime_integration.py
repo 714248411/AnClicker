@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from qt_compat.QtCore import Signal
+from qt_compat.QtCore import Signal, QCoreApplication, QEvent
 from qt_compat.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox
 
 from graph_repository import GraphRepository
@@ -53,6 +53,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication([])
 
     def setUp(self):
+        self.qt_objects = []
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.database = DatabaseOperation(
             os.path.join(self.temporary_directory.name, "runtime.db")
@@ -60,6 +61,11 @@ class RuntimeIntegrationTests(unittest.TestCase):
 
     def tearDown(self):
         self.app.processEvents()
+        for obj in self.qt_objects:
+            obj.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        self.app.processEvents()
+        self.qt_objects.clear()
         self.temporary_directory.cleanup()
 
     @staticmethod
@@ -74,6 +80,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
 
     def test_drop_cancel_creates_nothing_and_accept_creates_at_release_position(self):
         host_ = QMainWindow()
+        self.qt_objects.append(host_)
         host_.db = self.database
         workspace_ = InstructionWorkspace(self.database.db_path, host_)
 
@@ -100,6 +107,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
         repository_ = GraphRepository(self.database.db_path)
         original_ = repository_.add_command(self._draft("原始"))
         host_ = QMainWindow()
+        self.qt_objects.append(host_)
         host_.db = self.database
         workspace_ = InstructionWorkspace(self.database.db_path, host_)
 
@@ -129,6 +137,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
         first_ = repository_.add_command(self._draft("first"))
         second_ = repository_.add_command(self._draft("second"))
         host_ = QMainWindow()
+        self.qt_objects.append(host_)
         host_.db = self.database
         workspace_ = InstructionWorkspace(self.database.db_path, host_)
         scene_ = workspace_.editor.scene
@@ -171,6 +180,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
 
         with patch("main_work.DatabaseOperation", return_value=self.database):
             thread_ = CommandThread(MainWindowStub())
+            self.qt_objects.append(thread_)
         thread_.set_repeat_number(1)
         thread_.set_run_mode("从当前行运行", second_.id)
         thread_.run()
@@ -201,6 +211,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
 
         with patch("main_work.DatabaseOperation", return_value=self.database):
             thread_ = CommandThread(MainWindowStub())
+            self.qt_objects.append(thread_)
         thread_.set_repeat_number(1)
         thread_.prepare_for_start()
         thread_.start()
@@ -222,6 +233,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
 
         with patch("main_work.DatabaseOperation", return_value=self.database):
             thread_ = CommandThread(MainWindowStub())
+            self.qt_objects.append(thread_)
         with (
             patch.object(thread_, "isRunning", return_value=True),
             patch.object(thread_, "wait", side_effect=[False, True]) as wait_,
@@ -250,6 +262,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
             from Start_Win import Main_window
 
             window_ = Main_window()
+            self.qt_objects.append(window_)
         self.assertFalse(hasattr(window_, "tableWidget"))
         self.assertFalse(hasattr(window_, "groupBox_4"))
         self.assertEqual(len(window_.workspace.palette.specs()), 108)
@@ -269,7 +282,6 @@ class RuntimeIntegrationTests(unittest.TestCase):
         )
         self.assertTrue(window_.instructionPaletteHost.isVisible())
         window_.close()
-        window_.deleteLater()
 
     def test_close_keeps_commands_when_required_save_is_cancelled(self):
         class HotkeyStub:
@@ -290,6 +302,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
             from Start_Win import Main_window
 
             window_ = Main_window()
+            self.qt_objects.append(window_)
         event_ = MagicMock()
         with (
             patch.object(self.database, "get_bool_setting", return_value=True),
@@ -299,7 +312,6 @@ class RuntimeIntegrationTests(unittest.TestCase):
             window_.closeEvent(event_)
         event_.ignore.assert_called_once()
         self.assertEqual(len(repository_.list_commands()), 1)
-        window_.deleteLater()
 
 
 if __name__ == "__main__":

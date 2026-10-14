@@ -95,13 +95,32 @@ class BackgroundMethodEditor(BackgroundEditor):
         completer.setCompletionMode(QCompleter.PopupCompletion)
         operation.setCompleter(completer)
         operation._completion_theme = _CompletionTheme(operation)
+        self.ui.parameterGroupBox.setTitle('常用设置')
+        self.ui.label_2.setText('保存到变量（可选）')
+        self.advanced_button = QPushButton('高级设置 ▸', self)
+        self.advanced_button.setCheckable(True)
+        self.advanced_button.setAutoDefault(False)
+        self.advanced_panel = QGroupBox('后台专用参数', self)
+        self.advancedForm = QFormLayout(self.advanced_panel)
+        self.advancedForm.setContentsMargins(12, 12, 12, 12)
+        self.advancedForm.setRowWrapPolicy(QFormLayout.WrapLongRows)
+        self.advancedForm.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        position = self.ui.rootLayout.indexOf(self.ui.parameterGroupBox) + 1
+        self.ui.rootLayout.insertWidget(position, self.advanced_button)
+        self.ui.rootLayout.insertWidget(position + 1, self.advanced_panel)
+        self.advanced_panel.hide()
+        from instructions.common.downward_expansion import DownwardExpansion
+        self._method_expansion = DownwardExpansion(self, self.advanced_panel)
+        self.advanced_button.toggled.connect(self._toggle_method_advanced)
         self._arguments = {}
         self._method_values = {}
         self._active_method = None
         self._controls['接口'].currentTextChanged.connect(self._select_method)
-        self._select_method(self._controls['接口'].currentText())
+        # A saved draft chooses the method itself; build its fields only once.
         if draft is not None:
             self.load_draft(draft)
+        else:
+            self._select_method(self._controls['接口'].currentText())
 
     def _select_method(self, text):
         if self._loading:
@@ -120,35 +139,123 @@ class BackgroundMethodEditor(BackgroundEditor):
         self._populate(values)
 
     def _populate(self, values):
-        while self.argumentForm.rowCount():
-            self.argumentForm.removeRow(0)
-        self._arguments = {}
-        name = method_name(self._controls['接口'].currentText())
-        data = METHODS.get(name)
-        if data is None or data['group'] != self.TYPE_ID:
-            return
-        self._update_method_help(name, data)
-        inputs = [item for item in data['args'] if not item['out'] or item.get('inout')]
-        self.argumentBody.setVisible(bool(inputs))
-        for item in inputs:
-            control = QLineEdit(str(values.get(item['name'], item['default'])), self.argumentBody)
-            control.setObjectName('dm_argument_' + item['name'])
-            control.setMinimumHeight(32)
-            if item['name'] in ('pwd', 'password'):
-                control.setEchoMode(QLineEdit.Password)
-            control.setToolTip(item['label'] + '；支持 {{变量名}}')
-            if item['name'] in ('pic_name', 'bmp_name', 'pic', 'dict_name', 'file', 'path'):
-                row = QWidget(self.argumentBody);layout = QHBoxLayout(row)
-                layout.setContentsMargins(0,0,0,0);layout.addWidget(control,1)
-                button = QPushButton('选择…',row);button.setAutoDefault(False)
-                button.setToolTip('选择目录' if item['name']=='path' else '选择文件')
-                layout.addWidget(button)
-                button.clicked.connect(lambda checked=False, n=name, key=item['name'], c=control: self._browse_argument(n,key,c))
-                self.argumentForm.addRow(item['label'],row)
-            else:
-                self.argumentForm.addRow(item['label'], control)
-            self._arguments[item['name']] = control
-            control.textChanged.connect(self._save_arguments)
+        from .background_fields import (CoordinateField, PrecisionField, KeyField,
+                                        ChoiceField, TextField, row, capture_key)
+        if self.advanced_button.isChecked():
+            self.advanced_button.setChecked(False)
+        self._building_arguments = True
+        try:
+            for form in (self.argumentForm, self.advancedForm):
+                while form.rowCount():
+                    form.removeRow(0)
+            self._arguments = {}
+            self._argument_widgets = {}
+            self._advanced_keys = set()
+            self._default_arguments = {}
+            name = method_name(self._controls['接口'].currentText())
+            data = METHODS.get(name)
+            if data is None or data['group'] != self.TYPE_ID:
+                return
+            self._update_method_help(name, data)
+            inputs = [item for item in data['args'] if not item['out'] or item.get('inout')]
+            self.argumentBody.setVisible(bool(inputs))
+            self._default_arguments = {item['name']: item['default'] for item in inputs}
+            for item in inputs:
+                key = item['name']
+                control = QLineEdit(str(values.get(key, item['default'])), self.argumentBody)
+                control.setObjectName('dm_argument_' + key)
+                control.setMinimumHeight(32)
+                control.setToolTip(item['label'] + '；支持 {{变量名}}')
+                if key in ('pwd', 'password'):
+                    control.setEchoMode(QLineEdit.Password)
+                self._arguments[key] = control
+            keys = set(self._arguments) if self.TYPE_ID in ('后台键鼠操作', '后台图色操作', '后台文字识别') else set()
+            coordinates = (('x1', 'y1', 'x2', 'y2') if {'x1','y1','x2','y2'} <= keys else
+                           ('x', 'y') if {'x','y'} <= keys else
+                           ('rx', 'ry') if {'rx','ry'} <= keys else ())
+            extras = {'delta_color', 'dir', 'quality'}
+            if self.TYPE_ID == '后台文字识别' and coordinates:
+                extras |= {'color', 'font_name', 'font_size', 'flag'}
+            if name in ('SendString', 'SendString2'):
+                extras.add('hwnd')
+            labels = {'rx': '水平距离', 'ry': '垂直距离', 'w': '宽度', 'h': '高度',
+                      'vk': '按键', 'key_str': '按键', 'delay': '间隔（毫秒）',
+                      'font_name': '字体名称', 'font_size': '字号',
+                      'quality': '图像质量', 'first_color': '基准颜色',
+                      'offset_color': '相对位置与颜色', 'bmp_name': '位图保存路径',
+                      'title_name': '窗口标题', 'process_name': '进程名称',
+                      'process_id': '进程编号', 'index': '结果序号',
+                      'rgb_color': 'RGB 颜色', 'bgr_color': 'BGR 颜色'}
+            priority = {'pic_name': 0, 'str': 1, 'sim': 3}
+            ordered = sorted(inputs, key=lambda item: priority.get(item['name'], 2 if item['name'] in coordinates else 4))
+            for item in ordered:
+                key = item['name']
+                control = self._arguments[key]
+                title = labels.get(key, item['label'])
+                if key in coordinates:
+                    if key == coordinates[0]:
+                        field = CoordinateField([self._arguments[k] for k in coordinates], self._save_arguments, self.argumentBody)
+                        self._argument_widgets['区域' if len(coordinates)==4 else '坐标'] = field
+                        title = ('识别范围 x,y,宽度,高度' if len(coordinates)==4 else
+                                 '移动距离 x,y' if key=='rx' else '目标坐标 x,y')
+                        if self.TYPE_ID == '后台图色操作' and name.startswith('Capture'):
+                            title = '截图范围 x,y,宽度,高度'
+                        field.setToolTip(('坐标以图片左上角为 0,0。' if name=='OcrInFile' else
+                                          '填写相对于当前位置的移动距离。' if name=='MoveR' else
+                                          '坐标以绑定窗口内容区左上角为 0,0。') + '需要分别使用坐标变量时可展开高级设置。')
+                        self.argumentForm.addRow(title, field)
+                    self.advancedForm.addRow(item['label'], control)
+                    continue
+                widget = control
+                if key == 'sim':
+                    title = '识别精度'
+                    widget = PrecisionField(control, 100 if item['type']==3 else 1, self.argumentBody)
+                elif key == 'str' and name in ('SendString', 'SendString2'):
+                    title = '输入内容'
+                    widget = TextField(control, self.argumentBody)
+                elif key == 'str' and name.startswith('FindStr'):
+                    title = '要查找的文字'
+                    control.setPlaceholderText('例如：确定；支持 {{变量名}}')
+                elif key == 'vk' or (key == 'key_str' and name != 'KeyPressStr'):
+                    field = KeyField(control, key=='vk', self.argumentBody)
+                    button = QPushButton('捕获按键', self.argumentBody)
+                    button.setAutoDefault(False)
+                    button.clicked.connect(lambda checked=False, f=field: capture_key(self, f))
+                    widget = row(self.argumentBody, field, button)
+                    self._argument_widgets['按键'] = field
+                elif key == 'dir':
+                    title = '搜索方向'
+                    widget = ChoiceField(control, [(str(i), i) for i in range(4)], self.advanced_panel)
+                elif key in ('pic_name', 'bmp_name', 'pic', 'dict_name', 'file', 'path'):
+                    save = name.startswith('Capture') or name=='SaveDict' or (name=='ImageToBmp' and key=='bmp_name')
+                    title = '保存路径' if save else '图像路径' if key in ('pic_name','pic') else title
+                    button = QPushButton('保存位置' if save else '选择目录' if key=='path' else '选择图片' if key in ('pic_name','pic') else '选择文件', self.argumentBody)
+                    button.setAutoDefault(False)
+                    button.clicked.connect(lambda checked=False, n=name, k=key, c=control: self._browse_argument(n,k,c))
+                    widget = row(self.argumentBody, control, button)
+                if key not in ('vk', 'key_str'):
+                    self._argument_widgets[key] = widget
+                form = self.advancedForm if key in extras else self.argumentForm
+                if key in extras:
+                    self._advanced_keys.add(key)
+                form.addRow(title, widget)
+            for control in self._arguments.values():
+                control.textChanged.connect(self._save_arguments)
+            self.advanced_button.setVisible(bool(self.advancedForm.rowCount()))
+            self._update_advanced_indicator()
+        finally:
+            self._building_arguments = False
+
+    def _toggle_method_advanced(self, expanded):
+        self._method_expansion.setExpanded(expanded)
+        self._update_advanced_indicator()
+
+    def _update_advanced_indicator(self):
+        custom = any(self._arguments[key].text() != str(self._default_arguments[key]) for key in self._advanced_keys)
+        # Variable bounds cannot be expressed as a literal x,y,width,height.
+        region = self._argument_widgets.get('区域')
+        custom = custom or (region is not None and not region.text() and not region.error)
+        self.advanced_button.setText(('高级设置 ▾（收起）' if self.advanced_button.isChecked() else '高级设置 ▸') + ('（已有自定义配置）' if custom else ''))
 
     def _update_method_help(self, name, data):
         lines = ['请在流程中先执行“绑定选择窗口”，再运行此操作。']
@@ -183,7 +290,10 @@ class BackgroundMethodEditor(BackgroundEditor):
             control.setText(value)
 
     def _save_arguments(self):
+        if getattr(self, '_building_arguments', False):
+            return
         self._controls['参数'].setPlainText(json.dumps({k: v.text() for k, v in self._arguments.items()},ensure_ascii=False))
+        self._update_advanced_indicator()
 
     def load_draft(self, draft):
         self._loading = True
@@ -204,6 +314,9 @@ class BackgroundMethodEditor(BackgroundEditor):
         if name not in group_methods(self.TYPE_ID):
             raise ValueError('请选择有效的后台接口')
         parameters['接口'] = label(name)
+        for widget in self._argument_widgets.values():
+            if hasattr(widget, 'validate'):
+                widget.validate()
         super()._validate_parameters(parameters)
         values_for(name, json.loads(parameters['参数']))
 

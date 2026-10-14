@@ -2,13 +2,13 @@
 
 通过表格与可视化流程图组织自动化任务，将键鼠操作、图像识别、OCR、Excel 和网页操作连接成可保存、可重复执行的流程。
 
-## v1.5.9 更新介绍
+## v1.6.0 更新介绍
 
 优化后台预加载、本地 Word 题库检索、循环与条件判断，并完善报错连线和箭头显示控制。
 
-[下载完整应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.5.9)
+[下载完整应用、源码与校验清单](https://github.com/714248411/AnClicker/releases/tag/v1.6.0)
 
-- 完整应用：AnClicker-v1.5.9-win.zip、AnClicker-v1.5.9-linux.zip、AnClicker-v1.5.9-mac.zip。
+- 完整应用：AnClicker-v1.6.0-win.zip、AnClicker-v1.6.0-linux.zip、AnClicker-v1.6.0-mac.zip。
 - 对应源码：以上名称追加 -DaiMa；Mac 包含 Intel 与 Apple-Silicon 两个版本。
 - 循环默认只设置次数；条件下拉选择图片、文件、OCR 文字、颜色或坐标判断。
 - 报错线拖到空白处可回车添加模块，报错方向以橙色箭头显示。

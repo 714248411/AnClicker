@@ -1,7 +1,7 @@
 name: Verify macOS and Linux packages
 on:
   push:
-    branches: [codex/v1.5.9-platforms]
+    branches: [codex/v1.6.0-platforms]
   workflow_dispatch:
 permissions:
   contents: read
@@ -124,7 +124,7 @@ jobs:
       - name: Verify final downloadable package
         run: |
           mkdir extracted reports
-          unzip -q delivery/AnClicker-v1.5.9-${{ matrix.package }}.zip -d extracted
+          unzip -q delivery/AnClicker-v1.6.0-${{ matrix.package }}.zip -d extracted
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
             sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
@@ -132,7 +132,7 @@ jobs:
           python packaging/smoke_release.py --dist extracted/${{ matrix.folder }} 2>&1 | tee reports/final-${{ matrix.artifact }}.txt
           python - <<'PY'
           import hashlib, json, pathlib, platform
-          p = pathlib.Path('delivery/AnClicker-v1.5.9-${{ matrix.package }}.zip')
+          p = pathlib.Path('delivery/AnClicker-v1.6.0-${{ matrix.package }}.zip')
           pathlib.Path('reports/final-${{ matrix.artifact }}.json').write_text(json.dumps({
               'system': platform.platform(), 'architecture': platform.machine(),
               'commit': '${{ github.sha }}', 'package': p.name,

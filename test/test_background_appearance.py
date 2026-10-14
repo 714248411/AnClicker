@@ -30,7 +30,10 @@ def test_background_parameter_panel_uses_workspace_theme(host,theme,type_id):
     dock.grab().save('validation/background-'+image_name+'-'+theme+'.png')
     assert all(c.height()>=c.fontMetrics().height() for c in editor.findChildren(QLineEdit) if c.isVisible()), [(c.objectName(),c.width(),c.height()) for c in editor.findChildren(QLineEdit) if c.isVisible()]
     if type_id=='后台图色操作':
-        combo=editor._controls['接口'];completer=combo.completer()
+        dock.raise_();dock.activateWindow()
+        combo=editor._controls['接口'];combo.setFocus()
+        QTest.qWait(50)
+        completer=combo.completer()
         completer.setCompletionPrefix('Find');completer.complete();QTest.qWait(30)
         popup=completer.popup()
         assert popup.isVisible()

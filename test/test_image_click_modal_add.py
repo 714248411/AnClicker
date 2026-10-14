@@ -2,7 +2,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'windows')
 from unittest.mock import patch
 import pytest
-from qt_compat.QtCore import QTimer
+from qt_compat.QtCore import QTimer, QCoreApplication, QEvent
 from qt_compat.QtGui import QPixmap
 from qt_compat.QtWidgets import QApplication, QDialog, QDialogButtonBox, QWidget
 from instruction_workspace import InstructionWorkspace
@@ -69,5 +69,8 @@ def test_image_selection_preserves_modal_add(tmp_path, capture, outcome):
     finally:
         watchdog.stop()
         owner.close()
-        editor.deleteLater()
+        # Release the complete Qt owner tree while Python references and the
+        # application are still alive, before pytest performs its final GC.
+        owner.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         app.processEvents()

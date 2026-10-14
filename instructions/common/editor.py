@@ -356,6 +356,13 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
             return
         self.auxiliary_requested.emit(key_, control_)
 
+    def _create_point_selector(self, key_):
+        return _PointSelectionDialog(self)
+
+    def _apply_point_selection(self, key_, control_, selector_):
+        # Commas also support negative coordinates on a secondary monitor.
+        self._set_control_value(control_, ",".join(map(str, selector_.point)))
+
     def _select_screen_point(self, key_, control_):
         owner_ = self.parentWidget().window() if self.parentWidget() else None
         owner_visible_ = owner_ is not None and owner_.isVisible()
@@ -376,10 +383,9 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
                 owner_.setWindowOpacity(0.0)
             if workspace_visible_:
                 workspace_owner_.setWindowOpacity(0.0)
-            selector_ = _PointSelectionDialog(self)
+            selector_ = self._create_point_selector(key_)
             if selector_.exec() == QDialog.DialogCode.Accepted and selector_.point is not None:
-                # Commas also support negative coordinates on a secondary monitor.
-                self._set_control_value(control_, ",".join(map(str, selector_.point)))
+                self._apply_point_selection(key_, control_, selector_)
             capture_error_ = selector_.capture_error
         except Exception as error_:
             capture_error_ = str(error_) or type(error_).__name__
