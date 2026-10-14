@@ -44,7 +44,7 @@ def main():
                     detail += '\n' + engine_log.read_text(encoding='utf-8', errors='replace')[-6000:]
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
-            expected_views = ["主界面", "表格图", "流程图", "多功能", "录制", "网页录制"]
+            expected_views = ["主界面", "表格图", "流程图", "多功能", "录制", "网页录制", "对话 Agent"]
             if (not ready["ready"] or ready["views"] != len(expected_views)
                     or ready.get("view_labels") != expected_views
                     or not ready.get("window_chrome_valid")):
