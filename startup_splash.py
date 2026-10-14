@@ -12,23 +12,40 @@ class LoadingSplashScreen(QSplashScreen):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         canvas = QPixmap(side + 24, side + 76)
         canvas.fill(Qt.transparent)
-        self.setPixmap(canvas)
         self.movie = QMovie(str(image_path), parent=self)
         # Decode only the current frame, rather than caching the entire GIF.
         self.movie.setCacheMode(QMovie.CacheNone)
         self.movie.setScaledSize(QSize(side, side))
         self.movie.frameChanged.connect(self._frame_changed)
-        self.movie.start()
+        from pathlib import Path
+        self._fallback = QPixmap(str(Path(image_path).with_name('startup-fallback.png'))).scaled(
+            side, side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self._static_mode = False
+        self.movie.error.connect(self._use_fallback)
+        self._card_path = QPainterPath()
+        self._card_path.addRoundedRect(QRectF(12, 8, side, side + 52), 20, 20)
+        painter = QPainter(canvas)
+        self._draw_shell(painter)
+        painter.end()
+        self.setPixmap(canvas)
+        if self.movie.isValid():
+            self.movie.start()
+        else:
+            self._use_fallback()
 
     def _frame_changed(self, _frame):
         if not self._finished:
-            self.update()
+            self.update(12, 8, self._side, self._side)
 
-    def drawContents(self, painter):
-        painter.save()
+    def _use_fallback(self, *_args):
+        self.movie.stop()
+        self._static_mode = True
+        self.update()
+
+    def _draw_shell(self, painter):
+        # Render the fixed glass shell once, not on every animation frame.
         painter.setRenderHint(QPainter.Antialiasing)
         card = QRectF(12, 8, self._side, self._side + 52)
-        # A soft translucent white shell stays readable in both app themes.
         for spread in range(8, 0, -1):
             painter.setPen(Qt.NoPen)
             painter.setBrush(QColor(30, 35, 50, 2))
@@ -36,20 +53,24 @@ class LoadingSplashScreen(QSplashScreen):
         painter.setPen(QColor(255, 255, 255, 235))
         painter.setBrush(QColor(255, 255, 255, 238))
         painter.drawRoundedRect(card, 20, 20)
-        path = QPainterPath()
-        path.addRoundedRect(card, 20, 20)
-        painter.setClipPath(path)
-        frame = self.movie.currentPixmap()
+        painter.setPen(QColor('#737d8d'))
+        painter.setFont(QFont('Microsoft YaHei', 10))
+        painter.drawText(QRectF(24, self._side + 14, self._side - 24, 34),
+                         Qt.AlignCenter, '正在加载，完成后自动进入主页…')
+
+    def drawContents(self, painter):
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setClipPath(self._card_path)
+        frame = self._fallback if self._static_mode else self.movie.currentPixmap()
+        if frame.isNull():
+            frame = self._fallback
         if not frame.isNull():
             target = QRectF(12, 8, self._side, self._side)
             scaled = frame.size().scaled(QSize(self._side, self._side), Qt.KeepAspectRatio)
             target.setSize(scaled)
             target.moveCenter(QRectF(12, 8, self._side, self._side).center())
             painter.drawPixmap(target, frame, QRectF(frame.rect()))
-        painter.setPen(QColor('#737d8d'))
-        painter.setFont(QFont('Microsoft YaHei', 10))
-        painter.drawText(QRectF(24, self._side + 14, self._side - 24, 34),
-                         Qt.AlignCenter, '正在加载，完成后自动进入主页…')
         painter.restore()
 
     def finish(self, main_window):

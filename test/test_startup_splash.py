@@ -54,8 +54,42 @@ def test_gif_resources_pass_without_legacy_png(tmp_path):
     assert not list(folder.glob('*.png'))
     assert missing_startup_resources(tmp_path) == []
     (folder / 'startup.gif').unlink()
-    assert missing_startup_resources(tmp_path) == ['flat/startup.gif']
+    assert missing_startup_resources(tmp_path) == ['flat/startup.gif 或 flat/startup-fallback.png']
+    (folder / 'startup-fallback.png').write_bytes(b'fallback')
+    assert missing_startup_resources(tmp_path) == []
 
 def test_missing_resource_folder_reports_exact_filenames(tmp_path):
     from startup_resources import missing_startup_resources, REQUIRED_STARTUP_RESOURCES
-    assert missing_startup_resources(tmp_path) == ['flat/' + name for name in REQUIRED_STARTUP_RESOURCES]
+    assert set(missing_startup_resources(tmp_path)) == {'flat/Combinear.qss', 'flat/chevron-down.svg', 'flat/chevron-up.svg', 'flat/startup.gif 或 flat/startup-fallback.png'}
+
+
+def test_unsupported_gif_shows_extracted_static_frame(tmp_path):
+    import shutil
+    from startup_splash import LoadingSplashScreen
+    app = QApplication.instance() or QApplication([])
+    shutil.copyfile(ROOT / 'flat/startup-fallback.png', tmp_path / 'startup-fallback.png')
+    (tmp_path / 'startup.gif').write_bytes(b'unsupported gif')
+    splash = LoadingSplashScreen(tmp_path / 'startup.gif')
+    try:
+        assert splash._static_mode
+        assert not splash._fallback.isNull()
+        assert splash.movie.state() == splash.movie.NotRunning
+        splash.show()
+        app.processEvents()
+        assert not splash.grab().isNull()
+        splash.finish(None)
+        assert not splash.isVisible()
+    finally:
+        splash.close()
+
+def test_decode_error_switches_to_fallback_and_stops_movie():
+    from startup_splash import LoadingSplashScreen
+    app = QApplication.instance() or QApplication([])
+    splash = LoadingSplashScreen(ROOT / 'flat/startup.gif')
+    try:
+        splash.movie.error.emit(splash.movie.lastError())
+        assert splash._static_mode
+        assert not splash._fallback.isNull()
+        assert splash.movie.state() == splash.movie.NotRunning
+    finally:
+        splash.close()
