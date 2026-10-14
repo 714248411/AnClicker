@@ -9,7 +9,7 @@ import zipfile
 root = Path('platform-artifacts')
 out = Path('delivery')
 out.mkdir(exist_ok=True)
-version = 'v1.6.0'
+version = 'v1.6.1'
 with zipfile.ZipFile(out / f'AnClicker-{version}-mac.zip', 'w') as archive:
     for arch, folder in [('x64', 'Intel'), ('arm64', 'Apple-Silicon')]:
         source = root / f'package-macos-{arch}' / f'AnClicker-{version}-macos-{arch}.zip'

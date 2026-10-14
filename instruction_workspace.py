@@ -68,6 +68,7 @@ class InstructionWorkspace(QObject):
         self.editor.runFromRequested.connect(self.run_from_command)
         self.editor.graphCommitted.connect(self._commit_graph_change)
         self.editor.positionCommitted.connect(self._commit_position)
+        self.editor.positionsCommitted.connect(self._commit_positions)
         self.editor.sizeCommitted.connect(self._commit_size)
         self.editor.connectionRequested.connect(self._connect_nodes)
         self.editor.branchConnectionRequested.connect(self._connect_nodes)
@@ -327,6 +328,7 @@ class InstructionWorkspace(QObject):
                 copied_ids_.append(int(copied_.id))
             self.reload_graph(copied_ids_[-1] if copied_ids_ else None)
             if copied_ids_:
+                self.editor.view.register_copied_group(copied_ids_)
                 self.graphFinalized.emit(False)
                 self.statusMessage.emit(f"已复制 {len(copied_ids_)} 条指令")
         except Exception as error_:
@@ -413,6 +415,13 @@ class InstructionWorkspace(QObject):
         except Exception as error_:
             self.reload_graph()
             self._show_error("保存节点位置和顺序失败", error_)
+
+    def _commit_positions(self, positions) -> None:
+        try:
+            self.repository.save_node_positions(positions)
+        except Exception as error_:
+            self.reload_graph()
+            self._show_error("保存整组节点位置失败", error_)
 
     def _commit_position(self, node_id, x: float, y: float) -> None:
         try:
@@ -803,6 +812,10 @@ class InstructionWorkspace(QObject):
             if previous: return dict(previous[-1].parameters)
         raise ValueError('这条指令上方没有“打开网页”。请先添加网页地址，再拾取元素。')
 
+    def _previous_background_binding(self, command_id=None):
+        from background_capture_context import previous_binding
+        return previous_binding(self.repository.snapshot(), command_id)
+
     def _condition_hint(self, command_id=None):
         from flow_condition_context import condition_hint
         return condition_hint(self.repository.snapshot(), command_id)
@@ -815,6 +828,7 @@ class InstructionWorkspace(QObject):
                       "main_window": self.parent_window,
                       "condition_hint": lambda: self._condition_hint(command_id),
                       "previous_web_command": lambda: self._previous_web_command(command_id),
+                      "previous_background_binding": lambda: self._previous_background_binding(command_id),
                       "recent_capture": getattr(self, '_recent_capture', ''),
                       "remember_capture": self.remember_capture},
         )

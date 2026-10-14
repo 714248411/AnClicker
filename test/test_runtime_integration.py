@@ -275,7 +275,7 @@ class RuntimeIntegrationTests(unittest.TestCase):
         self.app.processEvents()
         self.assertEqual(
             [window_.tabWidget.tabText(index_) for index_ in range(6)],
-            ["主界面", "表格", "流程图", "多功能", "录制", "网页录制"],
+            ["主界面", "表格图", "流程图", "多功能", "录制", "网页录制"],
         )
         self.assertIs(
             window_.tabWidget.currentWidget(), window_.view_workspace.editor_page

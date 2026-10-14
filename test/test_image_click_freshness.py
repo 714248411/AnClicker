@@ -122,7 +122,7 @@ def test_move_only_tracks_latest_position_without_click(screen):
 def test_offset_and_double_click_follow_relocated_target(screen):
     screen.after_capture = lambda _: setattr(screen, 'position', (240, 150))
     assert screen.execute(动作='右键双击', 点击位置='(8,-3)') == (248, 147)
-    screen.click_mock.assert_called_once_with(248, 147, clicks=2, interval=0.0, button='right')
+    screen.click_mock.assert_called_once_with(248, 147, clicks=2, interval=0.0, button='right', _pause=False)
 
 
 def test_no_default_move_pause_between_confirmation_and_click(screen):
@@ -208,7 +208,7 @@ def test_image_information_entry_uses_confirmed_position(screen, disappears):
         paste.assert_not_called()
     else:
         assert result == '内容'
-        screen.click_mock.assert_called_once_with(240, 150, clicks=3, interval=0.0, button='left')
+        screen.click_mock.assert_called_once_with(240, 150, clicks=3, interval=0.0, button='left', _pause=False)
         clipboard.copy.assert_called_once_with('内容')
 
 

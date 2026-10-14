@@ -29,6 +29,7 @@ class LayoutPresets:
         self.menu.clear()
         for item in self.items:
             action=self.menu.addAction(item['name']);action.setCheckable(True)
+            action.setObjectName('layout-preset-' + item['id'])
             action.setChecked(item['id']==self.selected)
             action.triggered.connect(lambda checked=False,key=item['id']:self.apply(key))
         if not self.items:self.menu.addAction('暂无保存的界面方案').setEnabled(False)

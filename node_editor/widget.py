@@ -29,6 +29,7 @@ class NodeEditorWidget(QWidget):
     reorderCommitted = Signal(object)
     graphCommitted = Signal(object, object, float, float)
     positionCommitted = Signal(object, float, float)
+    positionsCommitted = Signal(object)
     sizeCommitted = Signal(object, float, float)
     connectionRequested = Signal(object, object)
     errorNodeRequested = Signal(object, float, float)
@@ -100,6 +101,7 @@ class NodeEditorWidget(QWidget):
         self.scene.reorderCommitted.connect(self.reorderCommitted)
         self.scene.graphCommitted.connect(self.graphCommitted)
         self.scene.positionCommitted.connect(self.positionCommitted)
+        self.scene.positionsCommitted.connect(self.positionsCommitted)
         self.scene.sizeCommitted.connect(self.sizeCommitted)
         self.scene.connectionRequested.connect(self.connectionRequested)
         self.scene.errorNodeRequested.connect(self.errorNodeRequested)
@@ -107,6 +109,7 @@ class NodeEditorWidget(QWidget):
         self.set_theme("dark")
 
     def load_graph(self, nodes_, edges_, specs_, allow_incomplete=False) -> None:
+        self.view._finish_copy_drag(cancel=True)
         if self.view.cutter.active:
             self.view.cutter.cancel()
         normalized_specs_ = normalize_specs(specs_)

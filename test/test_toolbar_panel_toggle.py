@@ -23,18 +23,18 @@ def test_palette_side_switch_preserves_height(host, controls_visible):
 
 def test_controls_action_text_tracks_visibility(host):
     v = host.view_workspace
-    assert v.controls_action.text() == '收起控制与操作'
+    assert v.controls_action.text() == '收起控制栏'
     v.controls_action.trigger()
     QTest.qWait(50)
-    assert v.controls_action.text() == '展开控制与操作'
+    assert v.controls_action.text() == '展开控制栏'
     assert not v.docking.docks['controls'].isVisible()
     v.controls_action.trigger()
     QTest.qWait(50)
-    assert v.controls_action.text() == '收起控制与操作'
+    assert v.controls_action.text() == '收起控制栏'
     assert v.docking.docks['controls'].isVisible()
     v.controls_action.trigger()
     v.layout_presets.reset()
-    assert v.controls_action.text() == '收起控制与操作'
+    assert v.controls_action.text() == '收起控制栏'
 
 
 def test_donation_follows_help_on_menu_bar(host):

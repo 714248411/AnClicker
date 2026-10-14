@@ -43,6 +43,7 @@ class NodeScene(QGraphicsScene):
     reorderCommitted = Signal(object)
     graphCommitted = Signal(object, object, float, float)
     positionCommitted = Signal(object, float, float)
+    positionsCommitted = Signal(object)
     sizeCommitted = Signal(object, float, float)
     connectionRequested = Signal(object, object)
     branchConnectionRequested = Signal(object, object, int)

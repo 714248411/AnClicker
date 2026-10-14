@@ -36,6 +36,17 @@ class DropZone(QLabel):
 
 
 class PanelTitle(QLabel):
+    def sizeHint(self):
+        size = super().sizeHint()
+        dock = self.dock
+        if dock.key in ('palette', 'controls') and not dock.isFloating():
+            manager = dock.manager
+            if manager.host.dockWidgetArea(dock) in (Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea):
+                tabs = manager.view.tabs
+                content_top = tabs.mapTo(manager.host, QPoint()).y() + tabs.tabBar().height()
+                size.setHeight(max(0, content_top - dock.y()))
+        return size
+
     def __init__(self, dock):
         super().__init__('', dock)
         self.setAccessibleName(dock.windowTitle() + '拖拽条')
@@ -62,7 +73,7 @@ class PanelTitle(QLabel):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
-            if self.dock.manager.editable or not self.dock.isFloating():
+            if self.dock.manager.editable:
                 self.dock.manager.float_panel(self.dock.key, not self.dock.isFloating())
             event.accept()
         else: event.ignore()
@@ -168,7 +179,7 @@ class PanelDragFilter(QObject):
             on_title = not self.header_only or (event.pos().y() <= 28 and event.pos().x() <= watched.fontMetrics().horizontalAdvance(watched.title()) + 30)
             if on_title:
                 dock = self.manager.ensure_dock(self.key)
-                if dock is not None and (self.manager.editable or not dock.isFloating()):
+                if dock is not None and self.manager.editable:
                     self.manager.float_panel(self.key, not dock.isFloating())
                 self.origin = None
                 return True
@@ -245,7 +256,7 @@ class DockWorkspace(QObject):
         self.docks, self.placeholders, self.parameters = {}, {}, {}
         self.restoring, self.suspended = True, False
         self.controls_horizontal = False
-        self.editable = self.window.db.get_setting_value('可编辑视图') != 'False'
+        self.editable = self.window.db.get_setting_value('可编辑视图') == 'True'
         self.host = QMainWindow()
         self.host.setObjectName('dockWorkspace')
         self.host.setDockOptions(QMainWindow.AllowNestedDocks | QMainWindow.AllowTabbedDocks | QMainWindow.AnimatedDocks)
@@ -253,7 +264,7 @@ class DockWorkspace(QObject):
         self.host.setMinimumSize(0, 0)
         self.pages = dict(view._remembered_pages())
         self.pages['log'] = view.table_splitter.widget(1)
-        self.titles = dict(zip(self.pages, ['主界面','表格','流程图','多功能','录制','网页录制','运行日志']))
+        self.titles = dict(zip(self.pages, ['主界面','表格图','流程图','多功能','录制','网页录制','运行日志']))
         grid = self.window.gridLayout_4
         grid.removeWidget(view.workspace_splitter)
         self.host.setCentralWidget(view.tabs)
@@ -277,6 +288,7 @@ class DockWorkspace(QObject):
         self.save_timer = QTimer(self); self.save_timer.setSingleShot(True); self.save_timer.setInterval(250)
         self.save_timer.timeout.connect(self.save)
         self.host.installEventFilter(self)
+        view.tabs.tabBar().installEventFilter(self)
         from adaptive_panels import AdaptivePanelSizer
         self.scalers = [AdaptivePanelSizer(self.window.instructionPaletteHost,
                            self.window.instructionPaletteHost, 150, palette=True),
@@ -438,7 +450,7 @@ class DockWorkspace(QObject):
                 self._set_floating(dock, False)
                 self.host.addDockWidget(AREAS[area],dock)
             self.view.palette_side='left'
-            self.view.palette_collapsed=False
+            self.view.palette_collapsed = self.tab_key(current) not in ('table', 'flow')
             self.view.controls_action.setChecked(True)
             self.view.set_controls_visible(True)
             self.host.resizeDocks([self.docks['palette'],self.docks['controls']],[230,300],Qt.Horizontal)
@@ -519,18 +531,24 @@ class DockWorkspace(QObject):
         palette_visible = not view.palette_collapsed and self.tab_key(view.tabs.currentIndex()) != 'code'
         palette = self.docks['palette']
         was_visible = not palette.isHidden()
-        if was_visible and not palette_visible:
+        if was_visible and not palette_visible and palette.isVisible():
             self._palette_before_hide = (QSize(palette.size()), self.host.dockWidgetArea(palette), palette.isFloating())
+            if not palette.isFloating() and self.host.dockWidgetArea(palette) in (Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea):
+                view._panel_sizes['palette'] = palette.width()
+                self.window.db.set_setting_value('工作区面板宽度', json.dumps(view._panel_sizes))
         palette.setVisible(palette_visible)
         self.window.instructionPaletteHost.setVisible(palette_visible)
         saved = getattr(self, '_palette_before_hide', None)
-        if palette_visible and not was_visible and saved:
+        if palette_visible and not was_visible and not self.restoring and saved:
             size, area, floating = saved
             if floating and palette.isFloating():
                 palette.resize(size)
             elif not palette.isFloating() and self.host.dockWidgetArea(palette) == area:
                 self.host.resizeDocks([palette], [size.width()], Qt.Horizontal)
                 self.host.resizeDocks([palette], [size.height()], Qt.Vertical)
+        elif palette_visible and not was_visible and not self.restoring and not palette.isFloating():
+            if self.host.dockWidgetArea(palette) in (Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea):
+                self.host.resizeDocks([palette], [view._panel_sizes['palette']], Qt.Horizontal)
         self.docks['controls'].setVisible(not view.controls_collapsed)
         view.controls_scroll.setVisible(not view.controls_collapsed)
         key = self.tab_key(view.tabs.currentIndex())
@@ -689,5 +707,14 @@ class DockWorkspace(QObject):
         self.sync_visibility()
 
     def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Resize,QEvent.LayoutRequest): self.schedule_save()
+        if event.type() in (QEvent.Resize,QEvent.LayoutRequest):
+            self.schedule_save()
+            for key in ('palette', 'controls'):
+                dock = self.docks.get(key)
+                if dock is not None:
+                    title = dock.titleBarWidget()
+                    height = title.sizeHint().height()
+                    if getattr(title, '_alignment_height', None) != height:
+                        title._alignment_height = height
+                        title.updateGeometry()
         return False

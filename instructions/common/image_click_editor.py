@@ -143,6 +143,7 @@ class ImageClickEditorMixin:
         row = QHBoxLayout()
         self.capture_button = QPushButton('快捷截图')
         self.capture_button.setObjectName('accentButton')
+        self.capture_button.setToolTip('流程上方存在后台绑定时，从目标窗口截图中再次框选；否则截取屏幕。')
         self.open_folder_button = QPushButton('打开资源文件夹')
         row.addWidget(self.capture_button); row.addWidget(self.open_folder_button)
         layout.addLayout(row)
@@ -340,10 +341,8 @@ class ImageClickEditorMixin:
             QMessageBox.warning(self, '资源文件夹', '无法打开文件夹。')
 
     def _advanced_settings(self):
-        from WindowControl.设置窗口 import Setting
-        dialog = Setting(self)
-        dialog.tabWidget.setCurrentIndex(0)
-        dialog.exec()
+        from execution_timing import open_advanced_timing
+        open_advanced_timing(self, self.db)
 
     def _run_auxiliary(self, key):
         if key == '图像路径':
@@ -376,6 +375,23 @@ class ImageClickEditorMixin:
             self.folder_combo.setCurrentText(IMAGES_FOLDER)
         if capture and (not self.folder_combo.currentText() or not Path(self.folder_combo.currentText()).is_dir()):
             QMessageBox.warning(self, '快捷截图', '请先选择有效资源文件夹。')
+            return
+        from background_capture import binding_parameters, select_background, save_capture
+        try:
+            parameters = binding_parameters(self)
+            if parameters is not None:
+                selection = select_background(self, parameters)
+                if selection is not None:
+                    if capture:
+                        path = save_capture(self, selection, self.folder_combo.currentText())
+                        self._set_image_path(path)
+                    else:
+                        self.ui.parameter_3.setText(str(selection.region))
+                        self.region_group.setChecked(True)
+                return
+        except Exception as error:
+            if isValid(self):
+                QMessageBox.warning(self, '后台截图/区域设置失败', str(error))
             return
         host = self.parentWidget().window() if self.parentWidget() else None
         host_visible = host is not None and host.isVisible()

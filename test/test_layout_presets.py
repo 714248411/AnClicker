@@ -16,7 +16,7 @@ def test_menu_organization(host):
     assert '中文编程提示' in [a.text() for a in tools.actions()]
     assert '快捷键设置…' in [a.text() for a in tools.actions()]
     assert '中文编程提示' not in [a.text() for a in view.actions()]
-    assert v.controls_action.text()=='收起控制与操作'
+    assert v.controls_action.text()=='收起控制栏'
     entries=v.layout_menu.actions()
     assert sum(a.isSeparator() for a in entries)==2
     assert entries[-1].text()=='恢复默认界面'

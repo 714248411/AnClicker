@@ -203,7 +203,14 @@ class BackgroundMethodEditor(BackgroundEditor):
                         field.setToolTip(('坐标以图片左上角为 0,0。' if name=='OcrInFile' else
                                           '填写相对于当前位置的移动距离。' if name=='MoveR' else
                                           '坐标以绑定窗口内容区左上角为 0,0。') + '需要分别使用坐标变量时可展开高级设置。')
-                        self.argumentForm.addRow(title, field)
+                        widget = field
+                        if key != 'rx' and name != 'OcrInFile':
+                            button = QPushButton('截图选区' if len(coordinates)==4 else '截图取点', self.argumentBody)
+                            button.setAutoDefault(False)
+                            button.setObjectName('backgroundCoordinateCapture')
+                            button.clicked.connect(lambda checked=False, f=field: self._capture_argument(f))
+                            widget = row(self.argumentBody, field, button)
+                        self.argumentForm.addRow(title, widget)
                     self.advancedForm.addRow(item['label'], control)
                     continue
                 widget = control
@@ -233,6 +240,11 @@ class BackgroundMethodEditor(BackgroundEditor):
                     button.setAutoDefault(False)
                     button.clicked.connect(lambda checked=False, n=name, k=key, c=control: self._browse_argument(n,k,c))
                     widget = row(self.argumentBody, control, button)
+                    if key == 'pic_name' and name.startswith('FindPic'):
+                        capture = QPushButton('后台快速截图', self.argumentBody)
+                        capture.setAutoDefault(False)
+                        capture.clicked.connect(lambda checked=False, c=control: self._capture_argument(image_control=c))
+                        widget.layout().addWidget(capture)
                 if key not in ('vk', 'key_str'):
                     self._argument_widgets[key] = widget
                 form = self.advancedForm if key in extras else self.argumentForm
@@ -245,6 +257,21 @@ class BackgroundMethodEditor(BackgroundEditor):
             self._update_advanced_indicator()
         finally:
             self._building_arguments = False
+
+    def _capture_argument(self, field=None, image_control=None):
+        from background_capture import binding_parameters, select_background, save_capture, isValid
+        try:
+            parameters = binding_parameters(self, required=True)
+            mode = 'point' if field is not None and not field.region else 'region'
+            selection = select_background(self, parameters, mode)
+            if selection is not None:
+                if field is not None and isValid(field):
+                    field.setText(','.join(map(str, selection.point if mode=='point' else selection.region)))
+                elif image_control is not None and isValid(image_control):
+                    image_control.setText(str(save_capture(self, selection, suffix='.bmp')))
+        except Exception as error:
+            if isValid(self):
+                QMessageBox.warning(self, '后台快速截图', str(error))
 
     def _toggle_method_advanced(self, expanded):
         self._method_expansion.setExpanded(expanded)
@@ -360,6 +387,16 @@ class BindingEditor(BackgroundEditor):
         self.capture_enabled.setToolTip('只需要点击和输入时可关闭，跳过图像绑定与截图验证，加快绑定。')
         self.ui.parameterFormLayout.addRow(self.capture_enabled)
         self.capture_enabled.toggled.connect(self._capture_toggled)
+        self.quickCaptureButton = QPushButton('后台快速截图', self)
+        self.quickCaptureButton.setObjectName('backgroundQuickCapture')
+        self.quickCaptureButton.setAutoDefault(False)
+        self.quickCaptureButton.setToolTip('获取所选窗口的内容区截图，再框选保存；截图后可用于图像点击。')
+        self.quickCaptureButton.clicked.connect(self._quick_capture)
+        self.ui.parameterFormLayout.addRow(self.quickCaptureButton)
+        self.capture_result = QLabel(self)
+        self.capture_result.setWordWrap(True)
+        self.capture_result.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.ui.parameterFormLayout.addRow(self.capture_result)
         self.advanced_panel = QGroupBox('窗口信息与高级选项', self)
         advanced = QFormLayout(self.advanced_panel)
         advanced.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -399,6 +436,18 @@ class BindingEditor(BackgroundEditor):
         self._preset_changed()
         if draft is not None:
             self.load_draft(draft)
+
+    def _quick_capture(self):
+        from background_capture import select_background, save_capture, isValid
+        try:
+            selection = select_background(self, self.get_draft().parameters)
+            if selection is not None:
+                path = save_capture(self, selection)
+                x,y,w,h = selection.region
+                self.capture_result.setText(f'已保存：{path}\n窗口区域：{x},{y},{w},{h}；中心坐标：{selection.point[0]},{selection.point[1]}')
+        except Exception as error:
+            if isValid(self):
+                QMessageBox.warning(self, '后台快速截图', str(error))
 
     def load_draft(self, draft):
         from instructions.models import InstructionDraft

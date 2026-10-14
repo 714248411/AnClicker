@@ -1,4 +1,4 @@
-from responsive_layout import FlowLayout
+from recording_layout import panel, control_row, inline_group, setup_page
 """Visible, opt-in recording workspace; never installs hooks during startup."""
 import json
 import time
@@ -40,20 +40,23 @@ class RecordingView(QWidget):
             user32.GetAncestor.restype = ctypes.c_void_p
             user32.GetWindowRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.RECT)]
         layout = QVBoxLayout(self)
+        setup_page(layout)
         description = "操作顺序\n设置录制选项 → 开始录制 → 切换到目标窗口操作 → 停止录制 → 检查预览 → 写入表格与流程图。\n\n开始与停止\n开始倒计时可设为 1～10 秒，默认 3 秒，倒计时结束后才开始记录。录制支持鼠标点击、双击、拖拽、侧键、双向滚轮，以及键盘按下和松开（含组合键）。\n按 Esc 或点击停止按钮结束；默认也可按 F8。需要录入 F8 时，先取消“F8 停止录制”，此时主窗口不会自动隐藏。倒计时期间可用 Esc 或停止按钮取消。\n\n录制选项\n“录制轨迹”默认不勾选：不记录普通鼠标移动，但保留按住鼠标拖拽的过程；勾选后记录普通移动，事件数量会增加。\n“录制时隐藏主窗口”默认开启，停止后恢复主窗口；主窗口内的操作会被排除。\n“保留操作时间间隔”默认开启，回放保留操作节奏；取消后不保留原来的等待节奏。\n“自动连接录制流程”用于连接本次写入的录制步骤。\n“停止后自动写入（原速）”默认关闭；需要删除或接续录制时，请保持关闭，先检查预览。\n\n预览、删除与接续\n停止后可选择一行或多行，右键删除并确认；预览中的参数不能直接编辑，写入后可在表格或流程图中调整。\n接续录制：先选中一条尚未写入的步骤，再点击“接续录制”，新操作会插在该步骤下方，原有后续步骤保留。开始前请手动将目标窗口恢复到需要接续的状态，程序不会自动执行前面的步骤。\n\n写入与倍速\n“写入表格与流程图”按原速追加；也可选择 0.10～10.00 倍速写入。大于 1 加快，小于 1 放慢，例如 1.25 倍可将 10 秒的录制节奏缩短为 8 秒；倍速需要保留操作时间间隔。\n同一份预览只能写入一次。写入后请到表格或流程图修改、删除；清空预览不会删除已写入的指令。重新开始录制会询问是否丢弃未写入内容。\n\n使用提醒\n回放前保持目标窗口位置、屏幕缩放及界面状态一致，先检查坐标和等待时间。键鼠录制可能记录敏感输入，请勿录入密码等信息。\n最多记录 20000 个事件，达到上限自动停止。硬件 Fn 等按键受系统限制；原始键码宜在同一系统回放。macOS 需要辅助功能和输入监控权限，Linux 需要 X11。"
         from recording_help import recording_header
         layout.addLayout(recording_header(self, '键盘鼠标录制', description))
-        options = FlowLayout()
-        options.setSpacing(6)
-        countdown_label = QLabel("开始倒计时（秒）")
+        self.settings_panel, settings = panel(self, "录制设置")
+        layout.addWidget(self.settings_panel)
+        options = control_row()
+        countdown_label = QLabel("倒计时（秒）")
         countdown_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
-        options.addWidget(countdown_label)
         self.delay = QSpinBox()
         self.delay.setRange(1, 10)
         self.delay.setValue(3)
         self.delay.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-        options.addWidget(self.delay)
-        options.addSpacing(6)
+        self.delay.setMinimumWidth(64)
+        self.delay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.countdown_group = inline_group(countdown_label, self.delay)
+        options.addWidget(self.countdown_group)
         self.f8_option = QCheckBox("F8 停止录制")
         self.f8_option.setChecked(True)
         self.f8_option.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
@@ -78,13 +81,15 @@ class RecordingView(QWidget):
         self.auto_option = QCheckBox("停止后自动写入（原速）")
         self.auto_option.setChecked(False)
         self.auto_option.setToolTip("默认停止后预览，再选择原速或倍速写入；勾选后自动按原速写入。")
-        layout.addLayout(options)
-        options = FlowLayout()
+        settings.addLayout(options)
+        options = control_row()
         for option in (self.hide_option, self.timing_option, self.connect_option, self.auto_option):
             options.addWidget(option)
         options.addStretch()
-        layout.addLayout(options)
-        controls = FlowLayout()
+        settings.addLayout(options)
+        self.actions_panel, actions = panel(self, "录制操作")
+        layout.addWidget(self.actions_panel)
+        controls = control_row()
         self.start_button = QPushButton("开始录制")
         self.start_button.setObjectName("accentButton")
         self.stop_button = QPushButton("停止录制（Esc / F8）")
@@ -100,11 +105,12 @@ class RecordingView(QWidget):
         self.speed.setSingleStep(0.25)
         self.speed.setValue(1.25)
         self.speed.setSuffix(" ×")
-        self.speed.setMinimumWidth(95)
+        self.speed.setMinimumWidth(80)
         self.speed.setToolTip("自定义 0.10–10.00 倍速；1.25 倍将 10 秒录制缩短至 8 秒。需保留操作时间间隔。")
-        self.speed_write_button = QPushButton("按倍速（1.25）写入表格与流程图")
-        self.speed.valueChanged.connect(lambda value: self.speed_write_button.setText(
-            f"按倍速（{value:g}）写入表格与流程图"))
+        self.speed_write_button = QPushButton("按倍速写入")
+        self.speed_write_button.setToolTip("按所选倍速写入表格与流程图")
+        self.speed.valueChanged.connect(lambda value: self.speed_write_button.setToolTip(
+            f"按 {value:g} 倍速写入表格与流程图"))
         self.speed_write_button.clicked.connect(self.write_at_speed)
         self.clear_button = QPushButton("清空录制预览")
         self.start_button.clicked.connect(self.begin)
@@ -116,15 +122,15 @@ class RecordingView(QWidget):
         for button in (self.start_button, self.stop_button, self.continue_button, self.clear_button):
             controls.addWidget(button)
         controls.addStretch()
-        layout.addLayout(controls)
-        write_controls = FlowLayout()
+        actions.addLayout(controls)
+        write_controls = controls
         write_controls.addWidget(self.write_button)
-        write_controls.addWidget(self.speed_write_button)
-        write_controls.addWidget(self.speed)
+        self.speed.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        write_controls.addWidget(inline_group(self.speed, self.speed_write_button))
         write_controls.addStretch()
-        layout.addLayout(write_controls)
         self.f8_option.toggled.connect(self.update_stop_mode)
-        self.status = QLabel("未录制 · 默认不录普通鼠标轨迹，拖拽正常保留；勾选后移动每 10 毫秒采样，最多 20000 个事件")
+        self.status = QLabel("未录制 · 不录普通轨迹，拖拽正常保留 · 最多 20000 个事件")
+        self.status.setToolTip("勾选录制轨迹后，普通鼠标移动每 10 毫秒采样；最多记录 20000 个事件。")
         self.status.setWordWrap(True)
         self.status.setObjectName("taskStats")
         layout.addWidget(self.status)

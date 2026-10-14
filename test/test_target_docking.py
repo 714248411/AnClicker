@@ -6,6 +6,7 @@ from test.test_hidden_stop import host
 
 @pytest.mark.parametrize('direction', ['left', 'right', 'top', 'bottom'])
 def test_target_overlay_and_relative_split(host, direction):
+    host.view_workspace.editable_view_action.setChecked(True)
     v = host.view_workspace; d = v.docking
     host.resize(1400, 900); v.show_table(); QTest.qWait(80)
     target = d.docks['controls']
@@ -32,6 +33,7 @@ def test_target_overlay_and_relative_split(host, direction):
 
 
 def test_overlay_tracks_target_and_leaves_workspace(host):
+    host.view_workspace.editable_view_action.setChecked(True)
     v = host.view_workspace; d = v.docking
     v.show_table(); QTest.qWait(80)
     d.show_targets('log'); d.target_timer.stop()

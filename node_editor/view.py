@@ -69,6 +69,8 @@ class NodeView(QGraphicsView):
         self.can_cut_connections = lambda: True
         self.cutter = ConnectionCutter(self)
         self._suppress_context_until = 0.0
+        self._copied_groups = []
+        self._group_drag = None
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing
             | QPainter.RenderHint.TextAntialiasing
@@ -252,7 +254,7 @@ class NodeView(QGraphicsView):
         self._instruction_specs = dict(type_ids_) if hasattr(type_ids_, "items") else {}
 
     def wheelEvent(self, event_):
-        if self._panning or self.cutter.active:
+        if self._panning or self.cutter.active or self._group_drag is not None:
             event_.accept()
             return
         delta = event_.angleDelta().y() or event_.pixelDelta().y()
@@ -261,9 +263,81 @@ class NodeView(QGraphicsView):
             self._set_zoom(self._zoom * factor, event_.position())
         event_.accept()
 
+    def register_copied_group(self, command_ids):
+        scene = self.scene()
+        live = scene.nodes_by_id.keys()
+        self._copied_groups = [remaining for group in self._copied_groups
+                               if (remaining := group.intersection(live))]
+        self._copied_groups.append(frozenset(
+            scene.nodes_by_command_id[key].node_id for key in command_ids
+            if key in scene.nodes_by_command_id))
+
+    def _begin_copy_drag(self, event_):
+        if event_.button() != Qt.LeftButton or not event_.modifiers() & Qt.ControlModifier:
+            return False
+        item = self.itemAt(event_.position().toPoint())
+        while item is not None and not isinstance(item, NodeItem):
+            item = item.parentItem()
+        if item is None or item.is_terminal:
+            return False
+        group = next((g for g in reversed(self._copied_groups) if item.node_id in g), None)
+        if group is None:
+            return False
+        nodes = [self.scene().nodes_by_id[key] for key in group if key in self.scene().nodes_by_id]
+        self.scene().clearSelection()
+        for node in nodes:
+            node.setSelected(True)
+        self._group_drag = (self.mapToScene(event_.position().toPoint()),
+                            {n.node_id: QPointF(n.pos()) for n in nodes})
+        self.setCursor(Qt.ClosedHandCursor)
+        return True
+
+    def _move_copy_drag(self, position):
+        origin, positions = self._group_drag
+        delta = self.mapToScene(position.toPoint()) - origin
+        scene = self.scene()
+        was_updating = scene._updating_graph
+        scene._updating_graph = True
+        try:
+            for node_id, start in positions.items():
+                node = scene.nodes_by_id.get(node_id)
+                if node is not None:
+                    node.setPos(start + delta)
+        finally:
+            scene._updating_graph = was_updating
+        scene.reroute_edges()
+
+    def _finish_copy_drag(self, cancel=False):
+        if self._group_drag is None:
+            return
+        _, positions = self._group_drag
+        self._group_drag = None
+        self.unsetCursor()
+        scene = self.scene()
+        changed = {}
+        was_updating = scene._updating_graph
+        scene._updating_graph = True
+        try:
+            for node_id, start in positions.items():
+                node = scene.nodes_by_id.get(node_id)
+                if node is not None:
+                    if cancel:
+                        node.setPos(start)
+                    elif node.pos() != start:
+                        changed[node_id] = (node.pos().x(), node.pos().y())
+        finally:
+            scene._updating_graph = was_updating
+        if cancel:
+            scene.reroute_edges()
+        elif changed:
+            scene.positionsCommitted.emit(changed)
+
     def mousePressEvent(self, event_):
         self._suppress_context_until = 0.0
         if self.cutter.active:
+            event_.accept()
+            return
+        if self._group_drag is not None or (not self._panning and self._begin_copy_drag(event_)):
             event_.accept()
             return
         if (not self._panning and event_.button() == Qt.MouseButton.RightButton
@@ -296,6 +370,13 @@ class NodeView(QGraphicsView):
         super().mousePressEvent(event_)
 
     def mouseMoveEvent(self, event_):
+        if self._group_drag is not None:
+            if event_.buttons() & Qt.LeftButton:
+                self._move_copy_drag(event_.position())
+            else:
+                self._finish_copy_drag(cancel=True)
+            event_.accept()
+            return
         if self.cutter.active:
             if not event_.buttons() & Qt.MouseButton.RightButton:
                 self.cutter.cancel()
@@ -320,6 +401,12 @@ class NodeView(QGraphicsView):
         super().mouseMoveEvent(event_)
 
     def mouseReleaseEvent(self, event_):
+        if self._group_drag is not None:
+            if event_.button() == Qt.LeftButton:
+                self._move_copy_drag(event_.position())
+                self._finish_copy_drag()
+            event_.accept()
+            return
         if self.cutter.active:
             if event_.button() != Qt.MouseButton.RightButton:
                 event_.accept()
@@ -355,6 +442,7 @@ class NodeView(QGraphicsView):
         super().mouseReleaseEvent(event_)
 
     def focusOutEvent(self, event_):
+        self._finish_copy_drag(cancel=True)
         self.cutter.cancel()
         self._panning = False
         self._pan_button = Qt.MouseButton.NoButton
@@ -614,6 +702,11 @@ class NodeView(QGraphicsView):
         event_.accept()
 
     def keyPressEvent(self, event_):
+        if self._group_drag is not None:
+            if event_.key() == Qt.Key_Escape:
+                self._finish_copy_drag(cancel=True)
+            event_.accept()
+            return
         if event_.key() == Qt.Key.Key_Escape and self.cutter.active:
             self.cutter.cancel()
             self._suppress_context_until = monotonic()+.3
@@ -644,6 +737,7 @@ class NodeView(QGraphicsView):
         painter.end()
 
     def hideEvent(self, event_):
+        self._finish_copy_drag(cancel=True)
         self._arrow_timer.stop()
         self._arrow_cache.clear()
         self.cutter.cancel()

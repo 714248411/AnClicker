@@ -280,7 +280,7 @@ class InstructionFallbackTests(unittest.TestCase):
                 patch.object(actions, "pyautogui_module", return_value=self.gui_), \
                 patch.dict(sys.modules, {"pyperclip": self.pyperclip_}):
             executor_.execute(self.context_, _command("信息录入", parameters_))
-        mouse_action_.assert_called_once_with("左键三击", 12, 34, move_first=False)
+        mouse_action_.assert_called_once_with("左键三击", 12, 34, move_first=False, context=self.context_)
         self.pyperclip_.copy.assert_called_with("测试中文")
         self.gui_.hotkey.assert_called_with("ctrl", "v")
 

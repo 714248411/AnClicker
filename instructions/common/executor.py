@@ -11,12 +11,22 @@ class InstructionExecutorBase(InstructionExecutorInterface):
 
     def execute(self, context: ExecutionContext, command: CommandRecord):
         from background_runtime import input_context
+        from execution_timing import context_timing, COMMAND_INTERVAL
+        from instructions.common.actions import wait_interruptibly
+        interval = context_timing(context)[COMMAND_INTERVAL]
         with input_context(context):
             result_ = None
             for _ in range(command.repeat_count):
                 if context.stop_requested:
                     break
-                result_ = self.execute_once(context, command)
+                if context.metadata.get('_timing_step_completed') and interval > 0:
+                    if not wait_interruptibly(context, interval):
+                        break
+                context.metadata['_timing_step_completed'] = False
+                try:
+                    result_ = self.execute_once(context, command)
+                finally:
+                    context.metadata['_timing_step_completed'] = True
                 if context.stop_requested:
                     break
             return result_

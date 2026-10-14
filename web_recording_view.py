@@ -1,4 +1,4 @@
-from responsive_layout import FlowLayout
+from recording_layout import panel, control_row, setup_page
 """Opt-in browser recording with asynchronous engine calls and a preview."""
 import json
 from qt_compat.QtCore import QThread, QTimer
@@ -30,23 +30,30 @@ class WebRecordingView(QWidget):
         self.pending_stop=False;self.events=[];self.elapsed=0;self.recorded_url=''
         self.bridge=RpaBridge('web-recording')
         layout=QVBoxLayout(self)
+        setup_page(layout)
         description = "操作顺序\n填写网页地址 → 打开网页并开始录制 → 在极速网页AC中操作 → 返回录制页停止 → 检查预览 → 写入表格与流程图。\n\n开始与停止\n填写完整网址（例如 https://www.example.com），点击“打开网页并开始录制”。等待状态显示“录制中”后再操作；结束时回到此页点击“停止网页录制”。网页录制使用独立登录环境，原有浏览器的登录状态不会自动带入。\n任务运行、键鼠录制、指令测试或准备更新时，请先结束相关操作，再开始网页录制。\n\n记录内容与等待\n记录网页主文档中的点击、文本输入、回车和 Tab，以及页面跳转。对同一输入框连续输入的内容可能合并成一条输入指令。\n操作间隔和最后一次操作至停止之间的等待会生成等待指令；点击或回车引起跳转时，会生成等待页面加载完成的指令。预览开头保留录制时填写的入口地址。\n当前不覆盖所有网页交互：嵌入页面（iframe）、画布、复杂拖拽等操作需检查结果，并按需补充指令。密码框输入不记录；其他输入内容可能保存在指令参数中。\n\n预览、删除与接续\n停止后可选中一行或多行，右键删除并确认。参数在写入后通过表格或流程图修改。\n接续录制：选中一条尚未写入的步骤，点击“接续录制”，新操作插入该步骤下方，原有后续步骤保留。\n接续会重新打开录制地址，不会自动执行已有步骤或恢复之前的网页状态。请留意登录和页面准备过程也可能被录入，停止后检查并删除不需要的步骤。\n\n写入与整理\n点击“写入表格与流程图”追加指令；“自动连接录制流程”用于连接本次写入的步骤。写入只是保存指令，不会立即执行。\n同一份预览只能写入一次。写入后请在表格或流程图中继续修改；清空预览不影响已写入的指令。重新录制前会确认是否丢弃未写入内容。\n\n回放前检查\n检查入口地址、元素定位、输入内容及等待时间。网页布局、登录状态或网络速度变化时，可能需要重新拾取元素，或补充“等待元素出现”“等待页面加载完成”等指令。\n最多记录 10000 个事件。页面异常或录制中断后，请先检查已保留的预览，再决定写入或重新录制。"
         from recording_help import recording_header
         layout.addLayout(recording_header(self, '网页录制', description))
-        address=QHBoxLayout();address.addWidget(QLabel('网页地址'))
-        self.url=QLineEdit();self.url.setPlaceholderText('https://example.com');address.addWidget(self.url,1);layout.addLayout(address)
-        controls=FlowLayout()
+        self.settings_panel, settings = panel(self, '录制设置')
+        layout.addWidget(self.settings_panel)
+        address=QHBoxLayout();address.setSpacing(8);address.addWidget(QLabel('网页地址'))
+        self.url=QLineEdit();self.url.setPlaceholderText('https://example.com');address.addWidget(self.url,1);settings.addLayout(address)
+        self.connect_option=QCheckBox('自动连接录制流程');self.connect_option.setChecked(True)
+        address.addWidget(self.connect_option)
+        self.actions_panel, actions = panel(self, '录制操作')
+        layout.addWidget(self.actions_panel)
+        controls=control_row()
         self.start_button=QPushButton('打开网页并开始录制');self.start_button.setObjectName('accentButton')
         self.stop_button=QPushButton('停止网页录制');self.stop_button.setObjectName('dangerButton')
         self.continue_button=QPushButton('接续录制')
         self.continue_button.setToolTip('选中步骤后，在该步骤下方插入新录制内容')
         from recording_continuation import begin_continuation
         self.continue_button.clicked.connect(lambda: begin_continuation(self))
-        self.write_button=QPushButton('写入表格与流程图');self.clear_button=QPushButton('清空预览')
-        for button in (self.start_button,self.stop_button,self.continue_button,self.write_button,self.clear_button):controls.addWidget(button)
-        controls.addStretch();layout.addLayout(controls)
-        self.connect_option=QCheckBox('自动连接录制流程');self.connect_option.setChecked(True);layout.addWidget(self.connect_option)
-        self.status=QLabel('未录制 · 操作间隔会生成等待指令');self.status.setWordWrap(True);layout.addWidget(self.status)
+        self.write_button=QPushButton('写入表格与流程图');self.clear_button=QPushButton('清空录制预览')
+        for button in (self.start_button,self.stop_button,self.continue_button,self.clear_button):controls.addWidget(button)
+        actions.addLayout(controls)
+        controls.addWidget(self.write_button)
+        self.status=QLabel('未录制 · 操作间隔会生成等待指令');self.status.setWordWrap(True);self.status.setObjectName('taskStats');layout.addWidget(self.status)
         self.preview=QTableWidget(0,3);self.preview.setHorizontalHeaderLabels(['序号','指令','参数'])
         self.preview.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         from recording_preview_menu import RecordingPreviewMenu

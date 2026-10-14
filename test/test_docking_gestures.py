@@ -6,6 +6,7 @@ from qt_compat.QtTest import QTest
 
 
 def test_drag_blank_title_out_of_main_window(host, monkeypatch):
+    host.view_workspace.editable_view_action.setChecked(True)
     host.resize(1000,700)
     host.view_workspace.show_table()
     host.view_workspace.docking.move_panel('code','right')

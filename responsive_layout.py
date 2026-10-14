@@ -4,9 +4,10 @@ from qt_compat.QtWidgets import QLayout, QWidgetItem
 
 
 class FlowLayout(QLayout):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, center_rows=False):
         super().__init__(parent)
         self._items = []
+        self.center_rows = center_rows
         self.setContentsMargins(0, 0, 0, 0)
         self.setSpacing(6)
 
@@ -57,15 +58,26 @@ class FlowLayout(QLayout):
         available = max(1, rect.width() - left - right)
         x, y, line_height = 0, top, 0
         gap = max(0, self.spacing())
+        row = []
+
+        def place_row():
+            if apply:
+                for item, offset, width, height in row:
+                    dy = (line_height - height) // 2 if self.center_rows else 0
+                    item.setGeometry(QRect(rect.x() + left + offset,
+                                           rect.y() + y + dy, width, height))
+
         for item in self._items:
             if item.isEmpty():
                 continue
             hint = item.sizeHint()
             width = min(available, hint.width())
             if x and x + width > available:
+                place_row()
+                row = []
                 x, y, line_height = 0, y + line_height + gap, 0
-            if apply:
-                item.setGeometry(QRect(rect.x() + left + x, rect.y() + y, width, hint.height()))
+            row.append((item, x, width, hint.height()))
             x += width + gap
             line_height = max(line_height, hint.height())
+        place_row()
         return y + line_height + bottom

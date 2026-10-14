@@ -199,6 +199,15 @@ def click_image(parameters: dict, context: ExecutionContext, *, min_search_time:
     if parameter(parameters, "动作", default="左键单击") == "无操作":
         # Detection-only instructions must never move the cursor or apply offsets.
         return int(candidate.x), int(candidate.y)
+    from execution_timing import context_timing, IMAGE_DELAY
+    delay = context_timing(context)[IMAGE_DELAY]
+    if delay > 0:
+        if not wait_interruptibly(context, delay):
+            return None
+        # A delayed match must be refreshed before moving or clicking.
+        candidate = locate_image(parameters, context)
+        if candidate is None:
+            return None
     offset = parameter(parameters, "点击位置", default="(0,0)")
     if str(offset).replace(" ", "") in {"(随机,随机)", "随机,随机"}:
         dx, dy = image_random_offset(parameters, context)
@@ -227,8 +236,9 @@ def click_image(parameters: dict, context: ExecutionContext, *, min_search_time:
         if (int(current.x), int(current.y)) == (int(candidate.x), int(candidate.y)):
             # click() already moves instantly to its coordinates. A second
             # moveTo() would introduce another default PAUSE after confirmation.
-            mouse_action(str(parameter(parameters, "动作", default="左键单击")),
-                         x, y, move_first=False)
+            if mouse_action(str(parameter(parameters, "动作", default="左键单击")),
+                            x, y, move_first=False, context=context) is False:
+                return None
             if hasattr(current, 'image_path'):
                 context.emit(f"图像匹配：{current.image_path}；匹配度 {current.score:.1%}；位置 {x},{y}")
             return x, y
@@ -240,7 +250,7 @@ def click_image(parameters: dict, context: ExecutionContext, *, min_search_time:
 
 
 def mouse_action(action_: str, x_: int, y_: int, count_: int | None = None,
-                 interval_: float = 0.0, *, move_first: bool = True):
+                 interval_: float = 0.0, *, move_first: bool = True, context=None):
     gui_ = pyautogui_module()
     action_map_ = {
         "左键单击": ("left", 1), "左键双击": ("left", 2), "左键三击": ("left", 3),
@@ -253,7 +263,31 @@ def mouse_action(action_: str, x_: int, y_: int, count_: int | None = None,
         gui_.moveTo(x_, y_)
     if button_ is not None:
         click_count_ = default_count_ if is_standard_action_ or count_ is None else int(count_)
-        gui_.click(x_, y_, clicks=max(1, click_count_), interval=float(interval_), button=button_)
+        if context is None:
+            gui_.click(x_, y_, clicks=max(1, click_count_), interval=float(interval_), button=button_)
+            return
+        from execution_timing import context_timing, AFTER_CLICK, CLICK_INTERVAL, PRESS_DURATION
+        timing = context_timing(context)
+        hold, interval = timing[PRESS_DURATION], timing[CLICK_INTERVAL]
+        if hold == 0 and interval == 0:
+            gui_.click(x_, y_, clicks=max(1, click_count_), interval=0.0, button=button_, _pause=False)
+        else:
+            for index in range(max(1, click_count_)):
+                if not wait_interruptibly(context, interval if index else 0):
+                    return False
+                if hold > 0:
+                    try:
+                        gui_.mouseDown(x_, y_, button=button_, _pause=False)
+                        if not wait_interruptibly(context, hold):
+                            return False
+                    finally:
+                        release_inputs(context, gui_, buttons=(button_,))
+                else:
+                    gui_.click(x_, y_, clicks=1, interval=0.0, button=button_, _pause=False)
+        if timing[AFTER_CLICK] > 0:
+            if not wait_interruptibly(context, timing[AFTER_CLICK]):
+                return False
+        return True
 
 
 def wait_seconds(seconds_: float) -> None:

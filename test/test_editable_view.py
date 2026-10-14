@@ -10,6 +10,8 @@ def test_menu_order_setting_and_locked_drag(host,monkeypatch):
     menu=next(a.menu() for a in host.menubar.actions() if a.menu() and v.editable_view_action in a.menu().actions())
     assert v.restore_view_action not in menu.actions()
     assert v.layout_menu.actions()[-1] is v.restore_view_action
+    assert not v.editable_view_action.isChecked() and not d.editable
+    v.editable_view_action.setChecked(True)
     v.editable_view_action.setChecked(False)
     assert not d.editable and host.db.get_setting_value('可编辑视图')=='False'
     dock=d.docks['palette']
@@ -49,3 +51,24 @@ def test_locked_floating_panel_embeds_only_by_context_menu(host):
         assert not second.view_workspace.docking.editable
     finally:
         second.hide();second.deleteLater();QApplication.processEvents()
+
+
+def test_explicit_editable_preference_is_restored(host):
+    host.view_workspace.editable_view_action.setChecked(True)
+    second = type(host)()
+    try:
+        assert second.view_workspace.editable_view_action.isChecked()
+        assert second.view_workspace.docking.editable
+    finally:
+        second.hide()
+        second.deleteLater()
+        QApplication.processEvents()
+
+
+def test_locked_headers_do_not_detach_on_double_click(host):
+    from qt_compat.QtCore import QPoint
+    d = host.view_workspace.docking
+    for key, handle in [('palette', host.workspace.palette.search_edit), ('controls', host.groupBox_3)]:
+        QTest.mouseDClick(handle, Qt.LeftButton, pos=QPoint(20, 10))
+        QTest.qWait(20)
+        assert not d.docks[key].isFloating()

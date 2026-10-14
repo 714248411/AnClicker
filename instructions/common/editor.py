@@ -282,6 +282,14 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         self.note = self.ui.noteEdit
         self.test_button = self.ui.testButton
         self.button_box = self.ui.buttonBox
+        if self.TYPE_ID != '图像点击':
+            self.runtime_advanced_button = QPushButton('运行高级设置', self)
+            self.runtime_advanced_button.clicked.connect(self._open_runtime_advanced)
+            footer = getattr(self.ui, 'footerLayout', None)
+            if footer is not None:
+                footer.insertWidget(1, self.runtime_advanced_button)
+            else:
+                self.ui.rootLayout.insertWidget(self.ui.rootLayout.count() - 1, self.runtime_advanced_button)
         for role, text in ((QDialogButtonBox.StandardButton.Ok, '确定'),
                            (QDialogButtonBox.StandardButton.Cancel, '取消')):
             button = self.button_box.button(role)
@@ -292,6 +300,10 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         self.button_box.accepted.connect(self._accept_if_valid)
         self.button_box.rejected.connect(self.reject)
         self.test_button.clicked.connect(self._test_if_valid)
+
+    def _open_runtime_advanced(self):
+        from execution_timing import open_advanced_timing
+        open_advanced_timing(self, self._variable_database())
 
     def _connect_auxiliary_buttons(self) -> None:
         for index_, field_ in enumerate(self.FIELDS):
@@ -329,6 +341,8 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
                 )
             return
         if key_ == "区域":
+            if self._select_background_parameter(key_, "region"):
+                return
             selector_ = _RegionSelectionDialog(self)
             selector_.exec()
             region_ = selector_.selected_region()
@@ -363,7 +377,26 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         # Commas also support negative coordinates on a secondary monitor.
         self._set_control_value(control_, ",".join(map(str, selector_.point)))
 
+    def _select_background_parameter(self, key_, mode):
+        from background_capture import binding_parameters, select_background, isValid
+        try:
+            parameters = binding_parameters(self)
+            if parameters is None:
+                return False
+            selection = select_background(self, parameters, mode)
+            if selection is not None:
+                if mode == 'point':
+                    self._apply_point_selection(key_, self._controls[key_], selection)
+                else:
+                    self._set_control_value(self._controls[key_], ','.join(map(str, selection.region)))
+        except Exception as error:
+            if isValid(self):
+                QMessageBox.warning(self, '后台截图/取点失败', str(error))
+        return True
+
     def _select_screen_point(self, key_, control_):
+        if self._select_background_parameter(key_, 'point'):
+            return
         owner_ = self.parentWidget().window() if self.parentWidget() else None
         owner_visible_ = owner_ is not None and owner_.isVisible()
         was_visible_ = self.isVisible()

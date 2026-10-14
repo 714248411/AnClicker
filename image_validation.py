@@ -39,11 +39,11 @@ def validate_image_execution(require_fresh=False):
                 for area in ('', '(80,40,100,80)', [0,0,0,0], (0,0,0,0)):
                     result = execute('图像点击', dict(base, 灰度=grayscale, 区域=area))
                     assert result == (105,69), (grayscale, area, result, messages)
-                    click.assert_called_with(105,69,clicks=1,interval=0.0,button='left')
+                    click.assert_called_with(105,69,clicks=1,interval=0.0,button='left', _pause=False)
                     checks.append('match-region-gray')
             result = execute('图像点击', dict(base, 图像路径=image.name, 点击位置='(8,-3)', 动作='右键双击'))
             assert result == (113,66)
-            click.assert_called_with(113,66,clicks=2,interval=0.0,button='right')
+            click.assert_called_with(113,66,clicks=2,interval=0.0,button='right', _pause=False)
             checks.append('relative-offset-action')
             assert execute('图像等待', dict(base, 等待类型='等待出现', 超时时间=1)) is True
             checks.append('image-wait')
@@ -69,7 +69,7 @@ def validate_image_execution(require_fresh=False):
             both.paste(second, (170, 125))
             with patch.object(pyautogui, 'screenshot', side_effect=lambda **kwargs: both.copy()):
                 assert execute('图像点击', dict(base, 精度=.8, 图像路径=str(second_path))) == (184, 137)
-                click.assert_called_with(184, 137, clicks=1, interval=0.0, button='left')
+                click.assert_called_with(184, 137, clicks=1, interval=0.0, button='left', _pause=False)
             checks.append('second-capture-best-match')
             moved = Image.new('RGB', screen.size, 'black')
             moved.paste(target, (170, 125))

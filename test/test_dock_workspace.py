@@ -115,6 +115,7 @@ def test_bottom_controls_use_left_settings_right_buttons(host):
 
 
 def test_titles_double_click_float_and_embed_without_window_buttons(host):
+    host.view_workspace.editable_view_action.setChecked(True)
     from qt_compat.QtWidgets import QDockWidget
     v=host.view_workspace;d=v.docking
     for key in ('palette','controls'):
@@ -153,6 +154,7 @@ def test_real_parameter_editor_scales_and_commits_to_original_command(host):
 
 
 def test_tab_drag_targets_accept_pages_but_reject_fixed_views(host):
+    host.view_workspace.editable_view_action.setChecked(True)
     from qt_compat.QtCore import QMimeData,QPoint,QPointF
     from qt_compat.QtGui import QDragEnterEvent,QDropEvent
     from dock_workspace import PANEL_MIME
@@ -170,6 +172,7 @@ def test_tab_drag_targets_accept_pages_but_reject_fixed_views(host):
 
 
 def test_semantic_drag_handles_leave_controls_and_typing_usable(host):
+    host.view_workspace.editable_view_action.setChecked(True)
     from qt_compat.QtCore import QEvent,QPointF
     from qt_compat.QtGui import QMouseEvent
     d=host.view_workspace.docking
@@ -210,7 +213,7 @@ def test_reset_view_keeps_palette_order_and_unsaved_parameters(host):
     assert not d.placeholders
     assert d.host.dockWidgetArea(d.docks['controls'])==Qt.RightDockWidgetArea
     assert d.host.dockWidgetArea(d.docks['palette'])==Qt.LeftDockWidgetArea
-    assert d.docks['controls'].isVisible() and d.docks['palette'].isVisible()
+    assert d.docks['controls'].isVisible() and d.docks['palette'].isHidden()
     assert not d.controls_horizontal
     assert host.db.get_setting_value('指令栏置顶顺序')==saved_order
     assert d.parameters['parameters_unsaved'] is editor
@@ -220,6 +223,7 @@ def test_reset_view_keeps_palette_order_and_unsaved_parameters(host):
 
 @pytest.mark.parametrize('key',['palette','controls','log','parameters_drag'])
 def test_content_handle_drag_outside_floats_panel(host,monkeypatch,key):
+    host.view_workspace.editable_view_action.setChecked(True)
     from types import SimpleNamespace
     from qt_compat.QtCore import QEvent,QPoint,QPointF
     from qt_compat.QtGui import QMouseEvent
@@ -248,7 +252,7 @@ def test_content_handle_drag_outside_floats_panel(host,monkeypatch,key):
     assert not any(zone.isVisible() for zone in d.targets)
 
 
-def test_code_view_hides_palette_and_restores_manual_preference(host):
+def test_code_view_hides_palette_and_editor_navigation_expands_it(host):
     v=host.view_workspace;d=v.docking
     v.show_table();pump();assert d.docks['palette'].isVisible()
     v.show_code();pump();assert d.docks['palette'].isHidden()
@@ -256,7 +260,7 @@ def test_code_view_hides_palette_and_restores_manual_preference(host):
     v.show_table();pump();assert d.docks['palette'].isVisible()
     v.toggle_palette();assert v.palette_collapsed
     v.show_code();v.show_flow();pump()
-    assert d.docks['palette'].isHidden() and v.palette_collapsed
+    assert d.docks['palette'].isVisible() and not v.palette_collapsed
 
 
 def test_floating_parameters_hide_both_windows_for_point_picker(host,monkeypatch):

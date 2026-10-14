@@ -448,7 +448,7 @@ class ViewWorkspace:
         status.setFixedHeight(max(18, status.fontMetrics().height() + 2))
         status.messageChanged.connect(self._sync_status_visibility)
         self._sync_status_visibility(status.currentMessage())
-        self.window.gridLayout_4.setContentsMargins(4, 2, 4, 8)
+        self.window.gridLayout_4.setContentsMargins(4, 3, 4, 8)
         self.window.gridLayout_4.setSpacing(4)
         self.tabs.setMinimumWidth(0)
         self.tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
@@ -470,47 +470,22 @@ class ViewWorkspace:
         self.code_page = self._build_code_view()
         self.recording_page = RecordingView(self.window)
         self.tabs.clear()
+        from workspace_tabs import WorkspaceTabBar
+        self.tabs.setObjectName("workspaceTabs")
+        self.tabs.setTabBar(WorkspaceTabBar(self.tabs))
+        self.tabs.tabBar().setExpanding(False)
         self.tabs.addTab(self.main_page, "主界面")
-        self.tabs.addTab(self.table_page, "表格")
+        self.tabs.addTab(self.table_page, "表格图")
         self.tabs.addTab(self.editor_page, "流程图")
         self.tabs.addTab(self.code_page, "多功能")
         self.tabs.addTab(self.recording_page, "录制")
-        separator = QFrame(self.tabs.tabBar())
-        separator.setObjectName("workspaceTabSeparator")
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setFixedSize(10, 20)
-        separator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.tabs.tabBar().setTabButton(RECORDING_VIEW, QTabBar.ButtonPosition.LeftSide, separator)
         self.web_recording_page = WebRecordingView(self.window)
         self.tabs.addTab(self.web_recording_page, "网页录制")
 
     def _build_main_view(self) -> QWidget:
-        page = QWidget()
-        page.setObjectName("mainWorkspacePage")
-        layout = QVBoxLayout(page)
-        hero, hero_layout = self._card(
-            "An Clicker 自动化工作台",
-            "从表格快速维护指令，在流程图中编排连线，或使用多功能代码完成高级操作。",
-        )
-        self.main_stats = QLabel()
-        self.main_stats.setObjectName("taskStats")
-        self.main_stats.setWordWrap(True)
-        hero_layout.addWidget(self.main_stats)
-        buttons = QHBoxLayout()
-        for label, callback, primary in (
-            ("打开表格", self.show_table, False),
-            ("打开流程图", self.show_flow, True),
-            ("打开多功能", self.show_code, False),
-            ("键鼠录制", self.show_recording, False),
-        ):
-            button = QPushButton(label)
-            if primary:
-                button.setObjectName("accentButton")
-            button.clicked.connect(callback)
-            buttons.addWidget(button)
-        hero_layout.addLayout(buttons)
-        layout.addWidget(hero)
-        layout.addStretch(1)
+        from home_workspace import HomeWorkspace
+        page = HomeWorkspace(self)
+        self.main_stats = page.summary
         return page
 
     def _build_beginner_view(self) -> QWidget:
@@ -606,7 +581,7 @@ class ViewWorkspace:
         edit_button = QPushButton("打开流程图")
         edit_button.setObjectName("accentButton")
         edit_button.clicked.connect(self.show_flow)
-        table_button = QPushButton("打开表格")
+        table_button = QPushButton("打开表格图")
         table_button.clicked.connect(self.show_table)
         code_button = QPushButton("打开多功能代码")
         code_button.clicked.connect(self.show_code)
@@ -685,8 +660,9 @@ class ViewWorkspace:
 
         table_panel = QFrame()
         table_panel.setObjectName("workspacePanel")
+        table_panel.setProperty("attachedToNavigation", True)
         table_layout = QVBoxLayout(table_panel)
-        table_layout.setContentsMargins(6, 4, 6, 4)
+        table_layout.setContentsMargins(6, 6, 6, 4)
         table_layout.setSpacing(4)
         table_title = QLabel("指令表格")
         table_title.setObjectName("sectionTitle")
@@ -731,7 +707,7 @@ class ViewWorkspace:
         except (TypeError, ValueError): pass
         self.table_splitter.setSizes(sizes)
         self.table_splitter.splitterMoved.connect(lambda *_: self.window.db.set_setting_value('表格日志面板高度',json.dumps(self.table_splitter.sizes())))
-        self.window.horizontalLayout.setContentsMargins(2, 2, 2, 2)
+        self.window.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.window.horizontalLayout.addWidget(self.table_splitter, 1)
 
     def _build_editor_view(self) -> QWidget:
@@ -739,11 +715,9 @@ class ViewWorkspace:
         page.setObjectName("editorView")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        tip = QLabel(
-            "先拖入指令，再从节点左右两侧拉线；条件节点上方为“是”、下方为“否”"
-        )
-        tip.setObjectName("editorTip")
-        layout.addWidget(tip)
+        from flow_tips import FlowTips
+        self.flow_tips = FlowTips(self.window, page)
+        layout.addWidget(self.flow_tips)
         self.window.nodeEditorLayout.removeWidget(self.window.workspace.editor)
         self.window.workspace.editor.setParent(page)
         self.flow_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -887,7 +861,7 @@ class ViewWorkspace:
         self.palette_collapse_action.triggered.connect(self.toggle_palette)
         self.theme_action = QAction("切换浅色", self.window)
         self.theme_action.triggered.connect(self.toggle_theme)
-        self.controls_action = QAction('展开控制与操作' if self.controls_collapsed else '收起控制与操作', self.window)
+        self.controls_action = QAction('展开控制栏' if self.controls_collapsed else '收起控制栏', self.window)
         self.controls_action.setCheckable(True)
         self.controls_action.setChecked(not self.controls_collapsed)
         self.controls_action.toggled.connect(self.set_controls_visible)
@@ -895,9 +869,7 @@ class ViewWorkspace:
         self.donation_action.triggered.connect(self.show_donation)
         self.window.toolBar.addSeparator()
         self.window.toolBar.addAction(self.primary_action)
-        self.window.toolBar.addAction(self.code_action)
         self.window.toolBar.addSeparator()
-        self.window.toolBar.addAction(self.palette_side_action)
         self.window.toolBar.addAction(self.palette_collapse_action)
         self.window.toolBar.addAction(self.controls_action)
         self.window.menubar.addAction(self.donation_action)
@@ -911,7 +883,7 @@ class ViewWorkspace:
         view_actions = {}
         for label, shortcut, callback in (
             ("主界面", "Ctrl+1", self.show_main),
-            ("表格", "Ctrl+2", self.show_table),
+            ("表格图", "Ctrl+2", self.show_table),
             ("流程图", "Ctrl+3", self.show_flow),
             ("多功能", "Ctrl+4", self.show_code),
             ("录制", "Ctrl+6", self.show_recording),
@@ -942,10 +914,15 @@ class ViewWorkspace:
         self.layout_presets = LayoutPresets(self, self.layout_menu)
         self.editable_view_action = menu.addAction('可编辑视图')
         self.editable_view_action.setCheckable(True)
-        self.editable_view_action.setChecked(self.window.db.get_setting_value('可编辑视图') != 'False')
-        self.editable_view_action.setToolTip('勾选可拖拽布局；取消后只能通过右键菜单内嵌面板')
+        self.editable_view_action.setChecked(self.window.db.get_setting_value('可编辑视图') == 'True')
+        self.editable_view_action.setToolTip('勾选后可拖拽或双击调整布局；默认锁定，仍可通过右键菜单选择停靠位置')
         self.editable_view_action.toggled.connect(lambda enabled: self.docking.set_editable(enabled))
         menu.addSeparator()
+        self.flow_tips_action = menu.addAction('显示流程图操作提示')
+        self.flow_tips_action.setCheckable(True)
+        self.flow_tips_action.setChecked(self.flow_tips.expanded)
+        self.flow_tips_action.toggled.connect(self.flow_tips.set_expanded)
+        self.flow_tips.expandedChanged.connect(self.flow_tips_action.setChecked)
         flow_view = self.window.workspace.editor.view
         self.flow_arrows_action = menu.addAction('流程图箭头动画')
         self.flow_arrows_action.setCheckable(True)
@@ -977,9 +954,19 @@ class ViewWorkspace:
         self.window.menubar.removeAction(self.window.menu_3.menuAction())
         from context_menu_style import install_menu_styling
         install_menu_styling(self.window)
+        from execution_timing import open_advanced_timing
+        tools_menu = next((action.menu() for action in self.window.menubar.actions()
+                           if action.text().replace('&', '') == '工具'), None)
+        if tools_menu is not None:
+            timing_action = tools_menu.addAction('高级设置（动作延时）')
+            timing_action.setObjectName('advancedExecutionTiming')
+            timing_action.triggered.connect(lambda: open_advanced_timing(self.window, self.window.db))
+        from toolbar_customization import ToolbarCustomization
+        self.toolbar_customization = ToolbarCustomization(self.window)
 
     def toggle_primary(self) -> None:
-        self.show_main() if self.tabs.currentIndex() == FLOW_VIEW else self.show_flow()
+        {FLOW_VIEW: self.show_table, TABLE_VIEW: self.show_code}.get(
+            self.tabs.currentIndex(), self.show_flow)()
 
     def _show_workspace(self, index):
         self.tabs.setCurrentIndex(index)
@@ -1117,7 +1104,8 @@ class ViewWorkspace:
 
     def _update_view_actions(self) -> None:
         self.primary_action.setText(
-            "返回主界面" if self.tabs.currentIndex() == FLOW_VIEW else "打开流程图"
+            {FLOW_VIEW: "打开表格图", TABLE_VIEW: "打开多功能"}.get(
+                self.tabs.currentIndex(), "打开流程图")
         )
         self.palette_side_action.setText(
             "指令栏移到左侧" if self.palette_side == "right" else "指令栏移到右侧"
@@ -1125,7 +1113,7 @@ class ViewWorkspace:
         self.palette_collapse_action.setText(
             "展开指令栏" if self.palette_collapsed else "收起指令栏"
         )
-        self.controls_action.setText('展开控制与操作' if self.controls_collapsed else '收起控制与操作')
+        self.controls_action.setText('展开控制栏' if self.controls_collapsed else '收起控制栏')
         self.controls_action.setToolTip(self.controls_action.text())
         self.theme_action.setText("切换深色" if self.theme_mode == "light" else "切换浅色")
 
@@ -1153,6 +1141,13 @@ class ViewWorkspace:
         self.window.db.set_setting_value('上次关闭界面', key)
 
     def _view_changed(self, index: int) -> None:
+        # Navigation chooses the useful default; explicit layout presets retain
+        # their saved visibility until the user next changes pages.
+        if not getattr(getattr(self, 'docking', None), 'restoring', False):
+            if index == MAIN_VIEW:
+                self.palette_collapsed = True
+            elif index in (TABLE_VIEW, FLOW_VIEW):
+                self.palette_collapsed = False
         self._place_palette()
         if index == MAIN_VIEW: self.refresh_summary()
         elif index == TABLE_VIEW: self.refresh_table()
@@ -1175,10 +1170,11 @@ class ViewWorkspace:
             snapshot = self.window.workspace.repository.snapshot()
             code_lines = len(self.code_editor.toPlainText().splitlines())
             summary = (
-                f"流程节点  {len(snapshot.nodes)}\n可执行指令  {len(snapshot.commands)}\n"
+                f"可执行指令  {len(snapshot.commands)} 条    ·    流程节点  {len(snapshot.nodes)} 个    ·    "
                 f"多功能代码  {code_lines} 行"
             )
             self.main_stats.setText(summary)
+            self.main_page.refresh_projects()
         except Exception as error:
             summary = f"任务状态暂不可用：{error}"
             self.main_stats.setText(summary)
@@ -1606,6 +1602,12 @@ class ViewWorkspace:
 
     def _apply_theme(self) -> None:
         c = self.THEMES[self.theme_mode]
+        tabs_palette = self.tabs.palette()
+        tabs_palette.setColor(QPalette.ColorRole.Window, QColor(c["bg"]))
+        self.tabs.setPalette(tabs_palette)
+        self.tabs.setAutoFillBackground(True)
+        if hasattr(self.tabs.tabBar(), "set_theme"):
+            self.tabs.tabBar().set_theme(c)
         down_arrow = os.path.join(RESOURCE_FOLDER, 'flat', 'chevron-down.svg').replace('\\', '/')
         up_arrow = os.path.join(RESOURCE_FOLDER, 'flat', 'chevron-up.svg').replace('\\', '/')
         try:
@@ -1662,19 +1664,24 @@ class ViewWorkspace:
             QToolBar QToolButton {{ padding: 2px 5px; border-radius: 4px; font-size: 11px; }}
             QToolBar QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
             QTabWidget::pane {{ border: none; background: {c['bg']}; top: 0px; }}
+            QTabWidget#workspaceTabs {{ background: {c["bg"]}; }}
+            QTabWidget#workspaceTabs::pane {{ border: none; padding: 0px; margin: 0px; top: 0px; }}
+            QWidget#multifunctionView {{ background: {c['surface']}; }}
             QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 4px 12px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
             QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
             QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: none; border-radius: 12px; }}
+            QGroupBox#groupBox_3 {{ margin-top: 0px; padding-top: 20px; }}
             QWidget#instructionTreeSurface {{ background: {c['surface2']}; border: none; border-radius: 12px; }}
             QTreeWidget#instructionTree {{ border: none; background: transparent; }}
-            QGroupBox#groupBox_3::title {{ color: {c['text']}; }}
+            QGroupBox#groupBox_3::title {{ color: {c['text']}; subcontrol-origin: border; subcontrol-position: top left; top: 6px; left: 12px; padding: 0px; }}
             QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,
             QGroupBox#groupBox_3 QTextEdit {{ background: {c['surface2']}; color: {c['text']}; }}
             QTreeWidget#instructionTree::item {{ color: {c['text']}; padding: 5px; border: 1px solid transparent; border-radius: 5px; }}
             QTreeWidget#instructionTree::item:hover:!selected {{ background: {c['surface3']}; border-color: {c['accent']}; }}
             QTreeWidget#instructionTree::item:selected {{ background: {c['accent2']}; color: white; border-color: {c['accent']}; }}
             QFrame#viewNavigation {{ background: {c['nav']}; border: 1px solid {c['line']}; border-radius: 12px; min-width: 175px; max-width: 220px; }}
+            QLabel#homePageTitle {{ color: {c['text']}; font-size: 17px; font-weight: 700; padding: 0px; }}
             QLabel#navTitle, QLabel#pageTitle {{ color: {c['text']}; font-size: 17px; font-weight: 700; padding: 8px; }}
             QListWidget#beginnerNavigation {{ background: transparent; border: none; outline: none; }}
             QListWidget#beginnerNavigation::item {{ color: {c['text']}; padding: 11px 14px; margin: 1px 0; }}
@@ -1682,12 +1689,24 @@ class ViewWorkspace:
             QListWidget#beginnerNavigation::item:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
             QFrame#contentCard {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px; padding: 12px; }}
             QFrame#workspacePanel {{ background: {c['surface']}; border: none; border-radius: 12px; }}
+            QFrame#workspacePanel[attachedToNavigation="true"] {{ border-top-left-radius: 0px; }}
             QLabel#cardTitle {{ color: {c['text']}; font-size: 18px; font-weight: 700; padding: 4px; }}
             QLabel#sectionTitle {{ color: {c['text']}; font-size: 15px; font-weight: 700; padding: 2px 4px 7px 4px; }}
             QLabel#mutedText {{ color: {c['dim']}; padding: 3px; }}
+            QWidget[compactRecording="true"] QFrame#recordingControls {{ background: {c['surface']}; border: none; border-radius: 6px; }}
+            QWidget[compactRecording="true"] QLabel#pageTitle {{ padding: 0px 2px; font-size: 14px; }}
+            QWidget[compactRecording="true"] QPushButton {{ padding: 4px 8px; border-radius: 6px; }}
+            QWidget[compactRecording="true"] QSpinBox, QWidget[compactRecording="true"] QDoubleSpinBox,
+            QWidget[compactRecording="true"] QLineEdit {{ padding: 3px 6px; min-height: 22px; }}
+            QWidget[compactRecording="true"] QLabel#taskStats {{ padding: 5px 8px; font-size: 13px; border-radius: 6px; }}
             QLabel#taskStats {{ color: {c['text']}; background: {c['surface2']}; border-radius: 10px; padding: 14px; font-size: 15px; }}
-            QLabel#editorTip {{ color: {c['accent']}; background: {c['surface2']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 8px 12px; }}
+            QWidget#flowTips {{ background: {c['surface']}; border: none; }}
+            QLabel#flowTipBadge {{ color: {c['accent']}; font-size: 12px; font-weight: 600; }}
+            QLabel#flowTipText, QLabel#flowTipCounter {{ color: {c['dim']}; font-size: 12px; padding: 0px; }}
+            QWidget#flowTips QToolButton {{ padding: 0px; border: none; border-radius: 4px; font-size: 18px; background: transparent; }}
+            QWidget#flowTips QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
             QPushButton, QToolButton {{ background: {c['surface2']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 8px; padding: 7px 12px; }}
+            QTabBar QToolButton {{ padding: 0px; border-radius: 4px; }}
             QPushButton:hover, QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; border-color: {c['accent']}; }}
             QPushButton:pressed {{ background: {c['accent2']}; color: white; }}
             QPushButton:disabled, QToolButton:disabled {{ background: {c['surface']}; color: {c['dim']}; border-color: {c['line']}; }}
@@ -1734,13 +1753,16 @@ class ViewWorkspace:
             QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: {c['bg']}; }}
             QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; }}
             QFrame#recordingOptionSeparator {{ background: {c['line']}; border: none; }}
-            QFrame#workspaceTabSeparator {{ background: transparent; border: none; border-left: 1px solid {c['line']}; margin-left: 4px; }}
             QSplitter::handle {{ background: transparent; }}
             QSplitter::handle:horizontal {{ border: none; background: transparent; margin: 0px; }}
             QSplitter::handle:vertical {{ border: none; background: transparent; margin: 0px; }}
             QSplitter::handle:horizontal:hover {{ border: none; background: transparent; }}
             QSplitter::handle:vertical:hover {{ border: none; background: transparent; }}
 
+            QScrollArea#homeWorkspace, QScrollArea#homeWorkspace > QWidget {{ border: none; background: {c['bg']}; }}
+            QPushButton#homeEntry {{ text-align: left; padding: 12px 16px; line-height: 1.6; }}
+            QListWidget#homeRecentProjects {{ border: none; background: transparent; }}
+            QListWidget#homeRecentProjects::item {{ padding: 8px 10px; border-radius: 6px; }}
             QWidget#mainWorkspacePage {{ background: {c['bg']}; border: none; }}
             QScrollArea#controlsScroll, QWidget#controlsScrollViewport {{ background: {c['bg']}; border: none; }}
             QStatusBar {{ background: {c['bg']}; color: {c['dim']}; border: none; padding: 0px 6px; }}
