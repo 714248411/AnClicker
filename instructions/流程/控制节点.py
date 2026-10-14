@@ -11,7 +11,10 @@ from qt_compat.QtWidgets import (
     QFormLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
+    QCompleter,
     QSpinBox,
+    QSizePolicy,
     QVBoxLayout,
 )
 
@@ -38,6 +41,7 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
         layout_ = QVBoxLayout(self)
         title_ = QLabel(self.DISPLAY_NAME)
         title_.setObjectName("pageTitle")
+        title_.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         layout_.addWidget(title_)
         form_ = QFormLayout()
         self.condition_edit = None
@@ -53,11 +57,19 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
             self.condition_edit = QLineEdit()
             self.condition_edit.setPlaceholderText("例如：计数 >= 10 或 状态 == '完成'")
             form_.addRow("条件表达式", self.condition_edit)
+            self.infer_condition_button = QPushButton('根据前后指令填入变量')
+            self.infer_condition_button.setAutoDefault(False)
+            self.infer_condition_button.clicked.connect(lambda: self._infer_condition(replace=True))
+            form_.addRow(self.infer_condition_button)
+            self.condition_hint_label = QLabel()
+            self.condition_hint_label.setWordWrap(True)
+            form_.addRow(self.condition_hint_label)
         if self.LOOP:
             self.count_spin = QSpinBox()
             self.count_spin.setRange(1, 1_000_000)
             self.count_spin.setValue(3)
-            form_.addRow("循环次数", self.count_spin)
+            self.count_label = QLabel("循环次数")
+            form_.addRow(self.count_label, self.count_spin)
         self.error_policy = QComboBox()
         self.error_policy.addItems(ERROR_POLICIES)
         form_.addRow("异常处理", self.error_policy)
@@ -68,18 +80,64 @@ class _ControlEditor(QDialog, InstructionEditorInterface):
         self.note_edit = QLineEdit()
         form_.addRow("备注", self.note_edit)
         layout_.addLayout(form_)
-        hint_ = QLabel("条件判断节点右侧分支为“是”，上方分支为“否”。")
+        hint_ = QLabel("循环体全部完成后再继续循环；结束后执行后续流程。" if self.LOOP else "条件成立走“是”分支，否则走“否”分支。")
+        hint_.setWordWrap(True)
+        hint_.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         hint_.setObjectName("mutedText")
-        hint_.setVisible(self.CONDITION)
+        hint_.setVisible(self.CONDITION or self.LOOP)
         layout_.addWidget(hint_)
         buttons_ = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        buttons_.button(QDialogButtonBox.StandardButton.Ok).setText("确定")
+        buttons_.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
         buttons_.accepted.connect(self.accept)
         buttons_.rejected.connect(self.reject)
+        layout_.addStretch(1)
         layout_.addWidget(buttons_)
+        if self.mode_combo is not None:
+            self.mode_combo.currentTextChanged.connect(self._update_mode)
         if draft is not None:
             self.load_draft(draft)
+        self._update_mode()
+        self._infer_condition(replace=draft is None)
+
+    def _update_mode(self, *args):
+        conditional = self.CONDITION or (self.mode_combo is not None and self.mode_combo.currentText() == '条件')
+        if self.TYPE_ID == '条件循环':
+            self.mode_combo.setCurrentText('条件')
+            self.mode_combo.setEnabled(False)
+        if self.condition_edit is not None:
+            self.condition_edit.setEnabled(conditional)
+            self.infer_condition_button.setEnabled(conditional)
+        if self.count_spin is not None:
+            self.count_label.setVisible(not conditional)
+            self.count_spin.setVisible(not conditional)
+            self.count_spin.setToolTip('循环范围内全部指令的执行次数；条件模式由判断结果决定是否继续')
+
+    def _infer_condition(self, replace=False):
+        if self.condition_edit is None:
+            return
+        callback = getattr(self.context, 'metadata', {}).get('condition_hint')
+        if callback is None:
+            self.condition_hint_label.setText('可手动输入比较表达式；在流程中设置后可根据相邻指令推断变量。')
+            return
+        try:
+            hint = callback()
+        except Exception as error:
+            self.condition_hint_label.setText('无法读取相邻指令：' + str(error))
+            return
+        candidates = hint['candidates']
+        self.condition_edit.setCompleter(QCompleter(candidates, self.condition_edit))
+        variable = hint['variable']
+        if not variable:
+            self.condition_hint_label.setText('存在多个候选变量，请手动指定：' + '、'.join(candidates) if candidates
+                                             else '前后指令没有可确定的变量，请手动填写判断条件。')
+            return
+        self.condition_hint_label.setText('建议变量：' + variable + '。单独变量按真/假判断，也可改为比较表达式。')
+        if replace:
+            from flow_condition_context import replace_condition_variable
+            self.condition_edit.setText(replace_condition_variable(self.condition_edit.text(), variable))
 
     def get_draft(self) -> InstructionDraft:
         parameters_ = {}
@@ -144,7 +202,7 @@ def _condition_value(expression_: str, variables_: dict) -> bool:
         if isinstance(node_, ast.UnaryOp) and isinstance(node_.op, ast.Not):
             return not bool(value_(node_.operand))
         if isinstance(node_, ast.BoolOp):
-            values_ = [bool(value_(item_)) for item_ in node_.values]
+            values_ = (bool(value_(item_)) for item_ in node_.values)
             return all(values_) if isinstance(node_.op, ast.And) else any(values_)
         if isinstance(node_, ast.Compare):
             left_ = value_(node_.left)

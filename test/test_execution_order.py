@@ -77,7 +77,7 @@ class ExecutionOrderTests(unittest.TestCase):
         edges = self.repo.snapshot().edges
         self.assertFalse(self.repo.reorder_table_commands([b, condition, a]))
         self.assertEqual(self.repo.snapshot().edges, edges)
-        self.assertEqual(self.run_ids(), [condition, a, b])
+        self.assertEqual(self.run_ids(), [condition, a])
 
     def test_linked_chain_first_then_remaining_insertion_order(self):
         a, b, c, d = [self.add() for _ in range(4)]
@@ -127,7 +127,7 @@ class ExecutionOrderTests(unittest.TestCase):
         with self.assertRaises(GraphValidationError):
             self.run_ids()
 
-    def test_unselected_branch_is_fallback_after_earlier_unconnected_command(self):
+    def test_unselected_branch_is_not_an_unconnected_command(self):
         a = self.add()
         condition = self.repo.add_command(InstructionDraft(
             "条件判断", {"条件": "True"}), unconnected=True).id
@@ -135,7 +135,7 @@ class ExecutionOrderTests(unittest.TestCase):
         self.repo.connect_nodes("start", self.node(condition))
         self.repo.connect_nodes(self.node(condition), self.node(yes))
         self.repo.connect_nodes(self.node(condition), self.node(no))
-        self.assertEqual(self.run_ids(), [condition, yes, a, no])
+        self.assertEqual(self.run_ids(), [condition, yes, a])
 
 
     def test_unconnected_off_does_not_run_unselected_condition_branch(self):

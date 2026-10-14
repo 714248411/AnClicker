@@ -101,6 +101,8 @@ class InstructionWorkspace(QObject):
     def reload_graph(self, focus_command_id: Optional[int] = None) -> None:
         self.repository.align_comment_marker_orders()
         snapshot_ = self.repository.snapshot()
+        if self.repository.align_loop_orders(snapshot_):
+            snapshot_ = self.repository.snapshot()
         pool = getattr(self.parent_window, 'ocr_pool', None)
         if pool is not None:
             from instructions.common.local_ocr_instruction import OCR_TYPES
@@ -752,12 +754,17 @@ class InstructionWorkspace(QObject):
             if previous: return dict(previous[-1].parameters)
         raise ValueError('这条指令上方没有“打开网页”。请先添加网页地址，再拾取元素。')
 
+    def _condition_hint(self, command_id=None):
+        from flow_condition_context import condition_hint
+        return condition_hint(self.repository.snapshot(), command_id)
+
     def _editor_context(self, command_id=None) -> ExecutionContext:
         return ExecutionContext(
             variables=self._load_variables(),
             output=self.statusMessage.emit,
             metadata={"database": getattr(self.parent_window, "db", None),
                       "main_window": self.parent_window,
+                      "condition_hint": lambda: self._condition_hint(command_id),
                       "previous_web_command": lambda: self._previous_web_command(command_id),
                       "recent_capture": getattr(self, '_recent_capture', ''),
                       "remember_capture": self.remember_capture},

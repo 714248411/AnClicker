@@ -95,6 +95,8 @@ class InstructionTableWidget(QTableWidget):
         self.runtime_row = -1
         self.comment_ranges = {}
         self.collapsed_comments = set()
+        self.loop_ranges = {}
+        self.collapsed_loops = set()
         self._drop_line = QFrame(self.viewport())
         self._drop_line.setStyleSheet('background: #5b6fdc;')
         self._drop_line.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -139,6 +141,9 @@ class InstructionTableWidget(QTableWidget):
     def update_comment_ranges(self, snapshot):
         from flow_comments import connected_fold_ranges
         self.comment_ranges = connected_fold_ranges(snapshot)
+        from flow_loop_table import loop_groups
+        self.loop_ranges = loop_groups(snapshot)
+        self.collapsed_loops.intersection_update(self.loop_ranges)
         self.collapsed_comments.intersection_update(self.comment_ranges)
         self.apply_comment_folds()
 
@@ -151,12 +156,34 @@ class InstructionTableWidget(QTableWidget):
             self.collapsed_comments.discard(command_id)
         self.apply_comment_folds()
 
+    def set_loop_collapsed(self, command_id, collapsed):
+        if command_id not in self.loop_ranges:
+            return
+        if collapsed:
+            self.collapsed_loops.add(command_id)
+        else:
+            self.collapsed_loops.discard(command_id)
+        self.apply_comment_folds()
+
     def apply_comment_folds(self):
         hidden = set()
         for command_id in self.collapsed_comments:
             hidden.update(self.comment_ranges.get(command_id, ()))
+        for command_id in self.collapsed_loops:
+            hidden.update(self.loop_ranges.get(command_id, ()))
         for row in range(self.rowCount()):
             item = self.item(row, 0)
+            label = self.item(row, 2)
+            if item is not None and label is not None:
+                command_id = item.data(Qt.ItemDataRole.UserRole)
+                base = label.toolTip()
+                depth = sum(command_id in members for members in self.loop_ranges.values())
+                prefix = "　" * min(depth, 8)
+                if command_id in self.loop_ranges:
+                    arrow = "▸" if command_id in self.collapsed_loops else "▾"
+                    label.setText(f"{prefix}{arrow} {base}（{len(self.loop_ranges[command_id])} 条）")
+                elif label.text() != prefix + base:
+                    label.setText(prefix + base)
             self.setRowHidden(row, item is not None and item.data(Qt.ItemDataRole.UserRole) in hidden)
 
     def contextMenuEvent(self, event):
@@ -169,6 +196,12 @@ class InstructionTableWidget(QTableWidget):
         style_context_menu(menu, self)
         item = self.item(index.row(), 0) if index.isValid() else None
         command_id = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        if command_id in self.loop_ranges:
+            expand_loop = menu.addAction("展开循环内容", lambda: self.set_loop_collapsed(command_id, False))
+            collapse_loop = menu.addAction("收起循环内容", lambda: self.set_loop_collapsed(command_id, True))
+            expand_loop.setEnabled(command_id in self.collapsed_loops)
+            collapse_loop.setEnabled(command_id not in self.collapsed_loops)
+            menu.addSeparator()
         if command_id in self.comment_ranges:
             expand = menu.addAction('展开下部指令', lambda: self.set_comment_collapsed(command_id, False))
             collapse = menu.addAction('收缩下部指令', lambda: self.set_comment_collapsed(command_id, True))
@@ -1251,6 +1284,13 @@ class ViewWorkspace:
         editor.view.viewport().update()
         table = self.command_table
         table.runtime_row = self._table_command_rows.get(self.running_command_id, -1)
+        if table.runtime_row >= 0 and table.isRowHidden(table.runtime_row):
+            for header in table.collapsed_loops | table.collapsed_comments:
+                members = table.loop_ranges.get(header, set()) | set(table.comment_ranges.get(header, ()))
+                row = self._table_command_rows.get(header, -1)
+                if self.running_command_id in members and row >= 0 and not table.isRowHidden(row):
+                    table.runtime_row = row
+                    break
         if ensure_visible and table.runtime_row >= 0 and self.tabs.currentIndex() == TABLE_VIEW:
             table.scrollToItem(table.item(table.runtime_row, 0), QAbstractItemView.ScrollHint.EnsureVisible)
         table.viewport().update()

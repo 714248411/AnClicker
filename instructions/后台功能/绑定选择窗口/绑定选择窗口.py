@@ -16,7 +16,7 @@ class InstructionEditor(BindingEditor):
         FieldSpec(key='鼠标模式', label='后台鼠标模式', kind='choice', default='dx', choices=('dx', 'dx2', 'windows', 'windows2', 'windows3'), required=False, minimum=-1000000, maximum=1000000),
         FieldSpec(key='键盘模式', label='后台键盘模式', kind='choice', default='dx', choices=('dx', 'windows'), required=False, minimum=-1000000, maximum=1000000),
         FieldSpec(key='绑定模式', label='绑定方式', kind='choice', default='0', choices=('0', '2'), required=False, minimum=-1000000, maximum=1000000),
-        FieldSpec(key='绑定等待', label='绑定后等待（秒）', kind='float', default=1, choices=(), required=False, minimum=0, maximum=10),
+        FieldSpec(key='绑定等待', label='绑定后等待（秒）', kind='float', default=0, choices=(), required=False, minimum=0, maximum=10),
         FieldSpec(key='绑定方案', label='绑定方案', kind='choice', default='自动优先 DX1 → DX2', choices=('自动优先 DX1 → DX2', 'DX1', 'DX2', 'GDI 兼容', 'GDI2 兼容', '自定义'), required=False, minimum=-1000000, maximum=1000000),
     )
 

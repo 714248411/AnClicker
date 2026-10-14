@@ -435,7 +435,12 @@ class BackgroundInput:
             self._wait(0)
             self._call('WheelUp' if clicks > 0 else 'WheelDown')
 
+    def require_capture(self):
+        if not getattr(self, 'capture_enabled', True):
+            raise RuntimeError('当前绑定仅启用后台键鼠；请在“绑定选择窗口”中开启截图 / 识图 / 取色后重新绑定')
+
     def screenshot(self, region=None, **kwargs):
+        self.require_capture()
         from PIL import Image
         width, height = self.size()
         x, y, w, h = (0, 0, width, height) if region is None else tuple(map(int, region))
@@ -453,6 +458,7 @@ class BackgroundInput:
         return result
 
     def pixel(self, x, y):
+        self.require_capture()
         value = str(self._call('GetColor', *self._point(x, y))).strip()
         if len(value) != 6:
             raise RuntimeError('后台取色失败，请检查图像绑定模式')
@@ -488,6 +494,7 @@ class BackgroundInput:
 
 
 def close_background(context):
+    context.metadata.pop('background_binding_profiles', None)
     session = context.metadata.pop(SESSION, None)
     context.metadata.pop(ERROR, None)
     if session is not None:
@@ -497,14 +504,39 @@ def close_background(context):
 
 
 def bind_background(context, parameters):
-    close_background(context)
-    # A skipped binding failure must never silently execute later clicks on the desktop.
-    context.metadata[ERROR] = '后台窗口尚未成功绑定，已阻止前台操作；请重新绑定或明确解除绑定'
+    from background_binding import binding_attempts, selected_preset, capture_enabled, AUTO
+    existing = context.metadata.get(SESSION)
     windows = (context.service('background_windows') or Windows)()
-    target = windows.resolve(parameters)
-    from background_binding import binding_attempts, selected_preset, AUTO
-    attempts, delay = binding_attempts(parameters)
+    try:
+        if context.stop_requested:
+            raise RuntimeError('后台绑定已取消')
+        attempts, delay = binding_attempts(parameters)
+        capture = capture_enabled(parameters)
+        target = windows.resolve(parameters)
+        signature = (tuple((key, target.get(key)) for key in ('窗口句柄', '进程ID', '窗口类名', '进程路径')),
+                     tuple(attempts), capture)
+        if (existing is not None and not existing.closed
+                and getattr(existing, 'binding_signature', None) == signature
+                and not existing.keys and not existing.buttons
+                and not context.metadata.get('recorded_keys') and not context.metadata.get('recorded_buttons')):
+            windows.validate(target)
+            process = getattr(existing.transport, 'process', None)
+            if process is None or process.poll() is None:
+                context.emit('已复用当前有效后台绑定，无需重复初始化')
+                return existing.hwnd
+    except Exception:
+        close_background(context)
+        context.metadata[ERROR] = '后台窗口尚未成功绑定，已阻止前台操作；请重新绑定或明确解除绑定'
+        raise
+    profiles = context.metadata.get('background_binding_profiles', {})
+    close_background(context)
+    context.metadata[ERROR] = '后台窗口尚未成功绑定，已阻止前台操作；请重新绑定或明确解除绑定'
+    context.metadata['background_binding_profiles'] = profiles
+    if selected_preset(parameters) == AUTO and signature in profiles:
+        preferred = profiles[signature]
+        attempts.sort(key=lambda item: item[0] != preferred)
     transport = None
+    started = time.monotonic()
     for index, (profile, display, mouse, keyboard, mode) in enumerate(attempts):
         try:
             windows.validate(target)
@@ -512,10 +544,10 @@ def bind_background(context, parameters):
             if transport is not None:
                 transport.close()
             raise
-        # Reuse a healthy, successfully unbound host when only image mode failed.
         if transport is None:
             transport = (context.service('background_transport') or DmTransport)(context)
         session = BackgroundInput(context, windows, target, transport)
+        session.capture_enabled = capture
         bound = False
         try:
             result = session._call('BindWindow', session.hwnd, display, mouse, keyboard, mode)
@@ -523,10 +555,10 @@ def bind_background(context, parameters):
                 raise RuntimeError('组件返回绑定失败')
             bound = True
             session._wait(delay)
-            if selected_preset(parameters) == AUTO:
-                # A successful BindWindow does not guarantee a usable background image.
+            if selected_preset(parameters) == AUTO and capture:
                 session.screenshot()
         except Exception as error:
+            profiles.pop(signature, None)
             reuse = bound and index + 1 < len(attempts) and not context.stop_requested
             if not session.close(keep_transport=reuse):
                 transport = None
@@ -538,9 +570,13 @@ def bind_background(context, parameters):
             context.emit(profile + ' 未就绪：' + str(error) + '；正在尝试 ' + attempts[index + 1][0])
             continue
         session.binding_profile = profile
+        session.binding_signature = signature
+        profiles[signature] = profile
+        while len(profiles) > 16:
+            profiles.pop(next(iter(profiles)))
         context.metadata[SESSION] = session
         context.metadata.pop(ERROR, None)
-        context.emit(f"后台窗口已绑定：{target['窗口标题'] or target['窗口类名']}；方案 {profile}；后续操作使用窗口内容区坐标")
+        context.emit(f"后台窗口已绑定：{target['窗口标题'] or target['窗口类名']}；方案 {profile}；用时 {time.monotonic()-started:.2f} 秒；后续操作使用窗口内容区坐标")
         return session.hwnd
 
 
@@ -555,6 +591,8 @@ def execute_background_method(context, group, parameters):
     if backend is None:
         raise RuntimeError('请先执行“绑定选择窗口”指令')
     backend.failSafeCheck()
+    if group in ('后台图色操作', '后台文字识别'):
+        backend.require_capture()
     if hasattr(backend.transport, 'capabilities') and name not in backend.transport.capabilities:
         raise ValueError(f'当前组件未提供 {name} 接口，请在组件设置中选择支持此接口的版本')
     values = json.loads(parameters.get('参数', '{}'))

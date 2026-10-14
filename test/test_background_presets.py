@@ -16,7 +16,7 @@ def app():
 def test_default_prefers_dx1_then_dx2_using_actual_plugin_names():
     attempts,delay=binding_attempts({})
     assert attempts==[('DX1','dx','dx','dx',0),('DX2','dx2','dx2','dx',0)]
-    assert delay==1
+    assert delay==0
 
 def test_old_explicit_modes_keep_legacy_defaults():
     assert binding_attempts({'图像模式':'gdi'})[0]==[(CUSTOM,'gdi','windows','windows',0)]

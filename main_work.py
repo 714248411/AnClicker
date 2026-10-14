@@ -263,7 +263,7 @@ class CommandThread(QThread):
         from flow_comments import snapshot_disabled_ids
         disabled_ = snapshot_disabled_ids(snapshot_)
         commands_ = [command for command in commands_ if command.id not in disabled_]
-        if any(command.type_id in {'报错跳转','变量比较'} for command in snapshot_.commands) and commands_:
+        if any(command.type_id in {'报错跳转','变量比较','循环','条件循环'} for command in snapshot_.commands) and commands_:
             from flow_jump_runtime import execute_jump_flow
             start_id = next(node.node_id for node in snapshot_.nodes if node.command_id == commands_[0].id)
             execute_jump_flow(self,snapshot_,context_,start_id,self.run_mode[0]=='单行指令')
@@ -322,6 +322,9 @@ class CommandThread(QThread):
 
     def _execute_flow(self, snapshot_, context_: ExecutionContext, start_id=None) -> None:
         """Follow persisted links, including condition branches and loop backs."""
+        if any(command.type_id in {'循环', '条件循环'} for command in snapshot_.commands):
+            from flow_control_runtime import execute_control_flow
+            return execute_control_flow(self, snapshot_, context_, start_id)
         if start_id is not None or any(command.type_id in {'报错跳转','变量比较'} for command in snapshot_.commands):
             from flow_jump_runtime import execute_jump_flow
             return execute_jump_flow(self,snapshot_,context_,start_id)
@@ -332,6 +335,8 @@ class CommandThread(QThread):
         outgoing_: dict[str, list] = {node_id_: [] for node_id_ in node_by_id_}
         for edge_ in snapshot_.edges:
             outgoing_[edge_.source].append(edge_)
+        from flow_control_runtime import ordered_edges
+        outgoing_ = {key: ordered_edges(edges, node_by_id_) for key, edges in outgoing_.items()}
         start_edges_ = outgoing_.get("start", ())
         # Persisted order includes explicit row moves from the table. Links
         # still take precedence; unlinked commands follow this editable order.
@@ -365,7 +370,7 @@ class CommandThread(QThread):
                 if not pending_ and run_unconnected_:
                     fallback_ = True
                     pending_ = [node_.node_id for node_ in insertion_nodes_
-                                if node_.node_id not in executed_]
+                                if node_.node_id not in executed_ and node_.node_id not in connected_]
                 if not pending_:
                     return
                 current_id_ = pending_.pop(0)

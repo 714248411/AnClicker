@@ -25,9 +25,10 @@ def binding_attempts(parameters):
     mode = int(parameters.get('绑定模式', '0'))
     if mode not in (0, 2):
         raise ValueError('绑定方式仅支持 0 或 2')
-    wait = float(parameters.get('绑定等待', 1))
+    wait = float(parameters.get('绑定等待', 0))
     if not math.isfinite(wait) or not 0 <= wait <= 10:
         raise ValueError('绑定后等待必须在 0–10 秒之间')
+    capture = capture_enabled(parameters)
     if preset == CUSTOM:
         display = str(parameters.get('图像模式', 'gdi')).lower()
         mouse = str(parameters.get('鼠标模式', 'windows')).lower()
@@ -36,6 +37,13 @@ def binding_attempts(parameters):
         display, mouse, keyboard = ('dx' if value == 'dx1' else value for value in (display, mouse, keyboard))
         if display not in ('dx', 'dx2', 'dx3', 'gdi', 'gdi2') or mouse not in ('dx', 'dx2', 'windows', 'windows2', 'windows3') or keyboard not in ('dx', 'windows'):
             raise ValueError('请选择有效的图像、鼠标与键盘模式')
-        return [(CUSTOM, display, mouse, keyboard, mode)], wait
+        return [(CUSTOM, display if capture else 'normal', mouse, keyboard, mode)], wait
     names = ('DX1', 'DX2') if preset == AUTO else (preset,)
-    return [(name, *PROFILES[name], mode) for name in names], wait
+    return [(name, PROFILES[name][0] if capture else 'normal', *PROFILES[name][1:], mode) for name in names], wait
+
+
+def capture_enabled(parameters):
+    value = parameters.get('启用截图', True)
+    if not isinstance(value, bool):
+        raise ValueError('启用截图必须为开启或关闭')
+    return value

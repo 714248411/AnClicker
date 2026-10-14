@@ -223,6 +223,13 @@ class BindingEditor(BackgroundEditor):
         self.pickWindowButton.setAutoDefault(False)
         self.ui.fieldLayout_0.addWidget(self.pickWindowButton)
         self.pickWindowButton.clicked.connect(self._pick_window)
+        self._capture_explicit = False
+        self.capture_enabled = QCheckBox('启用截图 / 识图 / 取色', self)
+        self.capture_enabled.setObjectName('backgroundCaptureEnabled')
+        self.capture_enabled.setChecked(True)
+        self.capture_enabled.setToolTip('只需要点击和输入时可关闭，跳过图像绑定与截图验证，加快绑定。')
+        self.ui.parameterFormLayout.addRow(self.capture_enabled)
+        self.capture_enabled.toggled.connect(self._capture_toggled)
         self.advanced_panel = QGroupBox('窗口信息与高级选项', self)
         advanced = QFormLayout(self.advanced_panel)
         advanced.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
@@ -267,6 +274,8 @@ class BindingEditor(BackgroundEditor):
         from instructions.models import InstructionDraft
         from background_binding import selected_preset, MODE_KEYS, CUSTOM
         draft = draft if isinstance(draft, InstructionDraft) else InstructionDraft.from_mapping(draft)
+        self.capture_enabled.setChecked(draft.parameters.get('启用截图', True))
+        self._capture_explicit = '启用截图' in draft.parameters
         control = self._controls['绑定方案']
         blocked = control.blockSignals(True)
         try:
@@ -282,25 +291,38 @@ class BindingEditor(BackgroundEditor):
         if hasattr(self, 'preset_hint'):
             self._preset_changed()
 
+    def _capture_toggled(self, checked):
+        self._capture_explicit = True
+        self._preset_changed()
+
     def _preset_changed(self, text=None):
         from background_binding import AUTO, CUSTOM, PROFILES, MODE_KEYS
         preset = self._controls['绑定方案'].currentText()
         custom = preset == CUSTOM
+        capture = self.capture_enabled.isChecked()
         if not custom and (preset == AUTO or preset in PROFILES):
             profile = PROFILES['DX1' if preset == AUTO else preset]
             for key, value in zip(MODE_KEYS, profile):
                 self._set_control_value(self._controls[key], 'dx1' if key == '图像模式' and value == 'dx' else value)
         for index, field in enumerate(self.FIELDS):
             if field.key in MODE_KEYS:
-                self._controls[field.key].setEnabled(custom)
+                self._controls[field.key].setEnabled(custom and (capture or field.key != '图像模式'))
                 self._controls[field.key].setVisible(custom)
                 getattr(self.ui, 'label_' + str(index)).setVisible(custom)
         text = ('先尝试 DX1，绑定或取图异常时自动尝试 DX2。普通应用不兼容时可改选 GDI 兼容。'
                 if preset == AUTO else '按高级设置中的图像、鼠标和键盘模式绑定。'
                 if custom else '已自动配好图像、鼠标和键盘模式，可直接测试绑定。')
+        if not capture:
+            text = '仅后台键鼠：跳过图像绑定和截图验证。需要截图、识图或取色时请重新开启。'
         self.preset_hint.setText(text + '\n后续坐标以目标窗口内容区左上角为 0,0；测试结果可在运行日志查看。')
         if custom and self.isVisible():
             self.advanced_button.setChecked(True)
+
+    def get_draft(self):
+        draft = super().get_draft()
+        if self._capture_explicit or not self.capture_enabled.isChecked():
+            draft.parameters['启用截图'] = self.capture_enabled.isChecked()
+        return draft
 
     def _toggle_advanced(self, expanded):
         self.advanced_button.setText('高级设置 ▾（收起）' if expanded else '高级设置 ▸')

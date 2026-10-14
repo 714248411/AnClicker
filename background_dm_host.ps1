@@ -1,4 +1,5 @@
 ﻿[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+if ($env:ANCLICKER_DM_BACKEND -ne 'native-7.2424') {
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -28,6 +29,7 @@ public static class DmLoader {
  }
 }
 '@
+}
 
 $dm = $null
 $native = $env:ANCLICKER_DM_BACKEND -eq 'native-7.2424'

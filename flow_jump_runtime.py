@@ -3,6 +3,9 @@ from flow_jumps import JUMP_KINDS, row_node, target_config
 
 
 def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
+    if any(command.type_id in {'循环', '条件循环'} for command in snapshot.commands):
+        from flow_control_runtime import execute_control_flow
+        return execute_control_flow(worker, snapshot, context, start_id, single)
     from flow_comments import comment_successors, snapshot_disabled_ids
     commented = comment_successors(snapshot)
     disabled = snapshot_disabled_ids(snapshot)
@@ -17,6 +20,8 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
         all_edges[edge.source].append(edge)
         if edge.kind not in JUMP_KINDS:
             normal[edge.source].append(edge)
+    from flow_control_runtime import ordered_edges
+    normal = {key: ordered_edges(edges, nodes) for key, edges in normal.items()}
     connected = {value for edge in snapshot.edges if edge.kind not in JUMP_KINDS
                  for value in (edge.source, edge.target)}
     incoming = {edge.target for edge in snapshot.edges if edge.kind not in JUMP_KINDS}
@@ -72,7 +77,7 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
         if current == 'end':
             pending[:] = [value for value in pending if value not in visited and value != 'end']
             if not pending and not strict and run_unconnected:
-                pending[:] = [node_id for node_id in active if node_id not in visited]
+                pending[:] = [node_id for node_id in active if node_id not in visited and node_id not in connected]
             if not pending: return
             current = pending.pop(0)
             path.clear()

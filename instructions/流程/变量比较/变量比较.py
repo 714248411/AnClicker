@@ -20,6 +20,36 @@ class InstructionEditor(JumpEditor):
         )),
     )
 
+    def __init__(self, parent=None, draft=None, context=None):
+        super().__init__(parent=parent, draft=draft, context=context)
+        from qt_compat.QtWidgets import QPushButton, QLabel
+        self.infer_condition_button = QPushButton('根据前后指令填入变量', self)
+        self.infer_condition_button.setAutoDefault(False)
+        self.condition_hint_label = QLabel(self)
+        self.condition_hint_label.setWordWrap(True)
+        self.ui.parameterFormLayout.insertRow(1, self.infer_condition_button)
+        self.ui.parameterFormLayout.insertRow(2, self.condition_hint_label)
+        self._condition_hint_callback = getattr(context, 'metadata', {}).get('condition_hint')
+        self.infer_condition_button.clicked.connect(lambda: self._infer_condition(replace=True))
+        self._infer_condition(replace=draft is None)
+
+    def _infer_condition(self, replace=False):
+        if self._condition_hint_callback is None:
+            self.condition_hint_label.setText('可手动指定变量；连接前后指令后可自动推断。')
+            return
+        try:
+            hint = self._condition_hint_callback()
+        except Exception as error:
+            self.condition_hint_label.setText('无法读取相邻指令：' + str(error))
+            return
+        from qt_compat.QtWidgets import QCompleter
+        self._controls['变量'].setCompleter(QCompleter(hint['candidates'], self))
+        variable = hint['variable']
+        self.condition_hint_label.setText('建议变量：' + variable if variable else
+            '请手动选择变量：' + ('、'.join(hint['candidates']) or '前后指令没有可确定的变量'))
+        if replace and variable:
+            self._controls['变量'].setCurrentText(variable)
+
 class InstructionExecutor(InstructionExecutorBase):
     TYPE_ID = '变量比较'
     # Comparison is handled by flow_jumps; destinations by flow_jump_runtime.

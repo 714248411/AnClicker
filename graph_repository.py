@@ -1591,6 +1591,38 @@ class GraphRepository:
             self._set_command_orders(connection, order)
         return True
 
+    def align_loop_orders(self, snapshot=None) -> bool:
+        """Group loop rows and keep explicit local row jumps on the same command."""
+        from flow_loop_table import aligned_loop_order
+        from flow_jumps import target_config
+        if snapshot is None:
+            snapshot = self.snapshot()
+        before = [command.id for command in snapshot.commands]
+        order = aligned_loop_order(snapshot)
+        if order == before:
+            return False
+        positions = {command_id: index + 1 for index, command_id in enumerate(order)}
+        with self._transaction(validate_graph=False) as connection:
+            self._set_command_orders(connection, order)
+            for command in snapshot.commands:
+                prefixes = ('是', '否') if command.type_id == '变量比较' else ('',) if command.type_id == '报错跳转' else ()
+                parameters = dict(command.parameters)
+                changed = False
+                for prefix in prefixes:
+                    if parameters.get(prefix + '跳转方式') != '当前项目行':
+                        continue
+                    try:
+                        _mode, row, _path = target_config(parameters, prefix)
+                    except (ValueError, TypeError):
+                        continue
+                    if 1 <= row <= len(before):
+                        parameters[prefix + '目标行'] = positions[before[row - 1]]
+                        changed = True
+                if changed:
+                    connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                       (json.dumps(parameters, ensure_ascii=False), command.id))
+        return True
+
     def reorder_table_commands(self, command_ids: Sequence[int]) -> bool:
         """Persist table order/layout; only rewire a complete ordinary chain."""
         ids = [int(item) for item in command_ids]
