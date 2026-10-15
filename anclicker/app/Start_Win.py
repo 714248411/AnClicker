@@ -821,7 +821,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                     backup_.close()
                 target_path_ = save_converted_copy(converted_, target_path_)
                 migration_message_ = f"旧版数据已转换。\n新版文件：{target_path_}\n导入前备份：{backup_path_}"
-            self.workspace.repository.import_from_workbook(converted_)
+            self.workspace.repository.import_from_workbook(converted_, source_path=target_path_)
             self.workspace.clear_connection_history()
         except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError, zipfile.BadZipFile) as error_:
             QMessageBox.warning(

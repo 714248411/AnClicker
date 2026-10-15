@@ -505,7 +505,7 @@ class ExecutionEngine:
             repository = GraphRepository(database.db_path)
             workbook = load_workbook(path, data_only=False)
             try:
-                repository.import_from_workbook(workbook)
+                repository.import_from_workbook(workbook, source_path=path)
             finally:
                 workbook.close()
             snapshot = repository.execution_snapshot()

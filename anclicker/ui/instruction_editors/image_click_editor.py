@@ -1,5 +1,7 @@
 """旧版图像点击工作区，复用当前参数契约和应用主题。"""
 from pathlib import Path
+from anclicker.platform.image_paths import resolve_image_reference, store_image_reference
+from anclicker.app.paths import IMAGES_FOLDER
 from datetime import datetime
 
 from anclicker.platform.qt_compat.QtCore import Qt, QRectF, Signal, QTimer, QUrl, QSignalBlocker
@@ -290,10 +292,17 @@ class ImageClickEditorMixin:
 
     def _select_image(self, name):
         path = str(Path(self.folder_combo.currentText()) / name) if name else ''
-        self._apply_image_path(path)
+        try:
+            # Keep the source folder visible while browsing multiple images.
+            # The stored reference and preview already point at the managed copy.
+            self._apply_image_path(path)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, '图片导入失败', str(error))
 
     def _apply_image_path(self, path):
         """Publish one image to the stored parameter and the preview together."""
+        path = store_image_reference(path, project_path=self._image_project_path(),
+                                     resource_folders=self.db.extract_resource_folder_path())
         self.ui.parameter_0.setText(path)
         pixmap = QPixmap()
         if path:
@@ -309,7 +318,8 @@ class ImageClickEditorMixin:
             self.preview.setPixmap(pixmap.scaled(560, 160, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
     def _set_image_path(self, path):
-        original = str(path)
+        original = store_image_reference(path, project_path=self._image_project_path(),
+                                         resource_folders=self.db.extract_resource_folder_path())
         path = Path(self._resolved_image_path(original))
         # Refresh even in the same folder (e.g. consecutive captures). Do not
         # temporarily select the first file while rebuilding the resource list.
@@ -329,14 +339,14 @@ class ImageClickEditorMixin:
         if not selected or not resolved or Path(selected).resolve() != Path(resolved).resolve():
             self._apply_image_path(selected)
 
+    def _image_project_path(self):
+        return (getattr(self.context, 'metadata', {}).get('project_path')
+                or self.db.get_setting_value('当前文件路径'))
+
     def _resolved_image_path(self, path=None):
         value = str(path if path is not None else self.ui.parameter_0.text())
-        project = getattr(self.context, 'metadata', {}).get('project_path') or self.db.get_setting_value('当前文件路径')
-        if value and not Path(value).is_absolute() and project:
-            candidate = Path(str(project)).parent / value
-            if candidate.is_file():
-                return str(candidate)
-        return value
+        return resolve_image_reference(value, project_path=self._image_project_path(),
+                                       resource_folders=self.db.extract_resource_folder_path())
 
     def _add_folder(self):
         folder = QFileDialog.getExistingDirectory(self, '添加资源文件夹', self.folder_combo.currentText())
@@ -382,13 +392,8 @@ class ImageClickEditorMixin:
             isValid = _module_imports.load('isValid_2')
         if getattr(self, '_screen_selection_active', False):
             return
-        if capture and not self.folder_combo.currentText():
-            IMAGES_FOLDER = _module_imports.load('IMAGES_FOLDER')
+        if capture:
             Path(IMAGES_FOLDER).mkdir(parents=True, exist_ok=True)
-            self.folder_combo.setCurrentText(IMAGES_FOLDER)
-        if capture and (not self.folder_combo.currentText() or not Path(self.folder_combo.currentText()).is_dir()):
-            QMessageBox.warning(self, '快捷截图', '请先选择有效资源文件夹。')
-            return
         binding_parameters, select_background, save_capture = _module_imports.load('binding_parameters_select_background_save_capture')
         try:
             parameters = binding_parameters(self)
@@ -396,7 +401,7 @@ class ImageClickEditorMixin:
                 selection = select_background(self, parameters)
                 if selection is not None:
                     if capture:
-                        path = save_capture(self, selection, self.folder_combo.currentText())
+                        path = save_capture(self, selection)
                         self._set_image_path(path)
                     else:
                         self.ui.parameter_3.setText(str(selection.region))
@@ -442,7 +447,8 @@ class ImageClickEditorMixin:
                 # Selection already contains the captured pixels. Commit immediately
                 # so confirmation cannot overtake a second arbitrary delay.
                 if region and capture:
-                    path = Path(self.folder_combo.currentText()) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
+                    path = Path(IMAGES_FOLDER) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
+                    path.parent.mkdir(parents=True, exist_ok=True)
                     selector.save_selection(path)
                     self._set_image_path(path)
                     callback = getattr(self.context, 'metadata', {}).get('remember_capture')

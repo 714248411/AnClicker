@@ -18,7 +18,7 @@ import math
 import sqlite3
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Optional
 
 from anclicker.domain.instructions import CommandRecord, InstructionDraft
@@ -27,6 +27,9 @@ from anclicker.domain.instructions import CommandRecord, InstructionDraft
 from anclicker.domain.graph_models import *
 from anclicker.domain.graph_models import _SerializedCommand
 from anclicker.domain.graph_validation import decode_parameters, encode_parameters, validate_records
+from anclicker.platform.image_paths import normalize_image_parameters, image_import_batch
+from anclicker.app.paths import DATA_FOLDER
+from pathlib import Path
 from anclicker.storage.workbook_codec import WorkbookCodec, write_graph_sheets
 
 from anclicker._imports import DeferredImports as _DeferredImports
@@ -58,8 +61,10 @@ class GraphRepository:
         *,
         instruction_resolver: Optional[Callable[[str], Any]] = None,
         valid_type_ids: Optional[Iterable[str]] = None,
+        data_folder=None,
     ) -> None:
         self.db_path = db_path
+        self.data_folder = Path(data_folder or DATA_FOLDER)
         self._instruction_resolver = instruction_resolver
         self._valid_type_ids = (
             frozenset(str(item) for item in valid_type_ids)
@@ -355,17 +360,33 @@ class GraphRepository:
             return draft.get(key, default)
         return getattr(draft, key, default)
 
-    @classmethod
-    def _normalize_draft(cls, draft: Any) -> tuple[str, str, int, str, str]:
+    def _portable_image_parameters(self, parameters, type_id, project_path=None, resource_folders=(),
+                                   prefer_project=False):
+        # Read settings without constructing application/GUI services. A bare graph
+        # repository may not have configuration tables yet.
+        folders = list(resource_folders)
+        with self._connection() as connection:
+            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if project_path is None and '设置' in tables:
+                row = connection.execute("SELECT 值 FROM 设置 WHERE 设置项='当前文件路径'").fetchone()
+                project_path = row[0] if row else None
+            if '资源文件夹' in tables:
+                folders += [str(Path(row[0]) if Path(row[0]).is_absolute() else self.data_folder / row[0])
+                           for row in connection.execute('SELECT 路径 FROM 资源文件夹')]
+        return normalize_image_parameters(parameters, type_id=type_id,
+                                          project_path=project_path, resource_folders=folders,
+                                          data_folder=self.data_folder, prefer_project=prefer_project)
+
+    def _normalize_draft(self, draft: Any) -> tuple[str, str, int, str, str]:
         if isinstance(draft, Mapping):
             draft = InstructionDraft.from_mapping(draft)
-        type_id = cls._draft_value(draft, "type_id")
-        parameters = cls._draft_value(draft, "parameters", {})
-        repeat_count = cls._draft_value(draft, "repeat_count", 1)
-        error_policy = cls._draft_value(
+        type_id = self._draft_value(draft, "type_id")
+        parameters = self._draft_value(draft, "parameters", {})
+        repeat_count = self._draft_value(draft, "repeat_count", 1)
+        error_policy = self._draft_value(
             draft, "error_policy", "提示异常并暂停"
         )
-        note = cls._draft_value(draft, "note", "")
+        note = self._draft_value(draft, "note", "")
         if not isinstance(type_id, str) or not type_id.strip():
             raise ValueError("type_id 必须是非空字符串")
         if isinstance(repeat_count, bool) or not isinstance(repeat_count, int):
@@ -378,9 +399,12 @@ class GraphRepository:
             note = ""
         if not isinstance(error_policy, str) or not isinstance(note, str):
             raise ValueError("error_policy 和 note 必须是字符串")
+        self._encode_parameters(parameters)
+        if not self._is_known_type(type_id.strip()):
+            raise ValueError(f"未知指令类型：{type_id}")
         return (
             type_id.strip(),
-            cls._encode_parameters(parameters),
+            self._encode_parameters(self._portable_image_parameters(parameters, type_id.strip())),
             repeat_count,
             error_policy,
             note,
@@ -1374,6 +1398,11 @@ class GraphRepository:
                 (edge.source, edge.target, edge.kind)
                 for edge in self._edge_records(connection)
             ]
+        command_sheet_rows = [
+            (row[0], row[1], self._encode_parameters(self._portable_image_parameters(
+                self._decode_parameters(row[2]), row[1])), *row[3:])
+            for row in command_sheet_rows
+        ]
         write_graph_sheets(workbook, command_sheet_rows, node_sheet_rows, edge_sheet_rows)
 
         if database_operation is None:
@@ -1395,65 +1424,73 @@ class GraphRepository:
         """Raise :class:`WorkbookValidationError` unless the workbook is valid."""
         self._parse_workbook(workbook)
 
-    def import_from_workbook(self, workbook: Any) -> None:
+    def import_from_workbook(self, workbook: Any, *, source_path=None) -> None:
         """Validate everything first, then atomically replace graph and settings."""
         convert_legacy_workbook = _module_imports.load('convert_legacy_workbook')
 
-        workbook = convert_legacy_workbook(workbook)
+        workbook = convert_legacy_workbook(workbook, base_directory=str(Path(source_path).parent) if source_path else None)
         commands, nodes, edges, settings = self._parse_workbook(workbook)
-        DatabaseOperation = _module_imports.load('DatabaseOperation')
+        with image_import_batch():
+            commands = [replace(command, parameters_json=self._encode_parameters(
+                self._portable_image_parameters(self._decode_parameters(command.parameters_json),
+                                                command.type_id, source_path,
+                                                [str(Path(row[0]) if Path(row[0]).is_absolute()
+                                                     else self.data_folder / row[0])
+                                                 for row in settings['资源文件夹']], prefer_project=source_path is not None)))
+                        for command in commands]
+            DatabaseOperation = _module_imports.load('DatabaseOperation')
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            try:
-                connection.execute("DELETE FROM 节点连接")
-                connection.execute("DELETE FROM flow_edge_metadata")
-                connection.execute("DELETE FROM 节点")
-                connection.execute("DELETE FROM 命令")
-                connection.executemany(
-                    "INSERT INTO 命令(ID, 类型标识, 参数JSON, 重复次数, "
-                    "异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    [
-                        (
-                            command.id,
-                            command.type_id,
-                            command.parameters_json,
-                            command.repeat_count,
-                            command.error_policy,
-                            command.note,
-                            command.order,
-                        )
-                        for command in commands
-                    ],
-                )
-                connection.executemany(
-                    "INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    [
-                        (
-                            node.node_id,
-                            node.command_id,
-                            node.node_type,
-                            node.x,
-                            node.y,
-                        )
-                        for node in nodes
-                    ],
-                )
-                connection.executemany(
-                    "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
-                    [(edge.source, edge.target) for edge in edges],
-                )
-                connection.executemany(
-                    "INSERT INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, ?)",
-                    [(edge.source, edge.target, edge.kind) for edge in edges],
-                )
-                DatabaseOperation._apply_parsed_settings(connection, settings)
-                self._validate_draft_connection(connection)
-                connection.commit()
-            except Exception:
-                connection.rollback()
-                raise
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                try:
+                    connection.execute("DELETE FROM 节点连接")
+                    connection.execute("DELETE FROM flow_edge_metadata")
+                    connection.execute("DELETE FROM 节点")
+                    connection.execute("DELETE FROM 命令")
+                    connection.executemany(
+                        "INSERT INTO 命令(ID, 类型标识, 参数JSON, 重复次数, "
+                        "异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [
+                            (
+                                command.id,
+                                command.type_id,
+                                command.parameters_json,
+                                command.repeat_count,
+                                command.error_policy,
+                                command.note,
+                                command.order,
+                            )
+                            for command in commands
+                        ],
+                    )
+                    connection.executemany(
+                        "INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        [
+                            (
+                                node.node_id,
+                                node.command_id,
+                                node.node_type,
+                                node.x,
+                                node.y,
+                            )
+                            for node in nodes
+                        ],
+                    )
+                    connection.executemany(
+                        "INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
+                        [(edge.source, edge.target) for edge in edges],
+                    )
+                    connection.executemany(
+                        "INSERT INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, ?)",
+                        [(edge.source, edge.target, edge.kind) for edge in edges],
+                    )
+                    DatabaseOperation._apply_parsed_settings(connection, settings)
+                    self._validate_draft_connection(connection)
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                    raise
 
 
 __all__ = [

@@ -8,6 +8,7 @@ from anclicker.platform.qt_compat.QtWidgets import (QDialog, QVBoxLayout, QHBoxL
 from anclicker.instructions.common import SchemaInstructionEditor, InstructionExecutorBase, actions
 from anclicker.platform.background_catalog import METHODS, group_methods, method_name, values_for, label
 
+from anclicker.platform.image_paths import map_background_images, store_image_reference
 from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
@@ -336,6 +337,7 @@ class BackgroundMethodEditor(BackgroundEditor):
             kind = '字库文件 (*.txt)' if key == 'dict_name' else '图片 (*.bmp *.png *.jpg *.jpeg)'
             value, _ = QFileDialog.getOpenFileName(self, '选择文件', control.text(), kind + ';;所有文件 (*)')
         if value:
+            value = map_background_images(method, {key: value}, store_image_reference)[key]
             control.setText(value)
 
     def _save_arguments(self):

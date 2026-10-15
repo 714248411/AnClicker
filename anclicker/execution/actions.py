@@ -1,6 +1,7 @@
 """可复用的运行期工具；具体指令在各自模块选择和调用这些工具。"""
 
 from __future__ import annotations
+from anclicker.platform.image_paths import resolve_image_reference
 
 from datetime import datetime
 from pathlib import Path
@@ -100,24 +101,17 @@ def resolve_image_path(parameters: dict, context: ExecutionContext | None = None
     if not image_:
         raise ValueError("未设置图像路径")
     image_path_ = substitute_variables(context, str(image_)) if context is not None else str(image_)
-    if context is not None and not os.path.isabs(image_path_):
-        project_ = context.metadata.get('project_path')
-        if not project_:
-            getter = getattr((getattr(getattr(context, "runtime", None), 'database', None) or context.metadata.get('database')), 'get_setting_value', None)
-            project_ = getter('当前文件路径') if callable(getter) else None
-        if project_:
-            candidate_ = os.path.join(os.path.dirname(project_), image_path_)
-            if os.path.isfile(candidate_):
-                image_path_ = candidate_
-    if not os.path.isfile(image_path_) and context is not None:
-        database_ = (getattr(getattr(context, "runtime", None), 'database', None) or context.metadata.get("database"))
-        if database_ is not None:
-            for folder_ in database_.extract_resource_folder_path():
-                candidate_ = os.path.join(folder_, os.path.basename(image_path_))
-                if os.path.isfile(candidate_):
-                    image_path_ = candidate_
-                    break
-    return image_path_
+    metadata = getattr(context, 'metadata', {}) if context is not None else {}
+    database = (getattr(getattr(context, 'runtime', None), 'database', None)
+                or metadata.get('database')) if context is not None else None
+    project = metadata.get('project_path')
+    getter = getattr(database, 'get_setting_value', None)
+    if not project and callable(getter):
+        project = getter('当前文件路径')
+    catalog = getattr(database, 'extract_resource_folder_path', None)
+    folders = catalog() if callable(catalog) else ()
+    return resolve_image_reference(image_path_, project_path=project, resource_folders=folders)
+
 
 
 def locate_image(

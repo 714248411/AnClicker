@@ -6,6 +6,7 @@ import json
 import math
 import weakref
 from pathlib import Path
+from anclicker.platform.image_paths import store_image_reference
 from typing import Optional
 
 from anclicker.platform.qt_compat.QtCore import QObject, Signal, QTimer, Qt
@@ -179,8 +180,8 @@ class InstructionWorkspace(QObject):
             self.editor.view.fit_graph()
 
     def remember_capture(self, path):
-        self._recent_capture = str(path)
-        self.palette.show_recent_capture(path)
+        self._recent_capture = store_image_reference(path)
+        self.palette.show_recent_capture(self._recent_capture)
 
     def quick_capture(self):
         if not self._connection_edit_allowed():

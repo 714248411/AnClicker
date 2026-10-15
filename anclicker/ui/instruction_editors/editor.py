@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from anclicker.platform.image_paths import normalize_image_parameters
 from typing import Any
 import re
 
@@ -462,6 +463,9 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
             paths_ = [file_path_] if file_path_ else []
         if paths_:
             value_ = "\n".join(paths_) if isinstance(control_, QPlainTextEdit) else paths_[0]
+            if key_ == "图像路径":
+                value_ = normalize_image_parameters({key_: value_}, type_id=self.TYPE_ID,
+                    project_path=getattr(self.context, 'metadata', {}).get('project_path'))[key_]
             self._set_control_value(control_, value_)
             if key_ == "工作簿" and "工作表" in self._controls:
                 try:
@@ -536,6 +540,8 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
                 raise ValueError(f"{field_.label}不能为空")
             parameters_[field_.key] = value_
         self._validate_parameters(parameters_)
+        parameters_ = normalize_image_parameters(parameters_, type_id=self.TYPE_ID,
+            project_path=getattr(self.context, 'metadata', {}).get('project_path'))
         return InstructionDraft(
             type_id=self.TYPE_ID,
             parameters=parameters_,

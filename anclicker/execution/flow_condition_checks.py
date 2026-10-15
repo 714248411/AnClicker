@@ -2,6 +2,7 @@
 import math
 import re
 from pathlib import Path
+from anclicker.platform.image_paths import resolve_image_reference
 from anclicker.instructions.common import actions
 
 from anclicker._imports import DeferredImports as _DeferredImports
@@ -40,17 +41,12 @@ def substitute_target(context, value):
 
 
 def image_file_path(value, context):
-    # A file predicate checks the requested path, never an unrelated resource
-    # with the same basename. Relative paths belong to the current project.
-    path = Path(value).expanduser()
-    if not path.is_absolute():
-        project = context.metadata.get('project_path')
-        if not project:
-            getter = getattr(context.metadata.get('database'), 'get_setting_value', None)
-            project = getter('当前文件路径') if callable(getter) else None
-        if project:
-            path = Path(project).parent / path
-    return path
+    # File predicates never substitute an unrelated image with the same basename.
+    project = context.metadata.get('project_path')
+    if not project:
+        getter = getattr(context.metadata.get('database'), 'get_setting_value', None)
+        project = getter('当前文件路径') if callable(getter) else None
+    return Path(resolve_image_reference(value, project_path=project, legacy_search=False))
 
 
 def validate_parameters(parameters):

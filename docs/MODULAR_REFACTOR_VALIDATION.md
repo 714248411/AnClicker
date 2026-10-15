@@ -1,6 +1,18 @@
 # 模块化改造验证记录
 
-维护说明：自动化测试源码及 `tools/run_tests.py`、`tools/run_isolated_tests.py` 已按要求删除，本文测试命令、路径和结果均为删除前的历史记录。当前保留静态检查、本地构建、成品验收及应用内指令测试功能。删除后导入位置检查覆盖 1446 个 Python 文件，0 处违规，依赖锁检查通过。自动审批拦截了测试缓存删除，`test/__pycache__/` 中的 `.pyc` 暂留，不包含测试源码。
+## 图像素材相对路径（2026-10-15，未提交）
+
+以 `27a5f9c` 为基线，将图像素材保存、编辑预览、执行解析、图片条件、后台图片输入和工作簿边界接入统一图片路径服务。外部图片复制到应用 `data/images/` 后保存相对引用；兼容旧绝对路径、项目旁的旧相对资源及携带 `data/` 的分享包。同名冲突以内容摘要区分，缺失旧图片保留引用，不自动改写用户数据库。子项目导入使用被调用工作簿的位置，迁移预检使用临时素材目录。
+
+- 统一修改后使用忽略目录中的临时验收脚本，**46 项检查通过**：中文路径、斜杠兼容、外部导入、去重、同名不同内容、分享包冲突、子目录、旧绝对路径重定位、变量、多图、后台参数与输出区分、数据库/图片回滚、无效文件零图片写入、工作簿往返、编辑预览、外部目录浏览、后台截图及子项目上下文恢复。未恢复项目 `test/`。
+- 源码在隔离数据与临时工作目录启动通过：7 个页面、406 个参数控件、迁移往返/回滚、14 项真实 OpenCV 检查、RapidOCR 子进程、Excel、独立浏览器与网页录制。
+- Windows PySide2 最终成品使用 `--clean` 和全新工作目录重新构建到 `artifacts/dist/image-path-verified/`。核对 PYZ 归档确认包含最后的分享包冲突与资源浏览修复；同一隔离数据目录首次/二次启动（缩放 1、2）、独立迁移入口及无源码/无 Qt 的后台 Python 入口全部通过。启动实际覆盖上述界面、OCR、Excel、图像识别和浏览器检查。前面的增量构建记录不作为最终成品验收依据。
+- 导入位置检查 1447 个 Python 文件、0 处违规；14 个修改/新增 Python 文件 AST 解析、Ruff F821、差异空白检查通过。图片路径模块独立导入不加载 Qt、OpenCV 或系统输入组件。
+- 用户数据库及 `.idea/` 哈希不变；暂存区为空，HEAD 保持 `27a5f9c`，版本和依赖定义不变。功能说明见 [图像素材路径](IMAGE_RESOURCES.md)。
+
+记录：`artifacts/validation/image-path-summary.json`、`image-path-functional.txt`、`image-path-source-ready.json`、`image-path-source-smoke.txt`、`image-path-preservation.json`、`image-path-ruff.txt`、`image-path-diff-check.txt`、`image-path-verified-build.txt`、`image-path-package-contents.txt`、`image-path-verified-packaged-smoke.txt`。其他平台原生成品和用户实际后台 DLL 未验证，没有调用付费模型接口，没有提交、推送或发布。
+
+维护说明：自动化测试源码及 `tools/run_tests.py`、`tools/run_isolated_tests.py` 已按要求删除，下方模块化改造各节的测试命令、路径和结果为删除前的历史记录。当前保留静态检查、本地构建、成品验收及应用内指令测试功能。删除时导入位置检查覆盖 1446 个 Python 文件，0 处违规，依赖锁检查通过。自动审批拦截了测试缓存删除，`test/__pycache__/` 中的 `.pyc` 暂留，不包含测试源码。
 
 日期：2026-10-15。基线提交：`0c7f811`。应用版本仍为 `v1.6.2`。
 

@@ -1,6 +1,7 @@
 """Ready-to-use predicates with one target field and optional tuning."""
 from anclicker.platform.qt_compat.QtWidgets import (QWidget, QFormLayout, QComboBox, QDoubleSpinBox,
     QSpinBox, QLabel, QPushButton, QFileDialog, QSizePolicy, QHBoxLayout, QDialog)
+from anclicker.platform.image_paths import store_image_reference
 from anclicker.execution.flow_condition_checks import KINDS, condition_kind, validate_parameters
 
 BASIC_FIELDS = {'表达式': (), '图片存在': ('图像路径',), '图片文件存在': ('图像路径',),
@@ -96,7 +97,7 @@ class ConditionPanel(QWidget):
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(self, '选择判断图片', '', '图片 (*.png *.jpg *.jpeg *.bmp);;所有文件 (*)')
         if path:
-            self.controls['图像路径'].setCurrentText(path)
+            self.controls['图像路径'].setCurrentText(store_image_reference(path))
 
     def _update(self, *_):
         kind = self.kind.currentText()

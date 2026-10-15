@@ -1,4 +1,5 @@
 from anclicker.app.paths import resource_path
+from anclicker.platform.image_paths import map_background_images
 """Per-execution background window ownership and dm input/screenshot adapter."""
 from collections import namedtuple
 from contextlib import contextmanager
@@ -18,6 +19,7 @@ from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
 _module_imports = _DeferredImports(globals(), {
+    'resolve_image_path': ('from', 'anclicker.execution.actions', ('resolve_image_path',), 0),
     'win32gui': ('import', 'win32gui', (), False),
     'win32process': ('import', 'win32process', (), False),
     'psutil': ('import', 'psutil', (), False),
@@ -626,6 +628,9 @@ def execute_background_method(context, group, parameters):
         raise ValueError('后台参数必须为对象')
     values = {key: substitute_variables(context, value) if isinstance(value, str) else value
               for key, value in values.items()}
+    resolve_image_path = _module_imports.load('resolve_image_path')
+    values = map_background_images(name, values,
+        lambda value: resolve_image_path({'图像路径': value}, context))
     arguments = values_for(name, values)
     arguments = [backend.hwnd if value == '@窗口' else value for value in arguments]
     arguments = values_for(name, {item['name']: value for item, value in zip(definition['args'], arguments)

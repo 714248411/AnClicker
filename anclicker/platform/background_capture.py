@@ -1,5 +1,6 @@
 """Frozen bound-client screenshots with lossless crop and client-coordinate picking."""
 from dataclasses import dataclass
+from anclicker.platform.image_paths import store_image_reference
 from types import SimpleNamespace
 from anclicker.platform.qt_compat.QtCore import Qt, QRect, QRectF, Signal
 from anclicker.platform.qt_compat.QtGui import QImage, QPainter, QPen
@@ -306,9 +307,9 @@ def select_background(editor, parameters, mode='region'):
 def save_capture(editor, selection, folder=None, suffix='.png'):
     IMAGES_FOLDER = _module_imports.load('IMAGES_FOLDER')
     capture_path = _module_imports.load('capture_path')
-    path = capture_path(folder or IMAGES_FOLDER).with_suffix(suffix)
+    path = capture_path(IMAGES_FOLDER).with_suffix(suffix)
     selection.save_selection(path)
     callback = getattr(getattr(editor, 'context', None), 'metadata', {}).get('remember_capture')
     if callable(callback):
         callback(str(path))
-    return path
+    return store_image_reference(path)

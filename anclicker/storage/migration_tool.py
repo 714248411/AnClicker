@@ -19,6 +19,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
+from anclicker.platform.image_paths import normalize_image_parameters
 from anclicker.storage.graph_repository import GraphRepository, SETTINGS_SHEET_HEADERS, WorkbookValidationError, GraphValidationError
 from anclicker.storage.legacy_workbook import LEGACY_HEADERS, DATABASE_HEADERS, convert_legacy_workbook, is_current_workbook
 
@@ -137,7 +138,7 @@ def inspect_migration(source, base_directory=None):
         DatabaseOperation = _module_imports.load('DatabaseOperation')
         path = str(Path(temporary) / 'check.db')
         DatabaseOperation(path)
-        repository = GraphRepository(path)
+        repository = GraphRepository(path, data_folder=Path(temporary) / 'data')
         for sheet in source:
             if sheet.title == '设置':
                 continue
@@ -234,30 +235,14 @@ def write_migration_bundle(plan, source_path, output_parent=None):
         original.close()
     for branch, book in plan.workbooks.items():
         path = folder / _branch_filename(branch_names.index(branch)+1, branch)
-        # Keep explicitly referenced images portable; never scan unrelated drives.
-        assets = folder / 'images'
+        # The bundle carries data/images and keeps image references data-relative.
         rewritten = []
-        for row in book['命令'].iter_rows(min_row=2):
-            parameters = json.loads(row[2].value)
-            if '图像路径' not in parameters:
-                continue
-            paths = []
-            for value in str(parameters['图像路径']).splitlines():
-                original_image = Path(value)
-                if original_image.is_file():
-                    assets.mkdir(exist_ok=True)
-                    digest = hashlib.sha256(original_image.read_bytes()).hexdigest()[:16]
-                    image_name = digest + original_image.suffix.lower()
-                    destination = assets / image_name
-                    if not destination.exists():
-                        shutil.copy2(original_image, destination)
-                    paths.append('images/' + image_name)
-                else:
-                    paths.append(value)
-            parameters['图像路径'] = '\n'.join(paths)
-            rewritten.append((row[2], row[2].value))
-            row[2].value = json.dumps(parameters, ensure_ascii=False, allow_nan=False)
         try:
+            for row in book['命令'].iter_rows(min_row=2):
+                parameters = normalize_image_parameters(json.loads(row[2].value),
+                    type_id=row[1].value, project_path=str(source), data_folder=folder / 'data')
+                rewritten.append((row[2], row[2].value))
+                row[2].value = json.dumps(parameters, ensure_ascii=False)
             book.save(path)
         finally:
             for cell, value in rewritten:
