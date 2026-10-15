@@ -10,17 +10,19 @@
 
 体验新增功能请使用本分支源码，按下方“开发与运行”以及 [开发版运行说明](docs/RPA_REBUILD.md) 准备环境。Windows 小模型可通过“准备本机小模型.cmd”准备；已有离线运行包时，将 .agent-runtime 解压到源码根目录。Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
 
-[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](packaging/PLATFORM_GUIDE.md) · [待发布更新说明](packaging/RELEASE_NOTES.md)
+[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](tools/packaging/PLATFORM_GUIDE.md) · [待发布更新说明](tools/packaging/RELEASE_NOTES.md)
 
 ## 项目简介
 
 An Clicker 是一款基于 Qt 的 Windows、macOS、Linux 桌面自动化工具，由 Clicker 项目扩展而来。Windows 兼容构建采用 PySide2 / Qt 5.15，其他平台使用 PySide6；共用界面与业务代码。启动入口为 `main.py`，主窗口控制器位于 `Start_Win.py`。
 
-Windows 兼容候选版的目标是 Windows 10 1607 起的 x64 系统及 Windows 11。构建基线、已验证范围和目标系统验收方法见 [Windows 兼容说明](packaging/WINDOWS_COMPATIBILITY.md)。
+Windows 兼容候选版的目标是 Windows 10 1607 起的 x64 系统及 Windows 11。构建基线、已验证范围和目标系统验收方法见 [Windows 兼容说明](tools/packaging/WINDOWS_COMPATIBILITY.md)。
 
 项目同步发布于 [Gitee](https://gitee.com/YiZhiYanYi/AnClicker) 与 [GitHub](https://github.com/714248411/AnClicker)；应用内“反馈及建议2”直接打开 Gitee 仓库的 [Issues](https://gitee.com/YiZhiYanYi/AnClicker/issues)。
 
 ## 当前架构
+
+实现代码按职责放在 `anclicker/`，根目录 Python 文件仅保留启动入口 `main.py` 和构建元数据 `info.py`。历史顶层模块转发集中在 `legacy/`，资源放在 `resources/`。本机依赖集中在 `.local/`，构建与验证产物集中在 `artifacts/`，目录总览见 [目录说明](docs/DIRECTORY_LAYOUT.md)。目录职责、运行接口和源码兼容初始化方式见 [模块结构说明](docs/MODULAR_ARCHITECTURE.md)，验证结果见 [重构验证记录](docs/MODULAR_REFACTOR_VALIDATION.md)。
 
 ### 流程图复刻与运行语义
 
@@ -89,23 +91,19 @@ Excel 导入导出采用节点协议，工作表固定为“命令、节点、�
 
 ## 开发与运行
 
-优先使用项目虚拟环境：
+Windows 开发优先使用锁定的 Python 3.10.11 / PySide2 构建环境；双击“启动开发版.cmd”也会优先选用该环境，原 `.venv` 保持不变：
 
 ```powershell
-.\.venv\Scripts\python.exe main.py
+.\.venv-build\Scripts\python.exe main.py
 ```
 
-依赖清单见 `requirements.txt` 和 `pyproject.toml`。生成主窗口 UI：
-
-```powershell
-.\.venv\Scripts\pyside6-uic.exe Window\mainwindow.ui -o Window\mainwindow_ui.py
-```
+依赖清单见 `requirements.txt`、`pyproject.toml` 和 `uv.lock`，构建环境准备入口为 `python tools/prepare_build.py`。UI 源、生成绑定、工具及本机依赖的位置见 [目录说明](docs/DIRECTORY_LAYOUT.md)。主窗口维护输入位于 `resources/ui/windows/`，现有绑定位于 `anclicker/ui/generated/windows/`；旧版 README 中的 `Window/` 编译命令已失效，既有手写调整应保留。指令生成器使用 `--check` 检查一致性。
 
 应用名称、标题、版本及程序标识在 `info.py` 管理；所有更新和七牛发布配置统一放在该文件的 `UPDATE_CONFIG` 字典中；上传 AK/SK 仍从环境变量读取。根目录无需 `update-source.json`，构建时会自动生成包内校验快照。
 
-PyInstaller 打包说明见 `packaging/打包文件说明.md`。 AI 操作流程见 [AI打包并发布说明](packaging/AI打包并发布说明.md)。
+PyInstaller 打包说明见 `tools/packaging/打包文件说明.md`。 AI 操作流程见 [AI打包并发布说明](tools/packaging/AI打包并发布说明.md)。
 
-Windows Velopack 绿色便携版仅交付 ZIP，不生成安装包；完整解压后双击根目录 `An Clicker.exe`，不要单独移动程序文件。便携版支持后台检查、下载及标题栏右侧的“新版本”按钮；普通 ZIP 和源码不自动更新。托管版将用户数据保存在 `current` 外。交付 ZIP 自动带版本号，例如 `delivery/AnClicker-v1.3.2-Portable.zip`。本地构建命令为 `python packaging/build_velopack.py`，迁移与验证步骤见上述打包说明。七牛构建上传入口为 `packaging/发布Velopack.py`，配置和发布流程见 AI 打包说明；本次接入未执行线上发布。
+Windows Velopack 绿色便携版仅交付 ZIP，不生成安装包；完整解压后双击根目录 `An Clicker.exe`，不要单独移动程序文件。便携版支持后台检查、下载及标题栏右侧的“新版本”按钮；普通 ZIP 和源码不自动更新。托管版将用户数据保存在 `current` 外。交付 ZIP 自动带版本号，例如 `delivery/AnClicker-v1.3.2-Portable.zip`。本地构建命令为 `python tools/packaging/build_velopack.py`，迁移与验证步骤见上述打包说明。七牛构建上传入口为 `tools/packaging/发布Velopack.py`，配置和发布流程见 AI 打包说明；本次接入未执行线上发布。
 
 ## 跨平台发布
 
@@ -155,7 +153,7 @@ Windows Velopack 绿色便携版仅交付 ZIP，不生成安装包；完整解�
 
 ## 开源致谢
 
-本地 OCR 与智能截图说明见 [LOCAL_OCR.md](LOCAL_OCR.md)。感谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[ONNX Runtime](https://github.com/microsoft/onnxruntime)、[OpenCV](https://github.com/opencv/opencv) 及微信 OCR 社区适配项目 [wechat_ocr](https://github.com/kanadeblisst00/wechat_ocr)、[wechat-ocr](https://github.com/swigger/wechat-ocr)。遵循各自许可，微信私有原生组件不随包分发。截图交互参考 [Snipaste](https://www.snipaste.com/)，实现独立编写；Snipaste 并非本项目使用的开源代码依赖，也未完整复刻其所有功能。
+本地 OCR 与智能截图说明见 [LOCAL_OCR.md](docs/LOCAL_OCR.md)。感谢 [RapidOCR](https://github.com/RapidAI/RapidOCR)、[ONNX Runtime](https://github.com/microsoft/onnxruntime)、[OpenCV](https://github.com/opencv/opencv) 及微信 OCR 社区适配项目 [wechat_ocr](https://github.com/kanadeblisst00/wechat_ocr)、[wechat-ocr](https://github.com/swigger/wechat-ocr)。遵循各自许可，微信私有原生组件不随包分发。截图交互参考 [Snipaste](https://www.snipaste.com/)，实现独立编写；Snipaste 并非本项目使用的开源代码依赖，也未完整复刻其所有功能。
 
 感谢 [Project Graph](https://github.com/graphif/project-graph) 的开源作者与全体贡献者。流程图右键拖拽切线交互与视觉反馈参考其设计，本项目的 Qt 实现独立编写。致谢仅展示在仓库介绍中，应用内不再添加该展示区；原有许可证与版权声明保留。
 

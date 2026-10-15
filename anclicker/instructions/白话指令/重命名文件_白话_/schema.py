@@ -1,0 +1,5 @@
+"""Instruction parameter schema."""
+from __future__ import annotations
+from anclicker.domain.fields import FieldSpec
+TYPE_ID = '重命名文件（白话）'
+FIELDS = (FieldSpec('folder', '哪个文件夹', 'text', '', choices=(), minimum=0), FieldSpec('sortBy', '按什么排序', 'choice', '文件名', choices=('文件名', '修改时间', '文件大小'), minimum=0), FieldSpec('order', '排序方向', 'choice', '从小到大', choices=('从小到大', '从大到小'), minimum=0), FieldSpec('index', '第几个文件(如 1、1-3、1,3,5、-1=倒数第1)', 'text', '1', choices=(), minimum=0), FieldSpec('mode', '命名方式', 'choice', '加前缀', choices=('加前缀', '删前缀', '加后缀', '删后缀', '替换文字', '删除文字', '按分隔符重组'), minimum=0), FieldSpec('text', '标识内容(前缀/后缀/替换文字)', 'text', '', choices=(), minimum=0), FieldSpec('type', '标识类型(留空=用上面文字)', 'choice', '自定义文字', choices=('自定义文字', '数字序号', '字母序号', '日期'), minimum=0), FieldSpec('sep', '分隔符(重组用，如 _ - 空格)', 'text', '_', choices=(), minimum=0), FieldSpec('parts', '取哪几段重组(如 2,1，留空=全部)', 'text', '', choices=(), minimum=0), FieldSpec('replacement', '替换为（替换文字时使用）', 'text', '', choices=(), minimum=0))

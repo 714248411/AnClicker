@@ -44,29 +44,31 @@ jobs:
           python -c "import tkinter; print('Tcl/Tk', tkinter.TkVersion)"
           uv sync --locked --group release
           uv run --locked --group release python tools/setup_rpa_runtime.py
+      - name: Check centralized imports
+        run: uv run --locked --group release python tools/import_policy.py
       - name: Build native application
-        run: uv run --locked --group release python -m PyInstaller --clean -y packaging/main.spec
+        run: uv run --locked --group release python -m PyInstaller --clean -y --distpath artifacts/dist --workpath artifacts/build tools/packaging/main.spec
       - name: Package application
-        run: uv run --locked --group release python packaging/build_release.py
+        run: uv run --locked --group release python tools/packaging/build_release.py
       - name: Verify delivered archive
         run: |
-          mkdir extracted
-          unzip -q release/*.zip -d extracted
+          mkdir -p artifacts/validation/extracted
+          unzip -q artifacts/release/*.zip -d artifacts/validation/extracted
           if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
-            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chown root:root artifacts/validation/extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chmod 4755 artifacts/validation/extracted/AnClicker/runtime/electron/chrome-sandbox
           fi
-          uv run --locked --group release python packaging/smoke_release.py --dist extracted 2>&1 | tee release/verification-${{ matrix.artifact }}.txt
+          uv run --locked --group release python tools/packaging/smoke_release.py --dist extracted 2>&1 | tee artifacts/release/verification-${{ matrix.artifact }}.txt
           uv run --locked --group release python - <<'PY'
           import hashlib, pathlib, platform, json
-          for p in pathlib.Path('release').glob('*.zip'):
+          for p in pathlib.Path('artifacts/release').glob('*.zip'):
               p.with_suffix(p.suffix+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n')
-          pathlib.Path('release/platform-${{ matrix.artifact }}.json').write_text(json.dumps({'system':platform.platform(),'architecture':platform.machine(),'commit':'${{ github.sha }}','verification':'passed'},indent=2))
+          pathlib.Path('artifacts/release/platform-${{ matrix.artifact }}.json').write_text(json.dumps({'system':platform.platform(),'architecture':platform.machine(),'commit':'${{ github.sha }}','verification':'passed'},indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.artifact }}
-          path: release/*
+          path: artifacts/release/*
           if-no-files-found: error
   assemble:
     needs: build
@@ -75,12 +77,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          path: platform-artifacts
-      - run: python3 packaging/assemble_platforms.py
+          path: artifacts/platform-input
+      - run: python3 tools/packaging/assemble_platforms.py
       - uses: actions/upload-artifact@v4
         with:
           name: final-platform-packages
-          path: delivery/*
+          path: artifacts/delivery/*
   verify-final:
     needs: assemble
     strategy:
@@ -113,7 +115,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: final-platform-packages
-          path: delivery
+          path: artifacts/delivery
       - name: Install Linux desktop libraries
         if: runner.os == 'Linux'
         run: |
@@ -123,17 +125,17 @@ jobs:
           touch "$HOME/.Xauthority"
       - name: Verify final downloadable package
         run: |
-          mkdir extracted reports
-          unzip -q delivery/AnClicker-v1.6.2-${{ matrix.package }}.zip -d extracted
+          mkdir -p artifacts/validation/extracted artifacts/validation/reports
+          unzip -q artifacts/delivery/AnClicker-v1.6.2-${{ matrix.package }}.zip -d artifacts/validation/extracted
           if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo chown root:root extracted/AnClicker/runtime/electron/chrome-sandbox
-            sudo chmod 4755 extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chown root:root artifacts/validation/extracted/AnClicker/runtime/electron/chrome-sandbox
+            sudo chmod 4755 artifacts/validation/extracted/AnClicker/runtime/electron/chrome-sandbox
           fi
-          python packaging/smoke_release.py --dist extracted/${{ matrix.folder }} 2>&1 | tee reports/final-${{ matrix.artifact }}.txt
+          python tools/packaging/smoke_release.py --dist artifacts/validation/extracted/${{ matrix.folder }} 2>&1 | tee artifacts/validation/reports/final-${{ matrix.artifact }}.txt
           python - <<'PY'
           import hashlib, json, pathlib, platform
-          p = pathlib.Path('delivery/AnClicker-v1.6.2-${{ matrix.package }}.zip')
-          pathlib.Path('reports/final-${{ matrix.artifact }}.json').write_text(json.dumps({
+          p = pathlib.Path('artifacts/delivery/AnClicker-v1.6.2-${{ matrix.package }}.zip')
+          pathlib.Path('artifacts/validation/reports/final-${{ matrix.artifact }}.json').write_text(json.dumps({
               'system': platform.platform(), 'architecture': platform.machine(),
               'commit': '${{ github.sha }}', 'package': p.name,
               'sha256': hashlib.sha256(p.read_bytes()).hexdigest(), 'verification': 'passed'}, indent=2))
@@ -141,7 +143,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: final-verification-${{ matrix.artifact }}
-          path: reports/*
+          path: artifacts/validation/reports/*
 
   stage-native:
     needs: verify-final
@@ -157,10 +159,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: final-platform-packages
-          path: delivery
+          path: artifacts/delivery
       - name: Stage verified native archives in draft release
-        run: python3 packaging/upload_native_assets.py
+        run: python3 tools/packaging/upload_native_assets.py
       - uses: actions/upload-artifact@v4
         with:
           name: native-upload-verification
-          path: native-upload.json
+          path: artifacts/validation/native-upload.json

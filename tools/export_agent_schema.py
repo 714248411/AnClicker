@@ -1,8 +1,22 @@
 """Export the actual tool/palette contract for model integrations and training."""
 import json,sys
 from pathlib import Path
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'anclicker': ('import', 'anclicker', (), False),
+    'VERSION_TOOLS_catalog_instruction_schema': ('from', 'anclicker.domain.agent_protocol', ('VERSION', 'TOOLS', 'catalog', 'instruction_schema'), 0),
+})
+
 root=Path(__file__).resolve().parents[1];sys.path.insert(0,str(root))
-from agent_protocol import VERSION,TOOLS,catalog,instruction_schema
+anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry points.
+VERSION, TOOLS, catalog, instruction_schema = _module_imports.load('VERSION_TOOLS_catalog_instruction_schema')
 if __name__=='__main__':
     target=root/'docs/agent-protocol-v1.json'
     target.write_text(json.dumps({'protocol':VERSION,'tools':TOOLS,'catalog':catalog(),

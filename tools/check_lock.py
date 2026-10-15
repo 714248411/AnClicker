@@ -1,5 +1,11 @@
-import os,subprocess,sys
+"""Check dependency lock consistency using the available uv installation."""
+import os
 from pathlib import Path
-root=Path(__file__).resolve().parents[1]
-env=dict(os.environ,PYTHONPATH=str(root/'.runtime-tools'),UV_PYTHON=sys.executable)
-raise SystemExit(subprocess.run([sys.executable,'-m','uv','lock','--check'],cwd=root,env=env).returncode)
+import shutil
+import subprocess
+import sys
+root = Path(__file__).resolve().parents[1]
+uv = shutil.which('uv')
+command = [uv] if uv else [sys.executable, '-m', 'uv']
+env = dict(os.environ, UV_PYTHON=sys.executable)
+raise SystemExit(subprocess.run([*command, 'lock', '--check', '--offline'], cwd=root, env=env).returncode)

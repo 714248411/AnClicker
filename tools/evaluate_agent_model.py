@@ -1,9 +1,24 @@
 """Dry evaluation of real model tool routing. Never executes returned tools."""
 import argparse,json,sys,time
 from pathlib import Path
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'anclicker': ('import', 'anclicker', (), False),
+    'AgentSettings_ModelClient': ('from', 'anclicker.execution.agent_provider', ('AgentSettings', 'ModelClient'), 0),
+    'ExecutionContext': ('from', 'anclicker.domain.instructions', ('ExecutionContext',), 0),
+})
+
 root=Path(__file__).resolve().parents[1];sys.path.insert(0,str(root))
-from agent_provider import AgentSettings,ModelClient
-from instructions.models import ExecutionContext
+anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry points.
+AgentSettings, ModelClient = _module_imports.load('AgentSettings_ModelClient')
+ExecutionContext = _module_imports.load('ExecutionContext')
 
 def evaluate(client,cases):
     results=[]
@@ -25,7 +40,7 @@ def evaluate(client,cases):
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--url',default='http://127.0.0.1:8766/v1');parser.add_argument('--model',default='anclicker-small')
     parser.add_argument('--backend',choices=['ollama','compatible'],default='compatible');parser.add_argument('--mode',choices=['json','native'],default='json')
-    parser.add_argument('--cases',default=str(root/'docs/agent-eval-v1.jsonl'));parser.add_argument('--output',default=str(root/'validation/agent-model-eval.json'))
+    parser.add_argument('--cases',default=str(root/'docs/agent-eval-v1.jsonl'));parser.add_argument('--output',default=str(root/'artifacts/validation/agent-model-eval.json'))
     args=parser.parse_args();cases=[json.loads(line) for line in Path(args.cases).read_text(encoding='utf-8').splitlines() if line.strip()]
     report=evaluate(ModelClient(AgentSettings(backend=args.backend,endpoint=args.url,model=args.model,mode=args.mode)),cases)
     Path(args.output).write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')

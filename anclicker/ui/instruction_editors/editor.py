@@ -1,0 +1,618 @@
+"""独立 .ui 参数窗口的通用绑定与校验。"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+import re
+
+from anclicker.platform.qt_compat.QtCore import QPoint, QRect, Qt, Signal
+from anclicker.platform.qt_compat.QtGui import QCursor
+from anclicker.platform.qt_compat.QtWidgets import (
+    QApplication,
+    QAbstractSpinBox,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QInputDialog,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QMessageBox,
+    QRubberBand,
+    QSpinBox,
+    QWidget,
+    QLabel,
+    QFormLayout,
+    QScrollArea,
+    QVBoxLayout,
+    QSizePolicy,
+)
+
+from anclicker.domain.instruction_interfaces import InstructionEditorInterface
+from anclicker.domain.instructions import InstructionDraft
+
+
+from anclicker.domain.fields import FieldSpec
+
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'pyautogui_module': ('from', 'anclicker.execution.actions', ('pyautogui_module',), 0),
+    'DatabaseOperation': ('from', 'anclicker.storage.database', ('DatabaseOperation',), 0),
+    'compact_body': ('from', 'anclicker.ui.instruction_editors.compact_settings', ('compact_body',), 0),
+    'open_advanced_timing': ('from', 'anclicker.ui.timing_dialog', ('open_advanced_timing',), 0),
+    'VariablePool_Win': ('from', 'anclicker.ui.dialogs.变量池窗口', ('VariablePool_Win',), 0),
+    'binding_parameters_select_background_isValid': ('from', 'anclicker.platform.background_capture', ('binding_parameters', 'select_background', 'isValid'), 0),
+    'load_workbook': ('from', 'openpyxl', ('load_workbook',), 0),
+    'point': ('from', 'anclicker.execution.actions', ('point',), 0),
+    'region': ('from', 'anclicker.execution.actions', ('region',), 0),
+})
+
+
+
+class _RegionSelectionDialog(QDialog):
+    """鼠标框选屏幕区域的轻量覆盖层。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
+        screen_ = QApplication.primaryScreen()
+        if screen_ is not None:
+            self.setGeometry(screen_.virtualGeometry())
+        self.setWindowOpacity(0.28)
+        self.setCursor(Qt.CursorShape.CrossCursor)
+        self.setStyleSheet("background: black;")
+        self._origin = QPoint()
+        self._selection = QRect()
+        self._dragging = False
+        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
+
+    def mousePressEvent(self, event_) -> None:
+        if event_.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._origin = event_.position().toPoint()
+            self._rubber_band.setGeometry(QRect(self._origin, self._origin))
+            self._rubber_band.show()
+
+    def mouseMoveEvent(self, event_) -> None:
+        if self._dragging:
+            self._rubber_band.setGeometry(
+                QRect(self._origin, event_.position().toPoint()).normalized()
+            )
+
+    def mouseReleaseEvent(self, event_) -> None:
+        if event_.button() != Qt.MouseButton.LeftButton:
+            return
+        self._dragging = False
+        local_rect_ = self._rubber_band.geometry().normalized()
+        self._rubber_band.hide()
+        if local_rect_.width() < 2 or local_rect_.height() < 2:
+            self.reject()
+            return
+        top_left_ = self.mapToGlobal(local_rect_.topLeft())
+        self._selection = QRect(top_left_, local_rect_.size())
+        self.accept()
+
+    def selected_region(self) -> tuple[int, int, int, int] | None:
+        if self.result() != QDialog.DialogCode.Accepted:
+            return None
+        return (
+            self._selection.x(),
+            self._selection.y(),
+            self._selection.width(),
+            self._selection.height(),
+        )
+
+
+class _PointSelectionDialog(QDialog):
+    """Consume a target click and read coordinates in the input backend's units."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.point = None
+        self.capture_error = None
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool |
+                            Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowOpacity(0.25)
+        self.setStyleSheet("background:#263449;color:white;")
+        self.setCursor(Qt.CursorShape.CrossCursor)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(screen.virtualGeometry())
+        layout = QVBoxLayout(self)
+        label = QLabel("左键点选目标位置（不会点击底层窗口） · Esc 取消", self)
+        label.setStyleSheet("font-size:20px;padding:20px;")
+        label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        layout.addWidget(label)
+        layout.addStretch()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        try:
+            pyautogui_module = _module_imports.load('pyautogui_module')
+            position = pyautogui_module().position()
+            self.point = (int(position.x), int(position.y))
+            self.accept()
+        except Exception as error:
+            self.capture_error = str(error)
+            self.reject()
+
+
+class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
+    """绑定独立 .ui 参数窗口，并提供统一变量管理和自适应布局。"""
+
+    test_requested = Signal(object)
+    auxiliary_requested = Signal(str, object)
+    TYPE_ID = ""
+    DISPLAY_NAME = ""
+    FIELDS: tuple[FieldSpec, ...] = ()
+    UI_CLASS = None
+
+    def __init__(self, parent=None, draft=None, context=None):
+        super().__init__(parent)
+        if self.UI_CLASS is None:
+            raise TypeError(f"{type(self).__name__} 未绑定独立 Ui 类")
+        self.context = context
+        self._recording_parameters = {}
+        self.ui = self.UI_CLASS()
+        self.ui.setupUi(self)
+        self.setWindowTitle(self.DISPLAY_NAME or self.TYPE_ID)
+        self._controls = self._collect_parameter_controls()
+        self._verify_ui_contract()
+        self._bind_common_controls()
+        self._connect_auxiliary_buttons()
+        self._connect_buttons()
+        self._prepare_variable_control()
+        self._adapt_layout()
+        if draft is not None:
+            self.load_draft(draft)
+
+    def _variable_database(self):
+        database = getattr(self.context, 'metadata', {}).get('database')
+        if database is None:
+            DatabaseOperation = _module_imports.load('DatabaseOperation')
+            database = DatabaseOperation()
+        return database
+
+    def _prepare_variable_control(self):
+        control = self._controls.get('变量')
+        if not isinstance(control, QComboBox):
+            return
+        control.setMinimumContentsLength(12)
+        control.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        control.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        current = control.currentText()
+        for index, field in enumerate(self.FIELDS):
+            if field.key == '变量':
+                button = getattr(self.ui, f'auxiliary_{index}', None)
+                if button is not None:
+                    button.setText('设置变量')
+        self._refresh_variables(current)
+
+    def _refresh_variables(self, current=''):
+        variables = dict(self._variable_database().get_variable_info('dict') or {})
+        if self.context is not None:
+            self.context.variables.update(variables)
+        control = self._controls.get('变量')
+        if isinstance(control, QComboBox):
+            control.clear()
+            control.addItems(list(variables))
+            control.setCurrentText(current)
+
+    def _adapt_layout(self):
+        # Generated dialogs share one layout; scrolling keeps every field reachable
+        # on small displays and when the desktop scales text.
+        for label in self.findChildren(QLabel):
+            label.setWordWrap(True)
+        for form in self.findChildren(QFormLayout):
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        for button in self.findChildren(QPushButton):
+            button.setMinimumHeight(max(32, button.sizeHint().height()))
+            button.setMinimumWidth(button.sizeHint().width())
+        for control in self._controls.values():
+            if not isinstance(control, QPlainTextEdit):
+                control.setMinimumHeight(max(32, control.sizeHint().height()))
+        # Include common repeat controls, not only instruction parameters.  The
+        # spin box's internal line edit must have enough room after QSS padding.
+        for control in self.findChildren(QAbstractSpinBox):
+            control.ensurePolished()
+            control.setMinimumHeight(max(34, control.fontMetrics().height() + 16,
+                                         control.sizeHint().height()))
+        body = QWidget()
+        body.setObjectName('instructionEditorBody')
+        body.setLayout(self.layout())
+        self._parameter_body = body
+        compact_body = _module_imports.load('compact_body')
+        compact_body(body)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(body)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(4, 4, 4, 4)
+        root.addWidget(scroll)
+        self.setMinimumSize(480, 180)
+        screen = self.screen()
+        if screen:
+            available = screen.availableGeometry()
+            self.resize(min(760, available.width()-40), min(body.sizeHint().height()+16, available.height()-60))
+
+    def _collect_parameter_controls(self) -> dict[str, QWidget]:
+        controls_: dict[str, QWidget] = {}
+        for index_, field_ in enumerate(self.FIELDS):
+            control_name_ = f"parameter_{index_}"
+            control_ = getattr(self.ui, control_name_, None)
+            if not isinstance(control_, QWidget):
+                raise RuntimeError(
+                    f"{self.TYPE_ID}.ui 缺少参数控件：{control_name_} ({field_.key})"
+                )
+            controls_[field_.key] = control_
+        return controls_
+
+    def _verify_ui_contract(self) -> None:
+        declared_ = {field_.key for field_ in self.FIELDS}
+        actual_ = set(self._controls)
+        if declared_ != actual_:
+            missing_ = sorted(declared_ - actual_)
+            extra_ = sorted(actual_ - declared_)
+            raise RuntimeError(
+                f"{self.TYPE_ID}.ui 参数控件与字段声明不一致；"
+                f"缺少={missing_}，多余={extra_}"
+            )
+
+    def _bind_common_controls(self) -> None:
+        required_names_ = (
+            "repeatSpinBox",
+            "errorPolicyComboBox",
+            "noteEdit",
+            "testButton",
+            "buttonBox",
+        )
+        missing_ = [name_ for name_ in required_names_ if not hasattr(self.ui, name_)]
+        if missing_:
+            raise RuntimeError(f"{self.TYPE_ID}.ui 缺少通用控件：{missing_}")
+        self.repeat_count = self.ui.repeatSpinBox
+        self.error_policy = self.ui.errorPolicyComboBox
+        self.note = self.ui.noteEdit
+        self.test_button = self.ui.testButton
+        self.button_box = self.ui.buttonBox
+        if self.TYPE_ID != '图像点击':
+            self.runtime_advanced_button = QPushButton('运行高级设置', self)
+            self.runtime_advanced_button.clicked.connect(self._open_runtime_advanced)
+            footer = getattr(self.ui, 'footerLayout', None)
+            if footer is not None:
+                footer.insertWidget(1, self.runtime_advanced_button)
+            else:
+                self.ui.rootLayout.insertWidget(self.ui.rootLayout.count() - 1, self.runtime_advanced_button)
+        for role, text in ((QDialogButtonBox.StandardButton.Ok, '确定'),
+                           (QDialogButtonBox.StandardButton.Cancel, '取消')):
+            button = self.button_box.button(role)
+            if button is not None:
+                button.setText(text)
+
+    def _connect_buttons(self) -> None:
+        self.button_box.accepted.connect(self._accept_if_valid)
+        self.button_box.rejected.connect(self.reject)
+        self.test_button.clicked.connect(self._test_if_valid)
+
+    def _open_runtime_advanced(self):
+        open_advanced_timing = _module_imports.load('open_advanced_timing')
+        open_advanced_timing(self, self._variable_database())
+
+    def _connect_auxiliary_buttons(self) -> None:
+        for index_, field_ in enumerate(self.FIELDS):
+            button_ = getattr(self.ui, f"auxiliary_{index_}", None)
+            if isinstance(button_, QPushButton):
+                button_.clicked.connect(
+                    lambda checked_=False, key__=field_.key: self._run_auxiliary(key__)
+                )
+
+    def _run_auxiliary(self, key_: str) -> None:
+        control_ = self._controls[key_]
+        current_ = self._control_value(control_)
+        service_ = self.context.service("编辑器辅助") if self.context is not None else None
+        if service_ is not None:
+            result_ = service_(
+                type_id=self.TYPE_ID,
+                parameter_key=key_,
+                current_value=current_,
+                parent=self,
+            )
+            if result_ is not None:
+                self._set_control_value(control_, result_)
+                return
+
+        if key_ in {"图像路径", "工作簿", "文件路径", "保存路径"}:
+            self._browse_path(key_, control_)
+            return
+        if key_ == "代码":
+            file_path_, _ = QFileDialog.getOpenFileName(
+                self, "载入 Python 代码", "", "Python (*.py);;文本文件 (*.txt);;所有文件 (*)"
+            )
+            if file_path_:
+                self._set_control_value(
+                    control_, Path(file_path_).read_text(encoding="utf-8")
+                )
+            return
+        if key_ == "区域":
+            if self._select_background_parameter(key_, "region"):
+                return
+            selector_ = _RegionSelectionDialog(self)
+            selector_.exec()
+            region_ = selector_.selected_region()
+            if region_ is not None:
+                self._set_control_value(control_, ",".join(str(value_) for value_ in region_))
+            return
+        if key_ == "单元格":
+            cell_, accepted_ = QInputDialog.getText(
+                self, "选择单元格", "请输入 Excel 单元格，例如 A1：", text=str(current_ or "A1")
+            )
+            if accepted_:
+                if re.fullmatch(r"[A-Za-z]{1,3}[1-9][0-9]*", cell_.strip()):
+                    self._set_control_value(control_, cell_.strip().upper())
+                else:
+                    QMessageBox.warning(self, "单元格无效", "请输入类似 A1、BC12 的单元格地址。")
+            return
+        if key_ == "变量":
+            VariablePool_Win = _module_imports.load('VariablePool_Win')
+            manager = VariablePool_Win(self, database=self._variable_database(), selected_name=str(current_))
+            if manager.exec() == QDialog.DialogCode.Accepted:
+                self._refresh_variables(manager.selected_name or str(current_))
+            return
+        if key_ in {"坐标", "开始位置", "结束位置", "点击位置", "悬停位置", "中心锚点"}:
+            self._select_screen_point(key_, control_)
+            return
+        self.auxiliary_requested.emit(key_, control_)
+
+    def _create_point_selector(self, key_):
+        return _PointSelectionDialog(self)
+
+    def _apply_point_selection(self, key_, control_, selector_):
+        # Commas also support negative coordinates on a secondary monitor.
+        self._set_control_value(control_, ",".join(map(str, selector_.point)))
+
+    def _select_background_parameter(self, key_, mode):
+        binding_parameters, select_background, isValid = _module_imports.load('binding_parameters_select_background_isValid')
+        try:
+            parameters = binding_parameters(self)
+            if parameters is None:
+                return False
+            selection = select_background(self, parameters, mode)
+            if selection is not None:
+                if mode == 'point':
+                    self._apply_point_selection(key_, self._controls[key_], selection)
+                else:
+                    self._set_control_value(self._controls[key_], ','.join(map(str, selection.region)))
+        except Exception as error:
+            if isValid(self):
+                QMessageBox.warning(self, '后台截图/取点失败', str(error))
+        return True
+
+    def _select_screen_point(self, key_, control_):
+        if self._select_background_parameter(key_, 'point'):
+            return
+        owner_ = self.parentWidget().window() if self.parentWidget() else None
+        owner_visible_ = owner_ is not None and owner_.isVisible()
+        was_visible_ = self.isVisible()
+        selector_ = None
+        capture_error_ = None
+        opacity_ = self.windowOpacity()
+        owner_opacity_ = owner_.windowOpacity() if owner_visible_ else None
+        workspace_owner_ = getattr(self, '_workspace_owner', None)
+        workspace_visible_ = workspace_owner_ is not None and workspace_owner_ is not owner_ and workspace_owner_.isVisible()
+        workspace_opacity_ = workspace_owner_.windowOpacity() if workspace_visible_ else None
+        try:
+            # Hiding a QDialog running exec() exits its modal event loop. The
+            # caller may then delete the editor during the selector's loop.
+            # Keep both windows alive/visible, but transparent behind the picker.
+            self.setWindowOpacity(0.0)
+            if owner_visible_:
+                owner_.setWindowOpacity(0.0)
+            if workspace_visible_:
+                workspace_owner_.setWindowOpacity(0.0)
+            selector_ = self._create_point_selector(key_)
+            if selector_.exec() == QDialog.DialogCode.Accepted and selector_.point is not None:
+                self._apply_point_selection(key_, control_, selector_)
+            capture_error_ = selector_.capture_error
+        except Exception as error_:
+            capture_error_ = str(error_) or type(error_).__name__
+        finally:
+            if selector_ is not None:
+                selector_.deleteLater()
+            if owner_visible_:
+                owner_.setWindowOpacity(owner_opacity_)
+            if workspace_visible_:
+                workspace_owner_.setWindowOpacity(workspace_opacity_)
+            self.setWindowOpacity(opacity_)
+            if was_visible_:
+                self.activateWindow()
+        if capture_error_:
+            QMessageBox.warning(self, "坐标获取失败", capture_error_)
+
+    def _browse_path(self, key_: str, control_: QWidget) -> None:
+        if key_ == "保存路径":
+            file_path_, _ = QFileDialog.getSaveFileName(
+                self, "选择保存路径", "", "PNG 图像 (*.png);;所有文件 (*)"
+            )
+            paths_ = [file_path_] if file_path_ else []
+        elif key_ == "工作簿":
+            file_path_, _ = QFileDialog.getOpenFileName(
+                self, "选择工作簿", "", "Excel 工作簿 (*.xlsx *.xlsm);;所有文件 (*)"
+            )
+            paths_ = [file_path_] if file_path_ else []
+        elif isinstance(control_, QPlainTextEdit):
+            paths_, _ = QFileDialog.getOpenFileNames(
+                self, "选择文件", "", "图像 (*.png *.jpg *.jpeg *.bmp);;所有文件 (*)"
+            )
+        else:
+            file_path_, _ = QFileDialog.getOpenFileName(self, "选择文件")
+            paths_ = [file_path_] if file_path_ else []
+        if paths_:
+            value_ = "\n".join(paths_) if isinstance(control_, QPlainTextEdit) else paths_[0]
+            self._set_control_value(control_, value_)
+            if key_ == "工作簿" and "工作表" in self._controls:
+                try:
+                    load_workbook = _module_imports.load('load_workbook')
+                    workbook_ = load_workbook(paths_[0], read_only=True, data_only=True)
+                    try:
+                        if workbook_.sheetnames:
+                            self._set_control_value(
+                                self._controls["工作表"], workbook_.sheetnames[0]
+                            )
+                    finally:
+                        workbook_.close()
+                except Exception as error_:
+                    QMessageBox.warning(self, "工作簿读取失败", str(error_))
+
+    def _accept_if_valid(self) -> None:
+        try:
+            self.get_draft()
+        except (TypeError, ValueError) as error_:
+            QMessageBox.warning(self, "参数不完整", str(error_))
+            return
+        self.accept()
+
+    def _test_if_valid(self) -> None:
+        try:
+            draft_ = self.get_draft()
+        except (TypeError, ValueError) as error_:
+            QMessageBox.warning(self, "参数不完整", str(error_))
+            return
+        self.test_requested.emit(draft_)
+
+    @staticmethod
+    def _control_value(control_: QWidget):
+        if isinstance(control_, QCheckBox):
+            return control_.isChecked()
+        if isinstance(control_, (QSpinBox, QDoubleSpinBox)):
+            return control_.value()
+        if isinstance(control_, QComboBox):
+            return control_.currentText()
+        if isinstance(control_, QPlainTextEdit):
+            return control_.toPlainText()
+        if isinstance(control_, QLineEdit):
+            return control_.text()
+        raise TypeError(f"不支持的参数控件：{type(control_).__name__}")
+
+    @staticmethod
+    def _set_control_value(control_: QWidget, value_: Any) -> None:
+        if isinstance(control_, QCheckBox):
+            control_.setChecked(bool(value_))
+        elif isinstance(control_, (QSpinBox, QDoubleSpinBox)):
+            control_.setValue(value_)
+        elif isinstance(control_, QComboBox):
+            text_ = str(value_)
+            if control_.findText(text_) < 0:
+                control_.addItem(text_)
+            control_.setCurrentText(text_)
+        elif isinstance(control_, QPlainTextEdit):
+            control_.setPlainText(str(value_ or ""))
+        elif isinstance(control_, QLineEdit):
+            control_.setText(str(value_ or ""))
+        else:
+            raise TypeError(f"不支持的参数控件：{type(control_).__name__}")
+
+    def get_draft(self) -> InstructionDraft:
+        parameters_ = {}
+        # Recorder timing/state metadata must survive opening an ordinary editor.
+        for key_, value_ in self._recording_parameters.items():
+            parameters_[key_] = value_
+        for field_ in self.FIELDS:
+            value_ = self._control_value(self._controls[field_.key])
+            if field_.required and (value_ is None or str(value_).strip() == ""):
+                raise ValueError(f"{field_.label}不能为空")
+            parameters_[field_.key] = value_
+        self._validate_parameters(parameters_)
+        return InstructionDraft(
+            type_id=self.TYPE_ID,
+            parameters=parameters_,
+            repeat_count=self.repeat_count.value(),
+            error_policy=self.error_policy.currentText(),
+            note=self.note.text(),
+        )
+
+    def _validate_parameters(self, parameters_: dict[str, Any]) -> None:
+        """在生成 Draft 前验证跨控件约束和文本格式。"""
+        for field_ in self.FIELDS:
+            value_ = parameters_[field_.key]
+            if field_.kind == "choice" and field_.choices and value_ not in field_.choices:
+                raise ValueError(f"{field_.label}不是有效选项")
+
+        for key_ in ("坐标", "开始位置", "结束位置", "点击位置", "悬停位置"):
+            value_ = parameters_.get(key_)
+            if value_ in (None, ""):
+                continue
+            if key_ == "点击位置" and str(value_).replace(" ", "").strip("()") == "随机,随机":
+                continue
+            try:
+                point = _module_imports.load('point')
+
+                point(value_)
+            except (TypeError, ValueError) as error_:
+                raise ValueError(f"{key_}必须为 x,y 或 x-y") from error_
+
+        region_ = parameters_.get("区域")
+        if region_ not in (None, ""):
+            try:
+                region = _module_imports.load('region')
+
+                parsed_region_ = region(region_)
+            except (TypeError, ValueError) as error_:
+                raise ValueError("区域必须为 x,y,width,height") from error_
+            if parsed_region_ is not None and (parsed_region_[2] <= 0 or parsed_region_[3] <= 0):
+                raise ValueError("区域宽度和高度必须大于 0")
+
+        cell_ = parameters_.get("单元格")
+        if cell_ not in (None, "") and not re.fullmatch(
+            r"[A-Za-z]{1,3}[1-9][0-9]*", str(cell_).strip()
+        ):
+            raise ValueError("单元格必须为类似 A1、BC12 的地址")
+
+        target_time_ = parameters_.get("时间")
+        if target_time_ not in (None, ""):
+            try:
+                datetime.strptime(str(target_time_), "%H:%M:%S")
+            except ValueError as error_:
+                raise ValueError("目标时间必须为 HH:MM:SS") from error_
+
+        if parameters_.get("类型") == "随机等待":
+            factor_ = {"毫秒": 0.001, "秒": 1.0, "分钟": 60.0}
+            minimum_ = float(parameters_.get("最小", 0)) * factor_[
+                str(parameters_.get("最小单位", "秒"))
+            ]
+            maximum_ = float(parameters_.get("最大", 0)) * factor_[
+                str(parameters_.get("最大单位", "秒"))
+            ]
+            if minimum_ > maximum_:
+                raise ValueError("随机等待最小值不能大于最大值")
+
+        if parameters_.get("类型") == "随机滚轮滑动":
+            if int(parameters_.get("最小距离", 0)) > int(parameters_.get("最大距离", 0)):
+                raise ValueError("随机滚轮最小距离不能大于最大距离")
+
+    def load_draft(self, draft) -> None:
+        draft_ = draft if isinstance(draft, InstructionDraft) else InstructionDraft.from_mapping(draft)
+        if draft_.type_id != self.TYPE_ID:
+            raise ValueError(f"不能用 {draft_.type_id} 初始化 {self.TYPE_ID} 编辑器")
+        self._recording_parameters = {key_: value_ for key_, value_ in draft_.parameters.items()
+                                      if key_.startswith(("录制", "旧版"))}
+        for key_, value_ in draft_.parameters.items():
+            control_ = self._controls.get(key_)
+            if control_ is not None:
+                self._set_control_value(control_, value_)
+        self.repeat_count.setValue(draft_.repeat_count)
+        self.error_policy.setCurrentText(draft_.error_policy)
+        self.note.setText(draft_.note)

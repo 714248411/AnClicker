@@ -1,8 +1,22 @@
 import os, sys, subprocess, json, uuid
 from pathlib import Path
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'APP_ID_EXECUTABLE_NAME': ('from', 'info', ('APP_ID', 'EXECUTABLE_NAME'), 0),
+})
+
 root=Path(__file__).resolve().parents[1]
-app=root/'dist/local-test/AnClicker/AnClicker.exe'
-folder=root/'validation/packaged-smoke';folder.mkdir(exist_ok=True)
+sys.path.insert(0, str(root))
+APP_ID, EXECUTABLE_NAME = _module_imports.load('APP_ID_EXECUTABLE_NAME')
+app=root/'artifacts/dist/local-test'/APP_ID/EXECUTABLE_NAME
+folder=root/'artifacts/validation/packaged-smoke';folder.mkdir(parents=True, exist_ok=True)
 env=dict(os.environ,ANCLICKER_DATA_DIR=str(folder),ANCLICKER_SINGLETON_KEY=uuid.uuid4().hex,QT_QPA_PLATFORM='windows')
 report=folder/'startup-ready.json'
 report.unlink(missing_ok=True)

@@ -2,18 +2,47 @@
 import json,os,sys,time,subprocess,tempfile,traceback
 from pathlib import Path
 from unittest.mock import patch
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'anclicker': ('import', 'anclicker', (), False),
+    'QApplication': ('from', 'anclicker.platform.qt_compat.QtWidgets', ('QApplication',), 0),
+    'ExecutionContext_InstructionDraft': ('from', 'anclicker.domain.instructions', ('ExecutionContext', 'InstructionDraft'), 0),
+    'get_instruction_spec': ('from', 'anclicker.instructions.registry', ('get_instruction_spec',), 0),
+    'background_runtime_DmTransport_etc': ('from', 'anclicker.platform.background_runtime', ('DmTransport', 'Windows', 'bind_background', 'current_backend', 'close_background', 'execute_background_method'), 0),
+    'METHODS_label': ('from', 'anclicker.platform.background_catalog', ('METHODS', 'label'), 0),
+    'DatabaseOperation': ('from', 'anclicker.storage.database', ('DatabaseOperation',), 0),
+    'GraphRepository': ('from', 'anclicker.storage.graph_repository', ('GraphRepository',), 0),
+    'CommandThread': ('from', 'anclicker.app.main_work', ('CommandThread',), 0),
+    'win32gui': ('import', 'win32gui', (), False),
+    'win32con': ('import', 'win32con', (), False),
+    'win32process': ('import', 'win32process', (), False),
+    'BackgroundWindowPicker': ('from', 'anclicker.ui.background_window_picker', ('BackgroundWindowPicker',), 0),
+    'QTest': ('from', 'anclicker.platform.qt_compat.QtTest', ('QTest',), 0),
+    'Qt_QPoint': ('from', 'anclicker.platform.qt_compat.QtCore', ('Qt', 'QPoint'), 0),
+    'QDialog': ('from', 'anclicker.platform.qt_compat.QtWidgets', ('QDialog',), 0),
+    'base64': ('import', 'base64', (), False),
+})
+
 root=Path(__file__).resolve().parents[1];sys.path.insert(0,str(root))
-os.environ['QT_QPA_PLATFORM']='windows';os.environ['ANCLICKER_DATA_DIR']=str(root/'validation/background-native-data')
-from qt_compat.QtWidgets import QApplication
+anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry points.
+os.environ['QT_QPA_PLATFORM']='windows';os.environ['ANCLICKER_DATA_DIR']=str(root/'artifacts/validation/background-native-data')
+QApplication = _module_imports.load('QApplication')
 app=QApplication.instance() or QApplication([])
-from instructions.models import ExecutionContext,InstructionDraft
-from instructions.registry import get_instruction_spec
-from background_runtime import DmTransport, Windows, bind_background, current_backend, close_background, execute_background_method
-from background_catalog import METHODS,label
-from 数据库操作 import DatabaseOperation
-from graph_repository import GraphRepository
-from main_work import CommandThread
-import win32gui,win32con,win32process
+ExecutionContext, InstructionDraft = _module_imports.load('ExecutionContext_InstructionDraft')
+get_instruction_spec = _module_imports.load('get_instruction_spec')
+DmTransport, Windows, bind_background, current_backend, close_background, execute_background_method = _module_imports.load('background_runtime_DmTransport_etc')
+METHODS, label = _module_imports.load('METHODS_label')
+DatabaseOperation = _module_imports.load('DatabaseOperation')
+GraphRepository = _module_imports.load('GraphRepository')
+CommandThread = _module_imports.load('CommandThread')
+win32gui = _module_imports.load('win32gui'); win32con = _module_imports.load('win32con'); win32process = _module_imports.load('win32process')
 class TracedTransport(DmTransport):
     def call(self, name, *args, **kwargs):
         before=win32gui.GetCursorPos()
@@ -23,7 +52,7 @@ class TracedTransport(DmTransport):
             report[str(bits)].setdefault('input_observations',[]).append({'method':name,'before':before,'after':after})
         return result
 
-report={};destination=root/'validation/background-native-results.json'
+report={};destination=root/'artifacts/validation/background-native-results.json'
 
 def check(result,message):
     if not result:raise AssertionError(message)
@@ -38,18 +67,18 @@ for bits in (32,64):
     entry=report[str(bits)]={'methods':{},'passed':False}
     context=None;process=None;state=None
     try:
-        folder=root/'validation'/('background-fixture-'+str(bits));folder.mkdir(exist_ok=True)
+        folder=root/'artifacts/validation'/('background-fixture-'+str(bits));folder.mkdir(exist_ok=True)
         state_path=folder/'state.json';state_path.unlink(missing_ok=True)
         shell=Path(os.environ['WINDIR'])/('SysWOW64' if bits==32 else 'System32')/'WindowsPowerShell/v1.0/powershell.exe'
-        process=subprocess.Popen([str(shell),'-NoProfile','-ExecutionPolicy','Bypass','-File',str(root/'validation/dm-fixture.ps1'),str(state_path)],creationflags=subprocess.CREATE_NO_WINDOW,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+        process=subprocess.Popen([str(shell),'-NoProfile','-ExecutionPolicy','Bypass','-File',str(root/'artifacts/validation/dm-fixture.ps1'),str(state_path)],creationflags=subprocess.CREATE_NO_WINDOW,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
         deadline=time.monotonic()+12
         while not state_path.exists() and time.monotonic()<deadline and process.poll() is None:time.sleep(.05)
         if not state_path.exists():raise RuntimeError('test target did not start: '+process.stderr.read().decode(errors='replace'))
         state=json.loads(state_path.read_text(encoding='utf8'));check(state['bits']==bits,'fixture bitness')
-        from background_window_picker import BackgroundWindowPicker
-        from qt_compat.QtTest import QTest
-        from qt_compat.QtCore import Qt, QPoint
-        from qt_compat.QtWidgets import QDialog
+        BackgroundWindowPicker = _module_imports.load('BackgroundWindowPicker')
+        QTest = _module_imports.load('QTest')
+        Qt, QPoint = _module_imports.load('Qt_QPoint')
+        QDialog = _module_imports.load('QDialog')
         win32gui.SetWindowPos(state['hwnd'],win32con.HWND_TOPMOST,0,0,0,0,win32con.SWP_NOMOVE|win32con.SWP_NOSIZE|win32con.SWP_NOACTIVATE)
         native_windows=Windows()
         native_windows.cursor_position=lambda:win32gui.ClientToScreen(state['hwnd'],(30,30))
@@ -74,7 +103,7 @@ for bits in (32,64):
         converted=method(context,'ClientToScreen',{'x':5,'y':8})['output']
         check((converted['x'],converted['y'])==win32gui.ClientToScreen(state['hwnd'],(5,8)),'ClientToScreen preserves input')
         array=execute_background_method(context,'后台图色操作',{'接口':'CaptureArray','参数':'{"x1":20,"y1":20,"x2":22,"y2":22}'})
-        import base64
+        base64 = _module_imports.load('base64')
         check(base64.b64decode(array['data_base64'])==bytes((255,0,0))*4,'CaptureArray RGB bytes')
         check(method(context,'CmpColor',{'x':30,'y':30,'color':'ff0000-000000','sim':1})==0,'CmpColor')
         found=method(context,'FindColor',{'x1':0,'y1':0,'x2':100,'y2':100,'color':'ff0000-000000','sim':1,'dir':0})

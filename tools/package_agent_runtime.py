@@ -10,7 +10,7 @@ def digest(path):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--cpu-only',action='store_true');parser.add_argument('--output',type=Path)
     args=parser.parse_args();runtime=ROOT/'.agent-runtime'
-    output=args.output or ROOT/'dist'/('AnClicker-Agent-runtime-win-x64'+('-cpu' if args.cpu_only else '')+'.zip')
+    output=args.output or ROOT/'artifacts/dist'/('AnClicker-Agent-runtime-win-x64'+('-cpu' if args.cpu_only else '')+'.zip')
     output.parent.mkdir(parents=True,exist_ok=True)
     files=[runtime/'qwen2.5-0.5b-instruct-q4_0.gguf',runtime/'LICENSE-Qwen.txt',runtime/'LICENSE-llama.cpp.txt']
     for name in ['llama-cpu']+([] if args.cpu_only else ['llama-vulkan']):

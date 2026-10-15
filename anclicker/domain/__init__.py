@@ -1,0 +1,1 @@
+"""AnClicker domain components."""

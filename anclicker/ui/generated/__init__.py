@@ -1,0 +1,1 @@
+"""Generated Qt resource bindings."""

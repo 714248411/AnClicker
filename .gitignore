@@ -20,6 +20,8 @@ bin-release/
 
 # 需要忽略的文件
 .vscode/
+.idea/
+*.egg-info/
 build/
 dist/
 build-verification/
@@ -83,3 +85,7 @@ validation/
 private_agent/
 anclicker_private_agent/
 *.private.*
+
+# Consolidated local dependencies, historical builds and validation evidence.
+/.local/
+/artifacts/

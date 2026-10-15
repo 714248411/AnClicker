@@ -14,7 +14,7 @@ root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser()
 parser.add_argument('--from-directory',type=Path,help='Existing Electron dist directory (offline copy)')
 args=parser.parse_args()
-target=root/'runtime/electron'
+target=root/'.local/runtimes/electron'
 entry = ('Electron.app/Contents/MacOS/Electron' if sys.platform == 'darwin'
          else 'electron.exe' if sys.platform == 'win32' else 'electron')
 if args.from_directory:

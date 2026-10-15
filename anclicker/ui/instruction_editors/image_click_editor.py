@@ -1,0 +1,521 @@
+"""旧版图像点击工作区，复用当前参数契约和应用主题。"""
+from pathlib import Path
+from datetime import datetime
+
+from anclicker.platform.qt_compat.QtCore import Qt, QRectF, Signal, QTimer, QUrl, QSignalBlocker
+from anclicker.platform.qt_compat.QtGui import QPixmap, QPainter, QPen, QDesktopServices
+from anclicker.platform.qt_compat.QtWidgets import (
+    QWidget, QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
+    QDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QGroupBox, QFileDialog, QMessageBox, QTabWidget, QSizePolicy,
+)
+from anclicker.ui.instruction_editors.editor import _RegionSelectionDialog
+from anclicker.instructions.common import actions
+from anclicker.ui.smart_capture import SmartCaptureDialog
+
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'open_advanced_timing': ('from', 'anclicker.ui.timing_dialog', ('open_advanced_timing',), 0),
+    'BINDING': ('from', 'anclicker.platform.qt_compat', ('BINDING',), 0),
+    'isValid': ('from', 'shiboken2', ('isValid',), 0),
+    'isValid_2': ('from', 'shiboken6', ('isValid',), 0),
+    'IMAGES_FOLDER': ('from', 'anclicker.app.paths', ('IMAGES_FOLDER',), 0),
+    'binding_parameters_select_background_save_capture': ('from', 'anclicker.platform.background_capture', ('binding_parameters', 'select_background', 'save_capture'), 0),
+})
+
+
+
+class ImagePositionCanvas(QWidget):
+    position_changed = Signal(int, int)
+
+    def __init__(self, pixmap, parent=None):
+        super().__init__(parent)
+        self.image = pixmap
+        self.offset = (0, 0)
+        self.setMinimumSize(260, 200)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+    def image_rect(self):
+        scale = min((self.width()-20)/self.image.width(),
+                    (self.height()-20)/self.image.height(), 1.0)
+        w, h = self.image.width()*scale, self.image.height()*scale
+        return QRectF((self.width()-w)/2, (self.height()-h)/2, w, h)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        rect = self.image_rect()
+        painter.drawPixmap(rect, self.image, QRectF(self.image.rect()))
+        painter.setPen(QPen(self.palette().highlight().color(), 2))
+        x = rect.x() + (self.image.width()//2+self.offset[0])*rect.width()/self.image.width()
+        y = rect.y() + (self.image.height()//2+self.offset[1])*rect.height()/self.image.height()
+        painter.drawLine(int(rect.left()), int(y), int(rect.right()), int(y))
+        painter.drawLine(int(x), int(rect.top()), int(x), int(rect.bottom()))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.select_position(event.position())
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            self.select_position(event.position())
+
+    def select_position(self, point):
+        rect = self.image_rect()
+        if not rect.contains(point):
+            return
+        x = min(self.image.width()-1, int((point.x()-rect.x())*self.image.width()/rect.width()))
+        y = min(self.image.height()-1, int((point.y()-rect.y())*self.image.height()/rect.height()))
+        self.offset = (x-self.image.width()//2, y-self.image.height()//2)
+        self.position_changed.emit(*self.offset)
+        self.update()
+
+
+class ImagePositionDialog(QDialog):
+    def __init__(self, path, value, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('调整点击位置')
+        self.resize(640, 440)
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull():
+            raise ValueError('无法读取图像，请先选择有效的图片。')
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel('在图片中单击或拖动十字线；偏移以图片中心为 (0,0)。'))
+        self.canvas = ImagePositionCanvas(pixmap, self)
+        layout.addWidget(self.canvas, 1)
+        row = QHBoxLayout()
+        self.x = QSpinBox(); self.y = QSpinBox()
+        for spin in (self.x, self.y):
+            spin.setRange(-1000000, 1000000)
+        self.random = QCheckBox('图像内随机位置')
+        center = QPushButton('恢复中心')
+        for widget in (QLabel('X'), self.x, QLabel('Y'), self.y, self.random, center):
+            row.addWidget(widget)
+        layout.addLayout(row)
+        self.canvas.position_changed.connect(self.set_offset)
+        self.x.valueChanged.connect(self.update_offset)
+        self.y.valueChanged.connect(self.update_offset)
+        self.random.toggled.connect(self.toggle_random)
+        center.clicked.connect(lambda: self.set_offset(0, 0))
+        if '随机' in str(value):
+            self.random.setChecked(True)
+        else:
+            self.set_offset(*actions.point(value or '(0,0)'))
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText('确定')
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText('取消')
+        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def set_offset(self, x, y):
+        self.x.setValue(x); self.y.setValue(y)
+
+    def update_offset(self):
+        self.canvas.offset = (self.x.value(), self.y.value())
+        self.canvas.update()
+
+    def toggle_random(self, checked):
+        for widget in (self.x, self.y, self.canvas):
+            widget.setEnabled(not checked)
+
+    def value(self):
+        return '(随机,随机)' if self.random.isChecked() else f'({self.x.value()},{self.y.value()})'
+
+
+class ImageClickEditorMixin:
+    """保留生成式 UI 的参数控件，以便旧文件和注册表保持兼容。"""
+
+    def __init__(self, parent=None, draft=None, context=None):
+        super().__init__(parent, draft=None, context=context)
+        self.db = self._variable_database()
+        self._build_image_workspace()
+        if draft is not None:
+            self.load_draft(draft)
+        elif getattr(context, 'metadata', {}).get('recent_capture'):
+            path = context.metadata['recent_capture']
+            if Path(path).is_file():
+                self._set_image_path(path)
+
+    def _build_image_workspace(self):
+        ui = self.ui
+        old = ui.parameterGroupBox
+        # Qt 5's replaceWidget does not retain a Python-owned replacement.
+        # Give it its final QObject parent before replacing the old group.
+        panel = QWidget(self)
+        panel.setObjectName('imageClickWorkspace')
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        hint = QLabel('操作说明：将图像统一保存至资源文件夹，添加文件夹后即可选择。')
+        hint.setWordWrap(True); hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(hint)
+        self.folder_label = QLabel(); self.folder_label.setWordWrap(False)
+        self.folder_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.folder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.folder_label)
+        row = QHBoxLayout()
+        self.capture_button = QPushButton('快捷截图')
+        self.capture_button.setObjectName('accentButton')
+        self.capture_button.setToolTip('流程上方存在后台绑定时，从目标窗口截图中再次框选；否则截取屏幕。')
+        self.open_folder_button = QPushButton('打开资源文件夹')
+        row.addWidget(self.capture_button); row.addWidget(self.open_folder_button)
+        layout.addLayout(row)
+        grid = QGridLayout()
+        self.folder_combo = QComboBox(); self.folder_combo.setEditable(True)
+        self.image_combo = QComboBox(); self.image_combo.setEditable(True)
+        self.add_folder_button = QPushButton('添加文件夹')
+        ui.auxiliary_0.setText('选择图片')
+        self.advanced_button = QPushButton('高级设置')
+        grid.addWidget(QLabel('文件夹名称：'), 0, 0)
+        grid.addWidget(self.folder_combo, 0, 1, 1, 2)
+        grid.addWidget(self.add_folder_button, 0, 3)
+        grid.addWidget(QLabel('图像名称：'), 1, 0)
+        grid.addWidget(self.image_combo, 1, 1)
+        grid.addWidget(ui.auxiliary_0, 1, 2)
+        ui.parameter_4.setText('启用灰度识别')
+        grid.addWidget(ui.parameter_4, 1, 3)
+        grid.addWidget(QLabel('指令名称：'), 2, 0)
+        grid.addWidget(ui.parameter_1, 2, 1, 1, 2)
+        ui.parameter_1.setToolTip("无操作：判断图片是否存在，不移动或点击鼠标。存在则继续下一步；未找到则进入异常处理或已连接的报错跳转。")
+        grid.addWidget(self.advanced_button, 2, 3)
+        grid.setColumnStretch(1, 1)
+        layout.addLayout(grid)
+        columns = QHBoxLayout()
+        click = QGroupBox('图像点击位置和精度'); left = QGridLayout(click)
+        ui.auxiliary_6.setText('调整点击位置')
+        left.addWidget(ui.parameter_6, 0, 0); left.addWidget(ui.auxiliary_6, 0, 1)
+        self.confidence_slider = QSlider(Qt.Orientation.Horizontal)
+        self.confidence_slider.setObjectName('imageConfidenceSlider')
+        self.confidence_slider.setRange(1, 100); self.confidence_slider.setValue(80)
+        self.confidence_label = QLabel('80%')
+        left.addWidget(QLabel('识别精度：'), 1, 0)
+        left.addWidget(self.confidence_slider, 1, 1); left.addWidget(self.confidence_label, 1, 2)
+        self.region_group = QGroupBox('启用指定区域识别')
+        self.region_group.setCheckable(True); self.region_group.setChecked(False)
+        right = QVBoxLayout(self.region_group)
+        ui.parameter_3.setPlaceholderText('(x,y,宽度,高度)')
+        ui.auxiliary_3.setText('设置区域')
+        right.addWidget(ui.parameter_3); right.addWidget(ui.auxiliary_3)
+        columns.addWidget(click, 1); columns.addWidget(self.region_group, 1)
+        layout.addLayout(columns)
+        missing = QHBoxLayout()
+        self.skip_check = QCheckBox('未找到图像时自动略过'); self.skip_check.setChecked(True)
+        self.timeout_spin = QSpinBox(); self.timeout_spin.setRange(0, 86400); self.timeout_spin.setValue(10)
+        self.timeout_spin.setSuffix(' 秒'); self.timeout_spin.setEnabled(False)
+        self.waiting_label = QLabel('否则等待：')
+        missing.addWidget(self.skip_check); missing.addWidget(self.waiting_label); missing.addWidget(self.timeout_spin)
+        missing.addStretch(); layout.addLayout(missing)
+        self.detection_hint = QLabel('图片存在则继续下一步；等待后仍未找到，进入“功能参数”的异常处理；已连接报错跳转时走异常线。')
+        self.detection_hint.setWordWrap(True)
+        self.detection_hint.setObjectName("mutedText")
+        layout.addWidget(self.detection_hint)
+        self.preview = QLabel('请选择图片'); self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview.setMinimumHeight(100)
+        self.preview.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.tabs = QTabWidget()
+        self.tabs.addTab(ui.commonGroupBox, '功能参数'); self.tabs.addTab(self.preview, '图像预览')
+        ui.rootLayout.replaceWidget(old, panel)
+        ui.rootLayout.insertWidget(2, self.tabs)
+        # Serialized backing fields remain alive; visible controls above edit them.
+        for control in (ui.parameter_0, ui.parameter_2, ui.parameter_5):
+            control.setParent(panel); control.hide()
+        old.hide(); old.deleteLater()
+        self.folder_combo.currentTextChanged.connect(self._refresh_image_names)
+        self.image_combo.currentTextChanged.connect(self._select_image)
+        self.capture_button.clicked.connect(lambda: self._select_screen(True))
+        self.open_folder_button.clicked.connect(self._open_folder)
+        self.add_folder_button.clicked.connect(self._add_folder)
+        self.advanced_button.clicked.connect(self._advanced_settings)
+        self.confidence_slider.valueChanged.connect(self._set_confidence)
+        ui.parameter_5.valueChanged.connect(self._reflect_confidence)
+        ui.parameter_1.currentTextChanged.connect(self._image_action_changed)
+        self.skip_check.toggled.connect(self._set_missing_policy)
+        self.timeout_spin.valueChanged.connect(self._set_missing_policy)
+        folders = self.db.extract_resource_folder_path()
+        self.folder_combo.addItems(folders)
+        for button in panel.findChildren(QPushButton):
+            button.setMinimumHeight(32)
+        for combo in (self.folder_combo, self.image_combo):
+            combo.setMinimumContentsLength(8)
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._image_action_changed()
+        self.resize(760, 700)
+
+    def _set_confidence(self, value):
+        self.ui.parameter_5.setValue(value / 100)
+        self.confidence_label.setText(f'{value}%')
+
+    def _reflect_confidence(self, value):
+        self.confidence_slider.setValue(round(value * 100))
+
+    def _image_action_changed(self, *_):
+        detection = self.ui.parameter_1.currentText() == '无操作'
+        if detection and (_ or self.ui.parameter_2.text() in ('自动略过', '自动跳过', '')):
+            # Switching the action starts at one second, even if the previous
+            # click action had a numeric timeout. Loading restores saved values
+            # below, and its final no-argument refresh must not reset them.
+            with QSignalBlocker(self.timeout_spin):
+                self.timeout_spin.setValue(1)
+        for widget in (self.ui.parameter_6, self.ui.auxiliary_6):
+            widget.setEnabled(not detection)
+        self._set_missing_policy()
+
+    def _set_missing_policy(self, *_):
+        detection = self.ui.parameter_1.currentText() == '无操作'
+        self.skip_check.setVisible(not detection)
+        self.detection_hint.setVisible(detection)
+        self.waiting_label.setText('查找等待：' if detection else '否则等待：')
+        self.timeout_spin.setEnabled(detection or not self.skip_check.isChecked())
+        skip = self.skip_check.isChecked() and not detection
+        self.ui.parameter_2.setText('自动略过' if skip else str(self.timeout_spin.value()))
+
+    def _refresh_image_names(self, folder, select=True):
+        self.folder_label.setText(f'当前文件夹：{folder}')
+        self.folder_label.setToolTip(folder)
+        previous = self.image_combo.currentText()
+        path = Path(folder)
+        try:
+            names = sorted(p.name for p in path.iterdir() if p.is_file() and p.suffix.lower() in {'.png', '.jpg', '.jpeg', '.bmp', '.webp'}) if folder and path.is_dir() else []
+        except OSError:
+            names = []
+        # Rebuilding the list must not publish its temporary first item as the
+        # active instruction image. Commit the final visible selection once.
+        with QSignalBlocker(self.image_combo):
+            self.image_combo.clear()
+            self.image_combo.addItems(names)
+            if previous in names:
+                self.image_combo.setCurrentText(previous)
+        if select:
+            self._select_image(self.image_combo.currentText())
+
+    def _select_image(self, name):
+        path = str(Path(self.folder_combo.currentText()) / name) if name else ''
+        self._apply_image_path(path)
+
+    def _apply_image_path(self, path):
+        """Publish one image to the stored parameter and the preview together."""
+        self.ui.parameter_0.setText(path)
+        pixmap = QPixmap()
+        if path:
+            try:
+                # QPixmap(filename) has an implicit filename cache. Reading
+                # bytes also refreshes previews when that file was replaced.
+                pixmap.loadFromData(Path(self._resolved_image_path(path)).read_bytes())
+            except OSError:
+                pass
+        if pixmap.isNull():
+            self.preview.setText('请选择有效图片')
+        else:
+            self.preview.setPixmap(pixmap.scaled(560, 160, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+
+    def _set_image_path(self, path):
+        original = str(path)
+        path = Path(self._resolved_image_path(original))
+        # Refresh even in the same folder (e.g. consecutive captures). Do not
+        # temporarily select the first file while rebuilding the resource list.
+        with QSignalBlocker(self.folder_combo), QSignalBlocker(self.image_combo):
+            self.folder_combo.setCurrentText(str(path.parent))
+            self._refresh_image_names(str(path.parent), select=False)
+            self.image_combo.setCurrentText(path.name)
+        # Preserve portable references while publishing the new image only once.
+        self._apply_image_path(original)
+
+    def _sync_selected_image(self):
+        """The visible selection is authoritative at both test and save time."""
+        name = self.image_combo.currentText()
+        selected = str(Path(self.folder_combo.currentText()) / name) if name else ''
+        stored = self.ui.parameter_0.text()
+        resolved = self._resolved_image_path(stored)
+        if not selected or not resolved or Path(selected).resolve() != Path(resolved).resolve():
+            self._apply_image_path(selected)
+
+    def _resolved_image_path(self, path=None):
+        value = str(path if path is not None else self.ui.parameter_0.text())
+        project = getattr(self.context, 'metadata', {}).get('project_path') or self.db.get_setting_value('当前文件路径')
+        if value and not Path(value).is_absolute() and project:
+            candidate = Path(str(project)).parent / value
+            if candidate.is_file():
+                return str(candidate)
+        return value
+
+    def _add_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, '添加资源文件夹', self.folder_combo.currentText())
+        if folder:
+            self.db.writes_to_resource_folder_path(folder)
+            if self.folder_combo.findText(folder) < 0:
+                self.folder_combo.addItem(folder)
+            self.folder_combo.setCurrentText(folder)
+
+    def _open_folder(self):
+        folder = self.folder_combo.currentText()
+        if not folder or not Path(folder).is_dir():
+            QMessageBox.warning(self, '资源文件夹', '文件夹不存在，请先添加有效文件夹。')
+        elif not QDesktopServices.openUrl(QUrl.fromLocalFile(folder)):
+            QMessageBox.warning(self, '资源文件夹', '无法打开文件夹。')
+
+    def _advanced_settings(self):
+        open_advanced_timing = _module_imports.load('open_advanced_timing')
+        open_advanced_timing(self, self.db)
+
+    def _run_auxiliary(self, key):
+        if key == '图像路径':
+            path, _ = QFileDialog.getOpenFileName(self, '选择图片', self.folder_combo.currentText(), '图像 (*.png *.jpg *.jpeg *.bmp *.webp)')
+            if path:
+                self._set_image_path(path)
+        elif key == '点击位置':
+            try:
+                dialog = ImagePositionDialog(self._resolved_image_path(), self.ui.parameter_6.text(), self)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    self.ui.parameter_6.setText(dialog.value())
+            except ValueError as error:
+                QMessageBox.warning(self, '点击位置', str(error))
+        elif key == '区域':
+            self._select_screen(False)
+        else:
+            super()._run_auxiliary(key)
+
+    def _select_screen(self, capture):
+        BINDING = _module_imports.load('BINDING')
+        if BINDING == 'PySide2':
+            isValid = _module_imports.load('isValid')
+        else:
+            isValid = _module_imports.load('isValid_2')
+        if getattr(self, '_screen_selection_active', False):
+            return
+        if capture and not self.folder_combo.currentText():
+            IMAGES_FOLDER = _module_imports.load('IMAGES_FOLDER')
+            Path(IMAGES_FOLDER).mkdir(parents=True, exist_ok=True)
+            self.folder_combo.setCurrentText(IMAGES_FOLDER)
+        if capture and (not self.folder_combo.currentText() or not Path(self.folder_combo.currentText()).is_dir()):
+            QMessageBox.warning(self, '快捷截图', '请先选择有效资源文件夹。')
+            return
+        binding_parameters, select_background, save_capture = _module_imports.load('binding_parameters_select_background_save_capture')
+        try:
+            parameters = binding_parameters(self)
+            if parameters is not None:
+                selection = select_background(self, parameters)
+                if selection is not None:
+                    if capture:
+                        path = save_capture(self, selection, self.folder_combo.currentText())
+                        self._set_image_path(path)
+                    else:
+                        self.ui.parameter_3.setText(str(selection.region))
+                        self.region_group.setChecked(True)
+                return
+        except Exception as error:
+            if isValid(self):
+                QMessageBox.warning(self, '后台截图/区域设置失败', str(error))
+            return
+        host = self.parentWidget().window() if self.parentWidget() else None
+        host_visible = host is not None and host.isVisible()
+        was_visible = self.isVisible()
+        opacity = self.windowOpacity()
+        host_opacity = host.windowOpacity() if host_visible else None
+        buttons_enabled = self.ui.buttonBox.isEnabled()
+        self._screen_selection_active = True
+        self.ui.buttonBox.setEnabled(False)
+        # Hiding a modal editor ends exec(); opacity keeps its event loop alive.
+        self.setWindowOpacity(0.0)
+        if host_visible:
+            host.setWindowOpacity(0.0)
+        def restore():
+            if host_visible and isValid(host):
+                host.setWindowOpacity(host_opacity)
+            if not isValid(self):
+                return
+            self._screen_selection_active = False
+            self.ui.buttonBox.setEnabled(buttons_enabled)
+            self.setWindowOpacity(opacity)
+            # A cancelled or closed editor must not be reopened by a late callback.
+            if not was_visible or self.isVisible():
+                self.show(); self.raise_(); self.activateWindow()
+        def choose():
+            selector = None
+            try:
+                if not isValid(self) or (was_visible and not self.isVisible()):
+                    return
+                selector = SmartCaptureDialog() if capture else _RegionSelectionDialog()
+                selector.exec()
+                if not isValid(self) or (was_visible and not self.isVisible()):
+                    return
+                region = selector.selected_region()
+                # Selection already contains the captured pixels. Commit immediately
+                # so confirmation cannot overtake a second arbitrary delay.
+                if region and capture:
+                    path = Path(self.folder_combo.currentText()) / f'截图_{datetime.now():%Y%m%d_%H%M%S_%f}.png'
+                    selector.save_selection(path)
+                    self._set_image_path(path)
+                    callback = getattr(self.context, 'metadata', {}).get('remember_capture')
+                    if callable(callback):
+                        callback(str(path))
+                elif region:
+                    self.ui.parameter_3.setText(str(region))
+                    self.region_group.setChecked(True)
+            except Exception as error:
+                if isValid(self):
+                    restore()
+                    QMessageBox.warning(self, '截图/区域设置失败', str(error))
+            finally:
+                if selector is not None and (not isinstance(selector, QDialog) or isValid(selector)):
+                    selector.deleteLater()
+                restore()
+        QTimer.singleShot(180, choose)
+
+    def load_draft(self, draft):
+        super().load_draft(draft)
+        if not hasattr(self, 'folder_combo'):
+            return
+        path = self.ui.parameter_0.text()
+        if path:
+            self._set_image_path(path)
+        region = self.ui.parameter_3.text()
+        self.region_group.setChecked(region.replace(' ', '') not in ('', '(0,0,0,0)', '0,0,0,0'))
+        policy = self.ui.parameter_2.text()
+        if policy not in ('自动略过', '自动跳过', ''):
+            try:
+                self.timeout_spin.setValue(int(float(policy)))
+            except ValueError:
+                pass
+            self.skip_check.setChecked(False)
+        else:
+            self.skip_check.setChecked(True)
+            if self.ui.parameter_1.currentText() == '无操作':
+                self.timeout_spin.setValue(1)
+        self._image_action_changed()
+
+    def get_draft(self):
+        self._sync_selected_image()
+        # Disabled region retains its coordinates for toggling back, but is not executed.
+        control = self.ui.parameter_3
+        saved = control.text()
+        if not self.region_group.isChecked():
+            control.setText('')
+        try:
+            draft = super().get_draft()
+            if self.region_group.isChecked() and actions.region(saved) is None:
+                raise ValueError('请先设置有效识别区域。')
+            return draft
+        finally:
+            control.setText(saved)
+
+    def _valid_image(self):
+        self._sync_selected_image()
+        path = self._resolved_image_path()
+        pixmap = QPixmap()
+        if path:
+            try:
+                pixmap.loadFromData(Path(path).read_bytes())
+            except OSError:
+                pass
+        if pixmap.isNull():
+            QMessageBox.warning(self, '图像文件无效', '图像文件不存在或无法读取，请重新选择图片。')
+            return False
+        return True
+
+    def _accept_if_valid(self):
+        if self._valid_image():
+            super()._accept_if_valid()
+
+    def _test_if_valid(self):
+        if self._valid_image():
+            super()._test_if_valid()

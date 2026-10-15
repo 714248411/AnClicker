@@ -1,22 +1,41 @@
 import os, sys, tempfile, json
 from pathlib import Path
 from unittest.mock import patch
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'anclicker': ('import', 'anclicker', (), False),
+    'QApplication': ('from', 'anclicker.platform.qt_compat.QtWidgets', ('QApplication',), 0),
+    'DatabaseOperation': ('from', 'anclicker.storage.database', ('DatabaseOperation',), 0),
+    'get_instruction_spec': ('from', 'anclicker.instructions.registry', ('get_instruction_spec',), 0),
+    'ExecutionContext': ('from', 'anclicker.domain.instructions', ('ExecutionContext',), 0),
+    'validate_instruction_editors': ('from', 'anclicker.app.ui_validation', ('validate_instruction_editors',), 0),
+    'Main_window': ('from', 'anclicker.app.Start_Win', ('Main_window',), 0),
+})
+
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry points.
 os.environ['QT_QPA_PLATFORM']='windows'
-from qt_compat.QtWidgets import QApplication
-from 数据库操作 import DatabaseOperation
-from instructions.registry import get_instruction_spec
-from instructions.models import ExecutionContext
-from ui_validation import validate_instruction_editors
+QApplication = _module_imports.load('QApplication')
+DatabaseOperation = _module_imports.load('DatabaseOperation')
+get_instruction_spec = _module_imports.load('get_instruction_spec')
+ExecutionContext = _module_imports.load('ExecutionContext')
+validate_instruction_editors = _module_imports.load('validate_instruction_editors')
 app=QApplication([])
-out=Path('validation');out.mkdir(exist_ok=True)
+out=Path(__file__).resolve().parents[1] / 'artifacts/validation';out.mkdir(parents=True, exist_ok=True)
 class Hotkeys:
     def register(self,*args,**kwargs): pass
     def unregister(self,*args,**kwargs): pass
 with tempfile.TemporaryDirectory() as temp:
     db=DatabaseOperation(str(Path(temp)/'preview.db'))
     with patch('Start_Win.DatabaseOperation',return_value=db), patch('main_work.DatabaseOperation',return_value=db), patch('Start_Win.SystemHotkey',Hotkeys), patch('Start_Win.is_hotkey_valid',return_value=True):
-        from Start_Win import Main_window
+        Main_window = _module_imports.load('Main_window')
         window=Main_window()
     window.resize(1450,900);window.show();app.processEvents()
     report=validate_instruction_editors(window)

@@ -1,19 +1,39 @@
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'hashlib': ('import', 'hashlib', (), False),
+    'json': ('import', 'json', (), False),
+    'zipfile': ('import', 'zipfile', (), False),
+    'sys': ('import', 'sys', (), False),
+    'Path': ('from', 'pathlib', ('Path',), 0),
+    'CURRENT_VERSION_APP_ID_EXECUTABLE_NAME': ('from', 'info', ('CURRENT_VERSION', 'APP_ID', 'EXECUTABLE_NAME'), 0),
+})
+
 def main():
     """Create a local test ZIP only; no publishing or update-feed changes."""
-    import hashlib,json,zipfile
-    from pathlib import Path
+    hashlib = _module_imports.load('hashlib'); json = _module_imports.load('json'); zipfile = _module_imports.load('zipfile'); sys = _module_imports.load('sys')
+    Path = _module_imports.load('Path')
     root=Path(__file__).resolve().parents[1]
-    source=root/'dist/local-test/AnClicker'
-    report=json.loads((root/'validation/packaged-smoke/startup-ready.json').read_text(encoding='utf-8'))
+    sys.path.insert(0, str(root))
+    CURRENT_VERSION, APP_ID, EXECUTABLE_NAME = _module_imports.load('CURRENT_VERSION_APP_ID_EXECUTABLE_NAME')
+    source=root/'artifacts/dist/local-test'/APP_ID
+    report=json.loads((root/'artifacts/validation/packaged-smoke/startup-ready.json').read_text(encoding='utf-8'))
     assert report['ready'] and report['rpa_validation']['browser'] and report['ocr_validation']['rapidocr']
-    output=root.parent/'AnClicker-local-test-20261012.zip'
+    output=root/'artifacts/dist'/f'AnClicker-local-test-{CURRENT_VERSION}.zip'
+    output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists(): raise FileExistsError(output)
-    notes='AnClicker 本地测试版（基于 1.4.5 重建 Excel、白话与网页功能）\n完整解压后运行 AnClicker/AnClicker.exe，不要单独移动 EXE。\n程序标题仍沿用 v1.4.5；此包包含本次新功能，不是公开发布版本。\n内置网页窗口标题：极速网页AC。\n需要测试：Excel 读写保存、白话指令、网页输入点击、OCR 分组、快捷操作下拉栏。\nExcel 写入后执行保存Excel指令；在线OCR需配置原有服务。\n这是便携测试包，未上传或发布。\n'
+    notes=f'AnClicker {CURRENT_VERSION} 本地测试包\n完整解压后运行 {APP_ID}/{EXECUTABLE_NAME}。\n验证范围：Excel、流程执行、OCR、独立浏览器和 Agent 页面。\n仅本地构建，未上传或发布。\n'
     with zipfile.ZipFile(output,'x',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
         for file in sorted(source.rglob('*')):
             if file.is_file(): archive.write(file,'AnClicker/'+file.relative_to(source).as_posix())
         archive.writestr('测试说明.txt',notes.encode('utf-8'))
-        archive.writestr('BUILD-MANIFEST.json',json.dumps({'kind':'local-test','base_version':'1.4.5','python':report['runtime']['python'],'published':False,'exe_sha256':hashlib.sha256((source/'AnClicker.exe').read_bytes()).hexdigest(),'checks':{'editors':report['editor_validation'],'ocr':report['ocr_validation'],'rpa':report['rpa_validation']}},ensure_ascii=False,indent=2))
+        archive.writestr('BUILD-MANIFEST.json',json.dumps({'kind':'local-test','base_version':CURRENT_VERSION.removeprefix('v'),'python':report['runtime']['python'],'published':False,'exe_sha256':hashlib.sha256((source/EXECUTABLE_NAME).read_bytes()).hexdigest(),'checks':{'editors':report['editor_validation'],'ocr':report['ocr_validation'],'rpa':report['rpa_validation']}},ensure_ascii=False,indent=2))
     with zipfile.ZipFile(output) as archive:
         bad=archive.testzip()
         if bad: raise RuntimeError(bad)

@@ -1,9 +1,21 @@
 """Sync verified release assets using standard GitHub/Git Credential Manager authentication."""
 import os,sys,json,subprocess,hashlib
 from pathlib import Path
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'requests': ('import', 'requests', (), False),
+})
+
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'.runtime-tools'))
-import requests
+sys.path.insert(0,str(ROOT/'.local/cache'))
+requests = _module_imports.load('requests')
 repo='714248411/AnClicker'
 session=requests.Session()
 session.headers.update({'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'})

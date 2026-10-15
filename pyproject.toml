@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-release = ["qiniu==7.17.0", "pytest"]
+release = ["qiniu==7.17.0"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -48,3 +48,6 @@ version = {attr = "info.VERSION"}
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+cache-dir = ".local/cache/ruff"

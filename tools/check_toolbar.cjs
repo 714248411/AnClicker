@@ -1,3 +1,4 @@
+require('fs').mkdirSync(require('path').join(__dirname,'../artifacts/validation'),{recursive:true});
 const {app,BrowserWindow}=require('electron');
 const fs=require('fs'),path=require('path');
 const install=require('../integrations/yingdao/src/ac-toolbar');
@@ -18,10 +19,10 @@ app.whenReady().then(async()=>{
   if(!(await state()).hidden)throw Error('Opened before 2 seconds');
   await pause(300);
   const visible=await state();if(visible.hidden||visible.top!==6||visible.right!==6)throw Error('Wrong position/state');
-  fs.writeFileSync(path.join(__dirname,'../validation/toolbar-expanded.png'),(await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(path.join(__dirname,'../artifacts/validation/toolbar-expanded.png'),(await win.webContents.capturePage()).toPNG());
   await event('mouseleave');await pause(400);if(!(await state()).hidden)throw Error('Did not hide');
-  fs.writeFileSync(path.join(__dirname,'../validation/toolbar-hidden.png'),(await win.webContents.capturePage()).toPNG());
-  fs.writeFileSync(path.join(__dirname,'../validation/toolbar-report.json'),JSON.stringify({hoverDelay:2000,cancelledShortHover:true,hiddenOnLeave:true,position:visible}));
+  fs.writeFileSync(path.join(__dirname,'../artifacts/validation/toolbar-hidden.png'),(await win.webContents.capturePage()).toPNG());
+  fs.writeFileSync(path.join(__dirname,'../artifacts/validation/toolbar-report.json'),JSON.stringify({hoverDelay:2000,cancelledShortHover:true,hiddenOnLeave:true,position:visible}));
   win.close();app.exit(0);
- }catch(e){fs.writeFileSync(path.join(__dirname,'../validation/toolbar-error.txt'),String(e.stack));if(win)win.close();app.exit(1);}
+ }catch(e){fs.writeFileSync(path.join(__dirname,'../artifacts/validation/toolbar-error.txt'),String(e.stack));if(win)win.close();app.exit(1);}
 });

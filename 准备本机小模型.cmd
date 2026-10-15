@@ -1,10 +1,12 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-if exist ".venv\Scripts\python.exe" (
+if exist ".venv-build\Scripts\python.exe" (
+  ".venv-build\Scripts\python.exe" tools\prepare_agent_models.py --gpu %*
+) else if exist ".venv\Scripts\python.exe" (
   ".venv\Scripts\python.exe" tools\prepare_agent_models.py --gpu %*
-) else if exist ".build-python\python.exe" (
-  ".build-python\python.exe" tools\prepare_agent_models.py --gpu %*
+) else if exist ".local/toolchains/python-3.10.11\python.exe" (
+  ".local/toolchains/python-3.10.11\python.exe" tools\prepare_agent_models.py --gpu %*
 ) else (
   py -3 tools\prepare_agent_models.py --gpu %*
 )

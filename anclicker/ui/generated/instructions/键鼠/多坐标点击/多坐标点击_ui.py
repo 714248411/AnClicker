@@ -1,0 +1,89 @@
+"""多坐标点击参数界面。"""
+from anclicker.platform.qt_compat.QtWidgets import (
+    QVBoxLayout, QHBoxLayout, QFormLayout, QWidget, QLabel, QLineEdit,
+    QComboBox, QSpinBox, QDoubleSpinBox, QPushButton, QDialogButtonBox,
+)
+
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'DownwardExpansion': ('from', 'anclicker.ui.instruction_editors.downward_expansion', ('DownwardExpansion',), 0),
+})
+
+
+
+class Ui_InstructionEditor:
+    def setupUi(self, editor):
+        editor.resize(680, 480)
+        root = QVBoxLayout(editor)
+        self.rootLayout = root
+        root.addWidget(QLabel('多坐标点击：按填写顺序点击屏幕位置；取点每次追加一个坐标。', editor))
+        form = QFormLayout()
+        root.addLayout(form)
+        self.parameter_0 = QLineEdit(editor)
+        self.parameter_0.setPlaceholderText('100,200; 300,400')
+        row = QWidget(editor)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.parameter_0, 1)
+        self.auxiliary_0 = QPushButton('取点', row)
+        layout.addWidget(self.auxiliary_0)
+        form.addRow('点击坐标', row)
+        self.parameter_1 = QComboBox(editor)
+        self.parameter_1.addItems(['左键单击', '左键双击', '右键单击', '中键单击'])
+        form.addRow('点击方式', self.parameter_1)
+        self.parameter_2 = QDoubleSpinBox(editor)
+        self.parameter_2.setRange(0, 3600)
+        self.parameter_2.setDecimals(3)
+        self.parameter_2.setValue(1)
+        self.parameter_2.setSuffix(' 秒')
+        form.addRow('各点间隔', self.parameter_2)
+        toggle = QPushButton('▸ 高级设置', editor)
+        toggle.setCheckable(True)
+        root.addWidget(toggle)
+        advanced = QWidget(editor)
+        advanced_form = QFormLayout(advanced)
+        self.parameter_3 = QComboBox(advanced)
+        self.parameter_3.addItems(['关闭', '启用'])
+        advanced_form.addRow('随机偏移', self.parameter_3)
+        for index, label in ((4, '水平随机范围'), (5, '垂直随机范围')):
+            control = QSpinBox(advanced)
+            control.setRange(0, 1000)
+            control.setPrefix('± ')
+            control.setSuffix(' 像素')
+            control.setEnabled(False)
+            setattr(self, f'parameter_{index}', control)
+            advanced_form.addRow(label, control)
+        hint = QLabel('每个点每次点击分别随机偏移；0 表示不偏移，原始坐标保持不变。', advanced)
+        hint.setWordWrap(True)
+        advanced_form.addRow(hint)
+        root.addWidget(advanced)
+        advanced.hide()
+        DownwardExpansion = _module_imports.load('DownwardExpansion')
+        editor._coordinate_expansion = DownwardExpansion(editor, advanced)
+        toggle.toggled.connect(editor._coordinate_expansion.setExpanded)
+        toggle.toggled.connect(lambda checked: toggle.setText('▾ 高级设置' if checked else '▸ 高级设置'))
+        self.parameter_3.currentTextChanged.connect(self._offset_enabled)
+        common = QFormLayout()
+        root.addLayout(common)
+        self.repeatSpinBox = QSpinBox(editor)
+        self.repeatSpinBox.setRange(1, 999999)
+        common.addRow('整组重复次数', self.repeatSpinBox)
+        self.errorPolicyComboBox = QComboBox(editor)
+        self.errorPolicyComboBox.addItems(['自动跳过', '提示异常并暂停', '提示异常并停止'])
+        self.errorPolicyComboBox.setCurrentIndex(1)
+        common.addRow('异常处理', self.errorPolicyComboBox)
+        self.noteEdit = QLineEdit(editor)
+        common.addRow('备注', self.noteEdit)
+        footer = QHBoxLayout()
+        self.testButton = QPushButton('测试指令', editor)
+        footer.addWidget(self.testButton)
+        footer.addStretch()
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, editor)
+        footer.addWidget(self.buttonBox)
+        root.addLayout(footer)
+
+    def _offset_enabled(self, value):
+        self.parameter_4.setEnabled(value == '启用')
+        self.parameter_5.setEnabled(value == '启用')

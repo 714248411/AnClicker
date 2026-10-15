@@ -28,9 +28,9 @@ Excel 连续操作共享当前打开的工作簿；“写入”修改内存工�
 
 ## 验证
 
-.venv\Scripts\python.exe tools\run_tests.py test\test_rpa_integration.py test\test_instruction_registry.py test\test_ocr_palette_groups.py -q
+自动化测试脚本及专用运行器已按要求删除；下文为此前的历史验证记录。
 
-Windows 下使用原生 Qt 后端；此机器的 Qt5 offscreen 后端显示异常提示框时会原生崩溃，tools/run_tests.py 选择 windows 后端。网页端到端验证使用本机测试页，不代表已验收所有业务网站。
+Windows 验收使用原生 Qt 后端。网页端到端验证使用本机测试页，不代表已验收所有业务网站。
 
 打包仍遵守原项目 Python 3.10.11 基线；本机开发环境为 Python 3.10.22。打包脚本已包含 RPA 引擎资源，本地便携测试包已使用 Python 3.10.11 构建，并通过成品启动、界面、OCR、Excel 和网页自检；尚未公开发布。
 

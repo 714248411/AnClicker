@@ -11,5 +11,5 @@ for name in ('QINIU_ACCESS_KEY','QINIU_SECRET_KEY'):
 env=dict(os.environ)
 for k in list(env):
     if k.lower().endswith('_proxy'):env.pop(k)
-env['PYTHONPATH']=str(root/'.runtime-tools')
-subprocess.run([sys.executable,'-m','uv','pip','install','--target',str(root/'.runtime-tools'),'PySocks'],env=env,check=True)
+env['PYTHONPATH']=str(root/'.local/cache')
+subprocess.run([sys.executable,'-m','uv','pip','install','--target',str(root/'.local/cache'),'PySocks'],env=env,check=True)

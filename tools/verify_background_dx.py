@@ -1,22 +1,41 @@
 """Probe DX presets only against temporary test windows owned by this script."""
 import json,os,sys,time,subprocess,traceback,threading
 from pathlib import Path
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'anclicker': ('import', 'anclicker', (), False),
+    'ExecutionContext': ('from', 'anclicker.domain.instructions', ('ExecutionContext',), 0),
+    'background_runtime_Windows_etc': ('from', 'anclicker.platform.background_runtime', ('Windows', 'bind_background', 'current_backend', 'close_background'), 0),
+    'AUTO': ('from', 'anclicker.platform.background_binding', ('AUTO',), 0),
+    'win32gui': ('import', 'win32gui', (), False),
+    'win32con': ('import', 'win32con', (), False),
+    'win32process': ('import', 'win32process', (), False),
+})
+
 root=Path(__file__).resolve().parents[1];sys.path.insert(0,str(root))
-os.environ['ANCLICKER_DATA_DIR']=str(root/'validation/background-dx-data')
-from instructions.models import ExecutionContext
-from background_runtime import Windows,bind_background,current_backend,close_background
-from background_binding import AUTO
-import win32gui,win32con,win32process
-result=[];destination=root/'validation/background-dx-results.json'
+anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry points.
+os.environ['ANCLICKER_DATA_DIR']=str(root/'artifacts/validation/background-dx-data')
+ExecutionContext = _module_imports.load('ExecutionContext')
+Windows, bind_background, current_backend, close_background = _module_imports.load('background_runtime_Windows_etc')
+AUTO = _module_imports.load('AUTO')
+win32gui = _module_imports.load('win32gui'); win32con = _module_imports.load('win32con'); win32process = _module_imports.load('win32process')
+result=[];destination=root/'artifacts/validation/background-dx-results.json'
 for bits in (32,64):
     for preset in ((AUTO,) if '--auto-only' in sys.argv else ('DX1','DX2',AUTO)):
         entry={'bits':bits,'preset':preset};result.append(entry)
         process=None;state=None;context=ExecutionContext();timer=None
         try:
-            folder=root/'validation'/('dx-fixture-'+str(bits));folder.mkdir(exist_ok=True)
+            folder=root/'artifacts/validation'/('dx-fixture-'+str(bits));folder.mkdir(exist_ok=True)
             state_path=folder/'state.json';state_path.unlink(missing_ok=True)
             shell=Path(os.environ['WINDIR'])/('SysWOW64' if bits==32 else 'System32')/'WindowsPowerShell/v1.0/powershell.exe'
-            process=subprocess.Popen([str(shell),'-NoProfile','-ExecutionPolicy','Bypass','-File',str(root/'validation/dm-fixture.ps1'),str(state_path)],creationflags=subprocess.CREATE_NO_WINDOW,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            process=subprocess.Popen([str(shell),'-NoProfile','-ExecutionPolicy','Bypass','-File',str(root/'artifacts/validation/dm-fixture.ps1'),str(state_path)],creationflags=subprocess.CREATE_NO_WINDOW,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             deadline=time.monotonic()+12
             while not state_path.exists() and time.monotonic()<deadline and process.poll() is None:time.sleep(.05)
             state=json.loads(state_path.read_text(encoding='utf8'))

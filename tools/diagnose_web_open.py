@@ -1,8 +1,22 @@
 import sys,os,tempfile,json
 from pathlib import Path
+
+import sys as _import_sys
+from pathlib import Path as _ImportPath
+if __package__ in (None, ""):
+    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
+from anclicker._imports import DeferredImports as _DeferredImports
+
+# Dependencies declared here retain their existing on-demand loading boundaries.
+_module_imports = _DeferredImports(globals(), {
+    'anclicker': ('import', 'anclicker', (), False),
+    'RpaBridge': ('from', 'anclicker.platform.rpa_bridge', ('RpaBridge',), 0),
+})
+
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root))
-from instructions.common.rpa_bridge import RpaBridge
+anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry points.
+RpaBridge = _module_imports.load('RpaBridge')
 os.environ['ANCLICKER_DATA_DIR']=tempfile.mkdtemp(prefix='ac-web-check-')
 b=RpaBridge()
 try:
