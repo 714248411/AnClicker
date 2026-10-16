@@ -80,15 +80,15 @@ AnClicker 是一款以**本地执行、开放扩展、用户掌控**为核心的
 
 ---
 
-## 开发中：v1.6.2（尚未发布）
+## v1.6.2
 
-当前分支已同步对话 Agent 与新对话修复代码，暂不发布新版安装包。最新正式版仍为 [v1.6.1](https://github.com/714248411/AnClicker/releases/tag/v1.6.1)。
+本版本新增对话 Agent，并修复新对话会话创建及图片路径兼容问题。发行包与源码见 [v1.6.2 发布页](https://github.com/714248411/AnClicker/releases/tag/v1.6.2)。
 
 新增“对话 Agent”，可通过本地小模型或兼容模型服务编写指令草稿、修改参数，并操作独立浏览器。Windows 支持 CPU/GPU 自动调度、排队与空闲释放。新建对话会保留当前配置的会话模式。
 
-体验新增功能请使用本分支源码，按下方“开发与运行”以及 [开发版运行说明](docs/RPA_REBUILD.md) 准备环境。Windows 小模型可通过“准备本机小模型.cmd”准备；已有离线运行包时，将 .agent-runtime 解压到源码根目录。Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
+从源码运行时，按下方“开发与运行”以及 [开发版运行说明](docs/RPA_REBUILD.md) 准备环境。Windows 小模型可通过“准备本机小模型.cmd”准备；已有离线运行包时，将 .agent-runtime 解压到源码根目录。Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
 
-[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](tools/packaging/PLATFORM_GUIDE.md) · [待发布更新说明](tools/packaging/RELEASE_NOTES.md)
+[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](tools/packaging/PLATFORM_GUIDE.md) · [更新说明](tools/packaging/RELEASE_NOTES.md)
 
 ## 项目简介
 

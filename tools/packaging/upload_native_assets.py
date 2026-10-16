@@ -52,6 +52,11 @@ def main():
         assert digest == expected[package.name]
         assets = api('/releases/'+str(release['id'])+'/assets')
         asset = next((item for item in assets if item['name'] == package.name), None)
+        if asset is not None and (asset['size'] != package.stat().st_size or asset.get('digest') != 'sha256:'+digest):
+            # Only replace stale assets in the draft bound to this verified commit.
+            subprocess.run(['gh', 'release', 'upload', CURRENT_VERSION, str(package), '--clobber',
+                '--repo', os.environ['GH_REPO']], check=True, timeout=900)
+            asset = next(item for item in api('/releases/'+str(release['id'])+'/assets') if item['name'] == package.name)
         if asset is None:
             url = release['upload_url'].split('{')[0]+'?name='+urllib.parse.quote(package.name)
             result = subprocess.run(['gh', 'api', '--method', 'POST', url, '--input', str(package),
