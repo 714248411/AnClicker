@@ -58,7 +58,7 @@ jobs:
             sudo chown root:root artifacts/validation/extracted/AnClicker/runtime/electron/chrome-sandbox
             sudo chmod 4755 artifacts/validation/extracted/AnClicker/runtime/electron/chrome-sandbox
           fi
-          uv run --locked --group release python tools/packaging/smoke_release.py --dist extracted 2>&1 | tee artifacts/release/verification-${{ matrix.artifact }}.txt
+          uv run --locked --group release python tools/packaging/smoke_release.py --dist artifacts/validation/extracted 2>&1 | tee artifacts/release/verification-${{ matrix.artifact }}.txt
           uv run --locked --group release python - <<'PY'
           import hashlib, pathlib, platform, json
           for p in pathlib.Path('artifacts/release').glob('*.zip'):

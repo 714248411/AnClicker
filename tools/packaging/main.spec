@@ -47,10 +47,10 @@ instruction_datas = collect_resource_datas()
 instruction_datas.append((str(Path(project_root) / "legacy/background_dm_worker.py"), "legacy"))
 # A separately configured Python interpreter cannot read this executable's PYZ.
 # Collect the same maintained source files for that standalone worker as well.
-for source in ('info.py', 'anclicker/__init__.py', 'anclicker/_imports.py', 'anclicker/app/__init__.py',
+for source in (('info.py', 'anclicker/__init__.py', 'anclicker/_imports.py', 'anclicker/app/__init__.py',
                'anclicker/app/paths.py', 'anclicker/platform/__init__.py',
                'anclicker/platform/background_catalog.py',
-               'anclicker/platform/background_dm_worker.py'):
+               'anclicker/platform/background_dm_worker.py') if sys.platform == 'win32' else ()):
     relative = Path(source)
     instruction_datas.append((str(Path(project_root) / relative), str(relative.parent)))
 # The locally verified external DLLs and local registration configuration are not public build inputs.
