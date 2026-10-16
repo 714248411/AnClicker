@@ -1,0 +1,454 @@
+<!doctype html><html lang="zh-CN" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AnClicker · AnClicker让流程自动发生</title><meta name="description" content="AnClicker 桌面自动化工作台：本地执行、可视化流程、键鼠录制与开放扩展。"><script>try{document.documentElement.dataset.theme=localStorage.getItem('anclicker-dark-default-theme')||'dark'}catch(e){}</script><style>
+/* =========================================================================
+   知枢落地页 —— 双主题（深色科技 墨绿深 / 浅色 Bento 墨绿深）
+   深色设计源：终选-1-深色科技（Outfit · #050806 底 · #57A56F 强调 · 网格+辉光）
+   浅色设计源：终选-2-浅色Bento（Manrope · #F1F4EF 底 · #35543F 强调 · 白卡+光斑）
+   ========================================================================= */
+:root{
+  /* 两套主题共用的形状/动效令牌 */
+  --radius:10px;          /* 控件（深色为基准，浅色覆盖为胶囊/大圆角） */
+  --card-r:16px;          /* 卡片 */
+  --frame-r:14px;         /* 截图框 */
+  --t-fast:.3s cubic-bezier(.22,1,.36,1);
+}
+/* ---------- 深色科技 ---------- */
+html[data-theme="dark"]{
+  --bg:#050806; --panel:#0C130E; --panel2:#09100C; --line:rgba(120,180,140,.13); --line2:rgba(120,180,140,.32);
+  --fg:#E4EDE5; --muted:#84987F; --accent:#57A56F; --accent-dim:rgba(87,165,111,.13); --glow:rgba(87,165,111,.30);
+  --on-accent:#050806;
+  --font:"Outfit","HarmonyOS Sans SC","MiSans","PingFang SC","Microsoft YaHei",sans-serif;
+  --h1-w:600; --h1-ls:.01em; --h1-lh:1.15;
+  --wm-w:700; --wm-op:.085; --wm-ls:.06em;
+  --radius:10px; --card-r:16px; --frame-r:14px;
+  --shadow:none;
+}
+/* ---------- 浅色 Bento ---------- */
+html[data-theme="light"]{
+  --bg:#F1F4EF; --panel:#FFFFFF; --panel2:#F8FAF7; --line:#DFE6DC; --line2:#C4D0C2;
+  --fg:#141D16; --muted:#5A675C; --accent:#35543F; --accent-dim:rgba(53,84,63,.10); --glow:rgba(53,84,63,.22);
+  --on-accent:#F6F9F5;
+  --b1:rgba(88,124,84,.30); --b2:rgba(53,84,63,.16); --b3:rgba(176,146,104,.24);
+  --font:"Manrope","HarmonyOS Sans SC","MiSans","PingFang SC","Microsoft YaHei",sans-serif;
+  --h1-w:800; --h1-ls:-.01em; --h1-lh:1.18;
+  --wm-w:800; --wm-op:.08; --wm-ls:.04em;
+  --radius:999px; --card-r:22px; --frame-r:22px;
+  --shadow:0 1px 2px rgba(20,29,22,.04),0 16px 44px rgba(20,29,22,.09);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+/* ============ 滚动条：细、半透明，不抢视觉 ============ */
+html{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:999px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-corner{background:transparent}
+body{background:var(--bg);color:var(--fg);line-height:1.7;overflow-x:hidden;font-family:var(--font);-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+.page{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 28px}
+.mono{font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+/* 背景层：深色=网格+顶部辉光；浅色=光斑（由 body::before / .blob 分工） */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0}
+html[data-theme="dark"] body::before{
+  opacity:.5;
+  background:
+    radial-gradient(900px 420px at 78% -10%, var(--glow), transparent 60%),
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 96px),
+    repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 96px);
+}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:61;display:none}
+html[data-theme="dark"] body::after{
+  display:block;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px);mix-blend-mode:overlay;
+}
+/* 背景层：深色=网格+顶部辉光（下面 body::before）；浅色=光斑+水印。
+   水印与光斑放进固定层 .bg-fx —— 全页悬停在后，滚动时背景不再移动 */
+.bg-fx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;will-change:transform;display:none}
+html[data-theme="light"] .blob{display:block}
+.blob.b1{width:520px;height:520px;right:-90px;top:40px;background:var(--b1)}
+.blob.b2{width:430px;height:430px;left:-130px;top:260px;background:var(--b2)}
+.blob.b3{width:300px;height:300px;right:24%;bottom:-70px;background:var(--b3)}
+
+/* 知枢水印：全页固定居中、单行横排（字号按视口钳制，保证两字 + 字距 < 视口宽） */
+.wm-fixed{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.wm{white-space:nowrap;font-size:clamp(140px,44vw,500px);font-weight:var(--wm-w);letter-spacing:var(--wm-ls);line-height:1;
+  color:var(--accent);opacity:var(--wm-op);user-select:none}
+
+/* ============ 导航胶囊 ============ */
+.nav{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:22px;
+  padding:9px 20px;border-radius:999px;border:1px solid var(--line);box-shadow:var(--shadow);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+@supports (background:color-mix(in srgb, #000 50%, transparent)){
+  html[data-theme="dark"] .nav{background:color-mix(in srgb, var(--panel) 74%, transparent)}
+  html[data-theme="light"] .nav{background:color-mix(in srgb, var(--panel) 86%, transparent)}
+}
+.nav .brand{font-weight:600;letter-spacing:.04em;font-size:14px;white-space:nowrap}
+html[data-theme="light"] .nav .brand{font-weight:800;letter-spacing:.02em}
+.nav .brand i{font-style:normal;color:var(--accent)}
+.nav nav{display:flex;gap:17px;font-size:13px}
+.nav nav a{color:var(--muted);text-decoration:none;transition:color .25s;white-space:nowrap}
+.nav nav a:hover{color:var(--fg)}
+.nav .theme-btn{flex:none;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--line2);color:var(--muted);cursor:pointer;transition:color var(--t-fast),border-color var(--t-fast),transform var(--t-fast)}
+.nav .theme-btn:hover{color:var(--accent);border-color:var(--accent);transform:rotate(18deg)}
+.nav .theme-btn svg{width:16px;height:16px;display:block}
+html[data-theme="dark"] .theme-btn .i-moon{display:none}
+html[data-theme="light"] .theme-btn .i-sun{display:none}
+@media (max-width:900px){.nav nav{display:none}.nav{gap:14px}}
+
+/* ============ Hero ============ */
+.hero{position:relative;isolation:isolate;min-height:94vh;display:flex;flex-direction:column;justify-content:center;padding:156px 0 72px}
+.hero > *{position:relative;z-index:1}
+.eyebrow{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-bottom:24px}
+html[data-theme="light"] .eyebrow{font-weight:800;letter-spacing:.22em}
+h1{font-size:clamp(40px,5.4vw,76px);line-height:var(--h1-lh);font-weight:var(--h1-w);letter-spacing:var(--h1-ls)}
+h1 .ln{display:block;overflow:hidden;white-space:nowrap;padding-bottom:.12em;margin-bottom:-.12em}
+h1 .fit.wrap{display:inline}
+@media (max-width:560px){h1 .ln{white-space:normal;overflow:visible}}
+h1 .ch{display:inline-block;will-change:transform}
+h1 .brandw{color:var(--accent)}
+h1 .fit{display:inline-block}
+.hero .sub{margin-top:26px;max-width:42em;color:var(--muted);font-size:16px}
+html[data-theme="light"] .hero .sub{font-size:16.5px;max-width:34em}
+.hero .sub b{color:var(--fg);font-weight:600}
+/* 宽屏副题单行展示；窄屏自动换行（手机端不产生横向溢出） */
+@media (min-width:1200px){
+  html[data-theme="dark"] .hero .sub,
+  html[data-theme="light"] .hero .sub{white-space:nowrap;display:inline-block;font-size:20px;max-width:none}
+}
+.cta{display:flex;gap:14px;margin-top:38px;flex-wrap:wrap}
+.btn{font:inherit;font-size:14px;font-weight:500;padding:13px 26px;border-radius:var(--radius);cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:transform var(--t-fast),box-shadow var(--t-fast),border-color var(--t-fast),background var(--t-fast),color var(--t-fast)}
+html[data-theme="light"] .btn{font-size:14.5px;font-weight:700;padding:14px 28px}
+.btn.primary{background:var(--accent);color:var(--on-accent);border:1px solid var(--accent)}
+html[data-theme="light"] .btn.primary{box-shadow:0 14px 34px color-mix(in srgb,var(--accent) 30%,transparent)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 12px 40px var(--glow)}
+html[data-theme="light"] .btn.primary:hover{transform:translateY(-3px) scale(1.02)}
+.btn.ghost{border:1px solid var(--line2);color:var(--fg);background:transparent}
+html[data-theme="light"] .btn.ghost{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+html[data-theme="light"] .btn.ghost:hover{transform:translateY(-3px)}
+.trust{margin-top:44px;display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted);max-width:52em}
+.trust .dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--glow);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+.hero-stats{margin-top:46px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.fs{background:var(--panel);border:1px solid var(--line);border-radius:var(--card-r);padding:16px 20px;box-shadow:var(--shadow)}
+.fs .v{font-size:clamp(20px,2.2vw,26px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.fs .v small{font-size:12px;font-weight:600;color:var(--muted);margin-left:3px}
+html[data-theme="light"] .fs .v{font-weight:800}
+.fs .k{font-size:12px;color:var(--muted);margin-top:3px}
+.scroll-hint{margin-top:52px;font-size:11px;letter-spacing:.24em;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.scroll-hint::after{content:"";width:1px;height:34px;background:linear-gradient(var(--accent),transparent);animation:drop 1.8s infinite}
+@keyframes drop{0%{transform:scaleY(0);transform-origin:top}45%{transform:scaleY(1);transform-origin:top}55%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+@media (max-width:820px){.hero-stats{grid-template-columns:1fr 1fr}}
+@media (max-width:380px){.hero-stats{grid-template-columns:1fr}}
+
+/* ============ 章节骨架 ============ */
+.sec{padding:112px 0 12px}
+.sec .kicker{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+html[data-theme="light"] .sec .kicker{font-weight:800;letter-spacing:.22em}
+.sec h2{font-size:clamp(28px,3.6vw,46px);font-weight:600;line-height:1.25;letter-spacing:.01em}
+html[data-theme="light"] .sec h2{font-weight:800;letter-spacing:-.015em;line-height:1.22}
+.sec .lede{margin-top:18px;max-width:56em;color:var(--muted);font-size:15px}
+.sec .lede b{color:var(--fg);font-weight:600}
+
+/* ============ 通用卡片 / 栅格 ============ */
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mod{background:var(--panel);border:1px solid var(--line);border-radius:var(--card-r);padding:26px 26px 28px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.mod h3{font-size:15.5px;font-weight:700;margin:9px 0 7px;color:var(--fg)}
+html[data-theme="dark"] .mod h3{font-weight:600}
+.mod p{font-size:13px;color:var(--muted);margin:0;line-height:1.75}
+.mod p b{color:var(--fg);font-weight:600}
+.mod .k{font-size:12px;letter-spacing:.16em;color:var(--accent);text-transform:uppercase;font-family:"JetBrains Mono",Consolas,ui-monospace,monospace}
+.mod ul{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px}
+.mod li{position:relative;padding-left:18px;font-size:13.5px;color:var(--muted);line-height:1.75}
+.mod li::before{content:"";position:absolute;left:2px;top:.66em;width:6px;height:6px;border-radius:2px;background:var(--accent)}
+.mod li b{color:var(--fg);font-weight:600}
+@media (max-width:960px){.g3,.g4{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.g3,.g4,.g2,.two{grid-template-columns:1fr}}
+
+/* ============ 沉淀流程图（动效） ============ */
+.flow-wrap{position:relative;margin-top:60px}
+.flowline{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.flowline .track{fill:none;stroke:var(--line2);stroke-width:2;stroke-dasharray:6 7}
+.flowline .live{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round}
+.flowline .dot{fill:var(--accent)}
+html[data-theme="dark"] .flowline .dot{filter:drop-shadow(0 0 8px var(--glow))}
+/* 布局共用，节点外观按主题二分：深色=圆章居中；浅色=Bento 卡片左上角标 */
+.nodes{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
+.node{position:relative}
+.node .bub{display:flex;align-items:center;justify-content:center;font-weight:600;font-size:17px;color:var(--muted);
+  transition:color .4s,border-color .4s,background .4s,box-shadow .4s,transform .4s}
+.node h3{font-size:16px;font-weight:600;margin-bottom:8px}
+.node p{font-size:13px;color:var(--muted);line-height:1.7}
+html[data-theme="dark"] .node{padding-top:76px;text-align:center}
+html[data-theme="dark"] .node .bub{position:absolute;top:0;left:50%;transform:translateX(-50%);width:58px;height:58px;border-radius:50%;
+  border:1px solid var(--line2);background:var(--panel);font-size:18px}
+html[data-theme="dark"] .node.on .bub{color:var(--on-accent);background:var(--accent);border-color:var(--accent);
+  box-shadow:0 0 0 6px var(--accent-dim),0 0 26px var(--glow)}
+html[data-theme="light"] .node{padding:76px 20px 24px;background:var(--panel);border:1px solid var(--line);
+  border-radius:20px;box-shadow:var(--shadow);transition:transform .45s cubic-bezier(.22,1,.36,1),border-color .4s}
+html[data-theme="light"] .node .bub{position:absolute;top:16px;left:20px;width:40px;height:40px;border-radius:12px;
+  background:var(--accent-dim);color:var(--accent);font-weight:800;font-size:14px}
+html[data-theme="light"] .node.on{border-color:var(--accent)}
+html[data-theme="light"] .node.on .bub{background:var(--accent);color:var(--on-accent);transform:scale(1.08)}
+html[data-theme="light"] .node.on:hover{transform:translateY(-6px)}
+html:not(.js) .flowline{display:none}
+@media (max-width:960px){.nodes{grid-template-columns:1fr 1fr}.flowline{display:none}}
+@media (max-width:560px){.nodes{grid-template-columns:1fr}}
+
+/* ============ 对比区块（传统 RAG ↔ 知枢） ============ */
+.cmp{margin-top:44px}
+.cmp-head{display:grid;grid-template-columns:1fr 1.25fr;gap:16px;padding:0 18px 12px;font-size:12.5px;color:var(--muted);
+  letter-spacing:.06em;border-bottom:1px solid var(--line)}
+html[data-theme="dark"] .cmp-head{font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11.5px}
+.cmp-head span:first-child{color:var(--muted)}
+.cmp-head span:last-child{color:var(--accent);font-weight:700}
+html[data-theme="dark"] .cmp-head span:last-child{font-weight:600}
+.cmp-row{display:grid;grid-template-columns:1fr 1.25fr;gap:16px;padding:24px 18px;border-bottom:1px solid var(--line);position:relative;align-items:start;border-radius:var(--radius)}
+.cmp-row::after{content:"";position:absolute;left:0;bottom:-1px;height:1px;width:100%;background:var(--accent);transform:scaleX(var(--u,0));transform-origin:left}
+.cmp-row .rag{font-size:14px;color:var(--muted)}
+.cmp-row .rag b{color:var(--fg);font-weight:600}
+.cmp-row .zs{font-size:15px;font-weight:600;color:var(--fg)}
+html[data-theme="dark"] .cmp-row .zs{font-weight:500}
+.cmp-row .zs small{display:block;font-weight:400;color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.7}
+html[data-theme="light"] .cmp-row:hover{background:var(--panel);box-shadow:var(--shadow)}
+.cmp-quote{margin-top:34px;font-size:clamp(17px,2vw,20px);font-weight:700;color:var(--fg);line-height:1.7}
+html[data-theme="dark"] .cmp-quote{font-weight:600}
+.cmp-quote em{font-style:normal;color:var(--accent)}
+.cmp-note{margin-top:14px;font-size:13.5px;color:var(--muted);max-width:118em;line-height:1.8}
+.cmp-note b{color:var(--fg);font-weight:600}
+@media (max-width:760px){.cmp-head{display:none}.cmp-row{grid-template-columns:1fr;gap:8px}}
+
+/* ============ 打字机段落 ============ */
+.type-sec{padding:125px 0 36px}
+.type{font-size:clamp(20px,2.5vw,30px);line-height:1.9;max-width:34em;font-weight:400}
+html[data-theme="light"] .type{font-weight:600;letter-spacing:-.01em}
+/* 打字机：字的显隐只走一条通道（内联 opacity 由脚本控制），CSS 不设透明度，避免多通道打架 */
+.type .w.hi{color:var(--accent)}
+.type .caret{display:none;width:2px;height:1em;background:var(--accent);vertical-align:-.12em;margin-left:4px;opacity:0}
+html.anim .type .caret{display:inline-block}
+html[data-theme="light"] .type .caret{width:3px;border-radius:2px}
+.type.done .caret{opacity:1;animation:blink 1s steps(1) infinite}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+/* ============ 截图框（灯箱可点开） ============ */
+.shots-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:20px;margin-top:48px}
+.frame{position:relative;border:1px solid var(--line2);border-radius:var(--frame-r);background:linear-gradient(165deg,var(--panel),var(--panel2));
+  overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.45);will-change:transform;transition:border-color .4s,box-shadow .5s}
+html[data-theme="light"] .frame{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+.frame::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(520px 240px at 82% 0%,var(--accent-dim),transparent 62%);opacity:.8}
+html[data-theme="light"] .frame::after{display:none}
+/* 截图框悬停：只在有真指针的设备上生效（触屏点按不残留形变） */
+@media (hover:hover){
+  .frame:hover{border-color:var(--accent)}
+  html[data-theme="light"] .frame:hover{box-shadow:0 26px 64px color-mix(in srgb,var(--accent) 16%,transparent)}
+  .frame:hover .shot-img{transform:scale(1.03)}
+}
+.frame .bar{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--line)}
+html[data-theme="light"] .frame .bar{background:var(--panel2);padding:12px 16px}
+.frame .bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+.frame .bar i:first-child{background:var(--accent)}
+.frame .bar span{margin-left:8px;font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+html[data-theme="light"] .frame .bar span{font-weight:700}
+.frame .mock{position:relative;overflow:hidden}
+.shot-par{will-change:transform}
+.shot-img{width:100%;height:340px;object-fit:cover;object-position:top center;display:block;
+  transition:transform .6s cubic-bezier(.22,1,.36,1)}
+html[data-theme="dark"] .shot-img{filter:brightness(.94) contrast(.99)}
+.frame .shot-cap{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:13px 17px;
+  border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);background:var(--panel2)}
+.frame .shot-cap b{color:var(--fg);font-weight:600}
+html[data-theme="light"] .frame .shot-cap b{font-weight:800}
+.f-a{grid-column:span 7}
+.f-b{grid-column:span 5}
+.f-c{grid-column:span 12}
+.f-c .shot-img{height:280px;object-position:center top}
+.f-d{grid-column:span 8}
+.f-e{grid-column:span 4}
+.f-f{grid-column:span 6}
+.f-g{grid-column:span 6}
+.f-tall .shot-img{height:380px}
+/* 文档型截图（宽幅文档/版本对照）：按原比例完整展示，不裁切 */
+.f-doc .shot-img{height:auto;object-fit:contain}
+@media (max-width:920px){.f-a,.f-b,.f-d,.f-e,.f-f,.f-g,.f-doc{grid-column:span 12}}
+@media (max-width:640px){.shot-img{height:240px}}
+
+/* ============ 返回顶端（右下角悬浮） ============ */
+.to-top{position:fixed;right:26px;bottom:26px;z-index:55;width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;padding:0;
+  background:transparent;border:1px solid var(--line2);color:var(--fg);cursor:pointer;
+  opacity:0;visibility:hidden;transform:translateY(10px);
+  transition:opacity .3s cubic-bezier(.22,1,.36,1),transform .3s cubic-bezier(.22,1,.36,1),visibility .3s,border-color .25s,color .25s}
+html[data-theme="light"] .to-top{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+.to-top.show{opacity:1;visibility:visible;transform:none}
+.to-top:hover{border-color:var(--accent);color:var(--accent)}
+.to-top:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.to-top svg{width:20px;height:20px;display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+html.lb-open .to-top{opacity:0;visibility:hidden}   /* 灯箱打开时让位（弹层是模态） */
+@media (max-width:640px){.to-top{right:16px;bottom:16px;width:42px;height:42px}}
+
+/* 灯箱 */
+.lb{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;overflow:hidden}
+.lb.open{display:flex}
+html[data-theme="dark"] .lb{background:rgba(3,6,4,.93);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+html[data-theme="light"] .lb{background:rgba(244,245,240,.95);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.lb-img{max-width:86vw;max-height:80vh;border:1px solid var(--line2);border-radius:12px;cursor:zoom-in;transform-origin:center center;
+  position:relative;z-index:1;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;touch-action:none}
+.lb-img.zoomed{cursor:grab}
+.lb-img.dragging{cursor:grabbing}
+html[data-theme="dark"] .lb-img{box-shadow:0 30px 90px rgba(0,0,0,.65)}
+html[data-theme="light"] .lb-img{border-color:var(--line);border-radius:16px;box-shadow:0 30px 80px rgba(20,29,22,.28)}
+.lb button{position:absolute;width:46px;height:46px;border-radius:50%;font:inherit;font-size:22px;line-height:1;
+  background:transparent;border:1px solid var(--line2);color:var(--fg);cursor:pointer;transition:.25s}
+html[data-theme="light"] .lb button{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+.lb button:not(:disabled):hover{border-color:var(--accent);color:var(--accent)}
+.lb button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.lb button:disabled{opacity:.35;cursor:default}
+.lb-close{top:26px;right:30px}
+.lb-prev{left:30px;top:50%;transform:translateY(-50%)}
+.lb-next{right:30px;top:50%;transform:translateY(-50%)}
+.lb-cap{position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:13px;color:var(--muted);padding:0 20px}
+.lb-cap b{color:var(--fg)}
+/* 灯箱 · 缩放控件与提示（只用既有令牌） */
+.lb-zoom,.lb-close,.lb-prev,.lb-next,.lb-cap,.lb-hint{z-index:2}   /* 控件必须压在图片之上：缩放后的图片会铺满视口 */
+.lb-zoom{position:absolute;top:26px;left:30px;display:flex;align-items:center;gap:8px}
+.lb .lb-zoom button{position:static;width:42px;height:42px;font-size:20px}
+.lb .lb-zoom .lb-z-fit{width:auto;min-width:54px;padding:0 14px;font-size:13px;letter-spacing:.02em;border-radius:999px}
+.lb-z-val{min-width:54px;text-align:center;font:500 13px/1 "JetBrains Mono",Consolas,ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--muted)}
+.lb-hint{position:absolute;top:34px;left:50%;transform:translateX(-50%);pointer-events:none;font-size:12.5px;letter-spacing:.03em;
+  color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+@media (max-width:860px){
+  .lb-zoom{top:16px;left:16px;gap:6px}
+  .lb-close{top:16px;right:16px}
+  .lb-prev{left:12px}
+  .lb-next{right:12px}
+}
+@media (max-width:860px),(max-height:640px){.lb-hint{display:none}}
+
+/* ============ 数据对照 ============ */
+.d-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:40px}
+.d-tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--card-r);padding:20px 18px 16px;box-shadow:var(--shadow)}
+.d-tile b{display:block;font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;font-size:clamp(30px,3.4vw,42px);
+  font-weight:700;line-height:1.05;color:var(--accent);letter-spacing:-.01em}
+.d-tile span{display:block;margin-top:8px;font-size:13.5px;color:var(--fg);font-weight:600}
+.d-tile small{display:block;margin-top:5px;font-size:11.5px;line-height:1.6;color:var(--muted)}
+.dx{margin-top:38px;border-top:1px solid var(--line)}
+.dx-row{display:grid;grid-template-columns:104px 1fr 1.3fr;gap:16px;padding:18px 4px;border-bottom:1px solid var(--line);align-items:start}
+.dx-k{font-size:12.5px;color:var(--muted);letter-spacing:.03em;padding-top:3px}
+.dx-rag{font-size:13.5px;color:var(--muted);padding-top:3px}
+.dx-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.dx-num{font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;font-size:21px;font-weight:700;color:var(--accent)}
+.dx-sub{font-size:12.5px;color:var(--muted)}
+.dx-track{margin-top:9px;height:8px;border-radius:6px;background:var(--accent-dim);overflow:hidden}
+.dx-fill{display:block;height:100%;border-radius:6px;background:var(--accent);transform-origin:left center}
+.dx-note{margin-top:26px;font-size:12px;line-height:1.85;color:var(--muted)}
+@media (max-width:860px){.d-tiles{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.dx-row{grid-template-columns:1fr;gap:6px}}
+@media (max-width:520px){.d-tiles{grid-template-columns:1fr}}
+
+/* ============ 代码块 ============ */
+.code-card{margin-top:34px;border:1px solid var(--line);border-radius:var(--card-r);overflow:hidden;background:var(--panel);box-shadow:var(--shadow)}
+.code-card .bar{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--line)}
+.code-card .bar i{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+.code-card .bar i:first-child{background:var(--accent)}
+.code-card .bar span{margin-left:8px;font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.code-card pre{margin:0;padding:18px 18px;overflow-x:auto;font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;
+  font-size:12.5px;line-height:1.9;color:var(--fg)}
+html[data-theme="dark"] .code-card pre{background:var(--panel2)}
+html[data-theme="light"] .code-card pre{background:var(--panel2)}
+.code-card pre .c{color:var(--muted)}
+.tok{color:var(--accent);font-weight:600}
+
+/* ============ 归属感卡片（不承诺 / 轻量化 / 插件） ============ */
+.note-card{display:flex;gap:14px;align-items:flex-start;padding:22px 24px;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--card-r);margin-top:16px;box-shadow:var(--shadow)}
+.note-card svg{width:17px;height:17px;flex:none;margin-top:4px;color:var(--accent)}
+.note-card p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.8}
+.note-card p b{color:var(--fg);font-weight:600}
+
+/* 联系卡 */
+.contact-card{margin-top:34px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--card-r);padding:28px 30px;box-shadow:var(--shadow)}
+.contact-card .qr{width:132px;height:132px;flex:none;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.contact-card .qr img{display:block;width:100%;height:100%;object-fit:cover}
+.contact-card .info{flex:1;min-width:240px}
+.contact-card h3{font-size:19px;font-weight:700;margin-bottom:8px}
+html[data-theme="dark"] .contact-card h3{font-weight:600}
+.contact-card .wx{font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;font-size:clamp(20px,2.4vw,26px);font-weight:700;color:var(--accent);letter-spacing:.02em}
+.contact-card p{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.8}
+
+/* ============ 跑马灯 ============ */
+.marquee{margin-top:104px;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;white-space:nowrap}
+.marquee .inner{display:inline-flex;gap:34px;animation:mv 32s linear infinite;will-change:transform}
+.marquee:hover .inner{animation-play-state:paused}
+.marquee span{font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:34px}
+.marquee span::after{content:"/";color:var(--accent)}
+@keyframes mv{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ============ 悬停动效（双主题；只动 transform/阴影/描边；仅真指针设备，触屏点按不残留） ============ */
+@media (hover:hover){
+.fs,.mod,.frame,.node,.cmp-row,.code-card{transition:transform .45s cubic-bezier(.22,1,.36,1),box-shadow .45s,border-color .35s,background .35s}
+html[data-theme="light"] .fs:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(20,29,22,.14)}
+html[data-theme="light"] .mod:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 20px 48px rgba(20,29,22,.13)}
+html[data-theme="light"] .frame:hover{transform:translateY(-4px)}
+html[data-theme="light"] .cmp-row:hover{transform:translateY(-2px)}
+html[data-theme="light"] .code-card:hover{border-color:var(--accent)}
+/* 深色主题：辉光语言——描边点亮 + 低透明度光晕，不做位移 */
+html[data-theme="dark"] .fs:hover,
+html[data-theme="dark"] .mod:hover,
+html[data-theme="dark"] .node:hover{border-color:var(--accent)}
+html[data-theme="dark"] .fs:hover{box-shadow:0 0 0 1px var(--accent-dim),0 14px 34px rgba(0,0,0,.35)}
+html[data-theme="dark"] .mod:hover{background:
+  radial-gradient(220px 130px at 18% 0%, var(--accent-dim), transparent 70%), var(--panel);
+  box-shadow:0 0 0 1px var(--accent-dim),0 16px 38px rgba(0,0,0,.38)}
+html[data-theme="dark"] .node:hover{box-shadow:0 0 22px var(--glow)}
+html[data-theme="dark"] .cmp-row:hover{background:color-mix(in srgb, var(--accent) 5%, transparent)}
+html[data-theme="dark"] .code-card:hover,
+html[data-theme="dark"] .frame:hover{border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent-dim),0 26px 64px rgba(0,0,0,.5)}
+}
+
+/* ============ 尾 ============ */
+.foot{margin-top:0;padding:56px 0 64px;display:flex;justify-content:space-between;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.foot b{color:var(--fg);font-weight:600}
+.foot .slogan{width:100%;font-size:15px;color:var(--fg);font-weight:600;line-height:1.9;margin-bottom:10px}
+html[data-theme="dark"] .foot .slogan{font-weight:500}
+.foot .slogan small{display:block;font-weight:400;font-size:13px;color:var(--muted);margin-top:6px}
+.foot .disclaimer{width:100%;font-size:12px;color:var(--muted);opacity:.85;line-height:1.8;margin-top:6px}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .marquee .inner{animation:none;flex-wrap:wrap;white-space:normal}
+  .node .bub{transition:none}
+  .type .caret{animation:none}
+  .trust .dot{animation:none}
+  .scroll-hint::after{animation:none}
+  .to-top{transition:none}
+}
+
+.nav .brand,.foot a{color:var(--fg);text-decoration:none}.wm{font-size:clamp(80px,20vw,280px);letter-spacing:-.05em}h1 .ln{white-space:normal}.hero{min-height:94vh}.shot-button{display:block;width:100%;border:0;padding:0;background:transparent;cursor:zoom-in}.f-c .shot-img{height:auto;object-fit:contain}dialog{position:fixed;inset:0;margin:auto;border:1px solid var(--line2);border-radius:16px;background:var(--panel);color:var(--fg);padding:42px 16px 16px;max-width:94vw;max-height:94vh}dialog::backdrop{background:rgba(0,0,0,.88);backdrop-filter:blur(6px)}dialog img{display:block;max-width:88vw;max-height:78vh;object-fit:contain}dialog p{text-align:center;color:var(--muted);font-size:12px;margin-top:10px}#closeLightbox{position:absolute;right:10px;top:4px;font-size:28px;background:none;border:0;color:var(--fg);cursor:pointer}a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:5px}section{scroll-margin-top:90px}@media(max-width:600px){.page{padding:0 20px}.hero{padding-top:140px}.eyebrow{letter-spacing:.12em;font-size:10px}.fs{padding:16px 12px}.fs .v{font-size:21px}.sec{padding-top:80px}.nav{max-width:calc(100vw - 28px)}.wm{font-size:22vw}}</style><style>
+/* AnClicker — refined product presentation */
+html[data-theme="light"]{--bg:#f5f5f7;--panel:#fff;--panel2:#fafafa;--fg:#1d1d1f;--muted:#6e6e73;--accent:#0071e3;--on-accent:#fff;--line:#e5e5e7;--line2:#d2d2d7;--glow:rgba(0,113,227,.15);--accent-dim:rgba(0,113,227,.06);--font:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;--shadow:0 12px 40px rgba(0,0,0,.035)}
+html[data-theme="dark"]{--bg:#000;--panel:#151517;--panel2:#1c1c1e;--fg:#f5f5f7;--muted:#98989d;--accent:#2997ff;--on-accent:#fff;--line:#29292c;--line2:#424245;--glow:rgba(41,151,255,.15);--accent-dim:rgba(41,151,255,.07);--font:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;--shadow:none}
+body{font-family:var(--font);letter-spacing:-.025em}body::before,body::after,.bg-fx{display:none!important}.page{max-width:1200px;padding:0 40px}.nav{top:0;left:0;right:0;width:100%;transform:none;border-radius:0;padding:14px max(28px,calc((100vw - 1120px)/2));justify-content:space-between;border:0;border-bottom:1px solid var(--line);box-shadow:none;gap:30px;background:color-mix(in srgb,var(--bg) 80%,transparent)!important;backdrop-filter:blur(24px) saturate(180%)}.nav .brand{font-size:19px;font-weight:700;letter-spacing:-.04em}.nav .brand i{color:var(--fg)}.nav nav{gap:25px;font-size:12px}.theme-btn{width:30px!important;height:30px!important;border:0!important;background:var(--accent-dim)!important}.hero{padding:155px 0 30px;min-height:auto;align-items:center;text-align:center}.eyebrow{font-size:14px!important;letter-spacing:.05em!important;font-weight:600!important;margin-bottom:24px;color:var(--fg)}h1{font-size:clamp(44px,6.5vw,82px);font-weight:700!important;letter-spacing:-.065em!important;line-height:1.12!important}h1 .brandw{background:linear-gradient(110deg,#007aff,#6955dc 60%,#c54c9b);background-clip:text;-webkit-background-clip:text;color:transparent}.hero .sub{margin-top:28px;font-size:21px!important;white-space:normal!important;max-width:660px!important;line-height:1.6}.hero .sub b{font-weight:500}.cta{justify-content:center;margin-top:30px;gap:20px}.btn,.btn.primary,.btn.ghost{border-radius:999px;padding:12px 25px;font-size:16px!important;font-weight:400!important;box-shadow:none!important}.btn.ghost{border:0!important;background:none!important;color:var(--accent)!important;padding-left:4px;padding-right:4px}.hero .trust{margin-top:24px;font-size:12px;justify-content:center}.trust .dot{box-shadow:none;width:5px;height:5px;animation:none}.hero-product{width:min(100%,1040px);margin:64px auto 0;padding:10px;background:linear-gradient(135deg,#bcbcc2,#f5f5f7 45%,#8d8d93);border-radius:22px;box-shadow:0 35px 65px -25px rgba(0,0,0,.28);position:relative}.hero-product::after{content:"";display:block;position:absolute;left:-3%;right:-3%;height:10px;bottom:-8px;border-radius:0 0 60% 60%;background:linear-gradient(#c1c1c5,#9d9da4);box-shadow:0 8px 12px rgba(0,0,0,.08)}.hero-product img{display:block;border-radius:12px;width:100%}.product-caption{font-size:11px;color:var(--muted);margin-top:22px}.hero-stats{width:100%;margin-top:64px;gap:0;padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.fs{background:none!important;border:0!important;border-radius:0;box-shadow:none!important;padding:10px 20px}.fs+.fs{border-left:1px solid var(--line)!important}.fs .v{font-size:22px;font-weight:600!important}.fs .k{margin-top:6px;font-size:12px}.scroll-hint{display:none}.sec{padding:115px 0 0}.sec .kicker{font-size:12px;letter-spacing:.08em!important;font-weight:600!important;color:var(--muted);margin-bottom:20px}.sec h2{font-size:clamp(32px,4.6vw,54px);font-weight:700!important;letter-spacing:-.045em!important;line-height:1.2!important;max-width:950px}.sec .lede{font-size:18px;line-height:1.75;max-width:790px;margin-top:23px}.mod{padding:36px;border-radius:28px;border:0;box-shadow:none!important;min-height:220px}.mod .k{font:500 11px/1.5 var(--font);letter-spacing:.12em;color:var(--accent)}.mod h3{font-size:24px;line-height:1.4;margin:17px 0 14px;font-weight:650!important;letter-spacing:-.035em}.mod p{font-size:15px;line-height:1.85}.g3,.two{gap:20px}.mod:hover{transform:translateY(-4px)!important;background:var(--panel)!important}.nodes{gap:16px}.node{padding:82px 22px 28px!important;text-align:left!important;border:0!important;border-radius:24px!important;background:var(--panel)!important;box-shadow:none!important}.node .bub{left:22px!important;top:24px!important;transform:none!important;width:34px!important;height:34px!important;border-radius:50%!important;background:var(--accent-dim)!important;color:var(--accent)!important;border:0!important;font-size:13px!important;font-weight:600!important;box-shadow:none!important}.node h3{font-size:18px;font-weight:600}.node p{font-size:14px}.flow-wrap{margin-top:40px}.frame{border:0!important;border-radius:24px!important;box-shadow:0 20px 70px rgba(0,0,0,.08)!important;transition:transform .4s}.frame::after{display:none}.frame .bar{background:var(--panel);padding:15px 20px;border:0}.frame .bar i{background:var(--line2)!important;width:7px;height:7px}.frame .bar span{font-size:10px;letter-spacing:.08em}.frame .shot-cap{padding:18px 24px;border:0;font-size:13px}.note-card{border:0!important;background:var(--panel)!important;border-radius:20px;padding:24px;margin-top:24px;font-size:13px;color:var(--muted)}#download{text-align:center;padding:75px 40px;margin-top:100px;background:var(--panel);border-radius:32px}#download h2,#download .lede{margin-left:auto;margin-right:auto}#download .trust{justify-content:center;text-align:center}.foot{padding:60px 0 35px;margin-top:30px;border-top:1px solid var(--line);font-size:11px}.foot .slogan{font-size:18px}.foot .slogan small{font-size:12px;margin-top:10px}.to-top{background:var(--panel)!important;box-shadow:0 6px 30px rgba(0,0,0,.08)!important;border:0!important}
+@media(min-width:1000px){#features .mod:first-child{grid-column:span 2;background:linear-gradient(120deg,#eaf3ff,#f0eaff)!important}html[data-theme="dark"] #features .mod:first-child{background:linear-gradient(120deg,#101e33,#211833)!important}#features .mod:first-child h3{font-size:36px}#features .mod:last-child{grid-column:span 2}#agent .mod{min-height:250px;padding:42px}}
+@media(max-width:900px){.nav nav{display:none}.nav{padding:12px 24px}.page{padding:0 24px}.hero{padding-top:120px}.hero-product{margin-top:42px}.hero .sub{font-size:18px!important}.hero-stats{margin-top:45px}.fs:nth-child(3){border-left:0!important}.fs{padding:18px 10px}.sec{padding-top:80px}.mod{padding:28px}.nodes{grid-template-columns:1fr 1fr}.node:last-child{grid-column:1/-1}#download{padding:48px 24px}.hero-product{padding:7px;border-radius:15px}.hero-product img{border-radius:9px}}
+@media(max-width:560px){h1{font-size:46px}.eyebrow{font-size:11px!important}.hero .sub{font-size:17px!important}.page{padding:0 20px}.sec h2{font-size:33px}.sec .lede{font-size:16px}.mod h3{font-size:22px}.nodes{grid-template-columns:1fr}.node:last-child{grid-column:auto}.hero-stats .v{font-size:19px}.hero-product{margin-top:40px}.hero{padding-top:115px}.cta{gap:15px}.btn{font-size:15px!important}.shot-cap{flex-wrap:wrap}#download{margin-top:70px}.hero-stats{grid-template-columns:1fr 1fr}}
+</style><style id="product-refinement">
+html[data-theme="light"]{--bg:#fbfbfd;--panel:#f5f5f7;--panel2:#fff;--shadow:0 18px 60px rgba(25,33,60,.05)}
+.hero{position:relative;isolation:isolate;padding-top:146px}.hero:before{content:"";position:absolute;z-index:-1;top:140px;left:50%;transform:translateX(-50%);width:min(1050px,100vw);height:640px;background:radial-gradient(ellipse at 50% 70%,rgba(105,116,255,.12),transparent 65%);pointer-events:none}.hero .eyebrow{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px!important;letter-spacing:.07em!important}.app-symbol{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(145deg,#68aaff,#2768ee 60%,#6758db);color:#fff;box-shadow:inset 0 1px 1px #ffffff90,0 4px 12px #0071e32b}.app-symbol svg{width:19px;height:19px}h1{font-size:clamp(46px,6.5vw,88px);line-height:1.16!important}.hero .sub{font-size:20px!important;color:var(--muted)}.hero .sub b{color:var(--fg)}.hero-product{margin-top:60px;transform:perspective(1400px) rotateX(3deg);box-shadow:0 35px 85px -32px rgba(40,50,90,.35);transition:transform .7s}.hero-product:hover{transform:perspective(1400px) rotateX(0)}.hero-stats{border:0;background:var(--panel);border-radius:28px;padding:25px 12px;margin-top:52px}.fs .v{font-size:24px}.sec{padding-top:135px}.sec .kicker{color:var(--accent);letter-spacing:.12em!important}.mod{position:relative;padding:38px;overflow:hidden;transition:transform .4s,box-shadow .4s}.mod:hover{box-shadow:0 20px 50px rgba(20,30,60,.07)!important}.feature-icon{width:44px;height:44px;display:grid;place-items:center;margin-bottom:32px;color:var(--accent);background:var(--accent-dim);border-radius:14px}.feature-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}#features .mod .k{display:none}#features .mod h3{margin-top:0}#features .mod:first-child{background:linear-gradient(125deg,#edf4ff,#f0edff)!important}html[data-theme="dark"] #features .mod:first-child{background:linear-gradient(125deg,#101f33,#211831)!important}#agent .two{counter-reset:step}#agent .mod{background:linear-gradient(145deg,var(--panel),var(--panel2));min-height:290px}#agent .mod:after{counter-increment:step;content:"0" counter(step);position:absolute;right:25px;bottom:-38px;font-size:170px;font-weight:700;line-height:1;color:var(--accent);opacity:.045;pointer-events:none}#download{position:relative;overflow:hidden;background:linear-gradient(135deg,#ecf4ff,#f2eeff);padding:90px 32px}html[data-theme="dark"] #download{background:linear-gradient(135deg,#0d1b2e,#21162b)}#download .kicker{color:var(--accent)}#download h2{font-size:clamp(34px,4.5vw,58px)}.foot .slogan{font-size:20px}.frame .bar i:nth-child(1){background:#ff5f57!important}.frame .bar i:nth-child(2){background:#febc2e!important}.frame .bar i:nth-child(3){background:#28c840!important}.frame .bar{background:var(--panel2)}.frame .shot-cap{background:var(--panel2)}
+@media(max-width:600px){.hero{padding-top:112px}.hero .sub{font-size:17px!important}.hero-stats{border-radius:22px;margin-top:36px;padding:14px 4px}.sec{padding-top:85px}.mod{padding:28px}.feature-icon{margin-bottom:24px}#download{padding:54px 22px}.hero-product{transform:none}.hero:before{height:450px}.fs .v{font-size:20px}}@media(prefers-reduced-motion:reduce){.hero-product,.mod{transition:none;transform:none!important}}
+</style><style id="anclicker-native-palette">
+html[data-theme="light"]{--bg:#f7f7f8;--panel:#ffffff;--panel2:#f1f1f3;--fg:#2f2f2f;--muted:#6b6b75;--accent:#5b6fdc;--on-accent:#ffffff;--line:#d9d9e0;--line2:#c5c5d0;--glow:rgba(91,111,220,.15);--accent-dim:rgba(91,111,220,.09);--brand-secondary:#705bea;--brand-nav:#ececf1;--brand-tint:#eef0fb;--brand-tint2:#f0edfc;--brand-halo:rgba(91,111,220,.12)}
+html[data-theme="dark"]{--bg:#09090b;--panel:#18181b;--panel2:#222225;--fg:#f1f1f3;--muted:#a1a1aa;--accent:#0088ff;--on-accent:#ffffff;--line:#2b2b30;--line2:#404047;--glow:rgba(0,136,255,.15);--accent-dim:rgba(0,136,255,.1);--brand-secondary:#8774f4;--brand-nav:#080809;--brand-tint:#111d30;--brand-tint2:#211a32;--brand-halo:rgba(0,136,255,.12)}
+.nav{background:color-mix(in srgb,var(--brand-nav) 80%,transparent)!important}.hero:before{background:radial-gradient(ellipse at 50% 70%,var(--brand-halo),transparent 65%)}h1 .brandw{background:linear-gradient(110deg,var(--accent),var(--brand-secondary));background-clip:text;-webkit-background-clip:text;color:transparent}.app-symbol{background:linear-gradient(145deg,#8b9aee,var(--accent) 60%,var(--brand-secondary));box-shadow:inset 0 1px 1px #ffffff70,0 4px 12px var(--glow)}.btn.primary{background:var(--accent);border-color:var(--accent)}.btn.primary:hover{background:color-mix(in srgb,var(--accent) 85%,#000);border-color:transparent}.hero-stats{background:var(--panel)}.hero-product{background:linear-gradient(135deg,#bfc0cc,#ececf1 45%,#8a8b99)}#features .mod:first-child,html[data-theme="dark"] #features .mod:first-child,#download,html[data-theme="dark"] #download{background:linear-gradient(125deg,var(--brand-tint),var(--brand-tint2))!important}.frame .bar i:nth-child(1){background:var(--accent)!important}.frame .bar i:nth-child(2){background:var(--brand-secondary)!important}.frame .bar i:nth-child(3){background:var(--line2)!important}.feature-icon{background:var(--accent-dim);color:var(--accent)}
+</style><style>.download-control{position:relative;display:inline-flex;align-items:stretch;border-radius:999px;background:var(--accent);color:#fff}.download-control .download-main{border-radius:999px 0 0 999px;padding-right:18px}.download-toggle{display:grid;place-items:center;width:44px;border:0;border-left:1px solid #ffffff40;border-radius:0 999px 999px 0;background:transparent;color:#fff;cursor:pointer}.download-toggle:hover{background:#00000015}.download-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}.download-menu{position:absolute;top:calc(100% + 10px);left:0;min-width:290px;z-index:65;padding:7px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 14px 45px #00000020;text-align:left}.download-menu[hidden]{display:none}.download-menu a{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:13px 12px;border-radius:11px;text-decoration:none;color:var(--fg);font-size:14px}.download-menu a:hover{background:var(--accent-dim)}.download-menu small{font-size:11px;color:var(--muted)}#download{overflow:visible}.download-control:focus-within{z-index:66}@media(max-width:420px){.download-menu{min-width:275px}.download-control .download-main{font-size:14px!important;padding-left:20px}}</style><style>.workspace-tabs{display:flex;gap:6px;flex-wrap:wrap;background:var(--panel2);padding:6px;border-radius:999px;width:fit-content;margin:36px auto 0}.workspace-tab{font:inherit;font-size:14px;border:0;border-radius:999px;padding:10px 24px;background:transparent;color:var(--muted);cursor:pointer}.workspace-tab.active{background:var(--panel);color:var(--accent);box-shadow:0 2px 10px #0000000d}.workspace-panel[hidden]{display:none}.workspace-copy{text-align:center;padding:30px 10px}.workspace-copy h3{font-size:26px;letter-spacing:-.04em;margin-bottom:10px}.workspace-copy p{font-size:15px;color:var(--muted);max-width:650px;margin:auto}.workspace-panel .shot-img{width:100%;height:auto!important;object-fit:contain}.workspace-panel .frame{margin:0}.name-story{margin-top:28px;padding:46px;border-radius:28px;background:var(--panel)}.name-story h3{font-size:48px;letter-spacing:-.06em;line-height:1.3;margin:16px 0}.name-story h3 span{color:var(--accent)}.name-story small{font-size:16px;font-weight:400;letter-spacing:0;margin-left:20px;color:var(--muted)}.name-story p{max-width:780px;color:var(--muted);line-height:1.9;font-size:16px}.name-story p b{color:var(--fg)}@media(max-width:600px){.workspace-tabs{border-radius:20px;width:100%;justify-content:center}.workspace-tab{padding:9px 14px;font-size:13px}.workspace-copy h3{font-size:23px}.name-story{padding:28px}.name-story h3{font-size:38px}.name-story small{display:block;margin:8px 0}.name-story p{font-size:14px}}</style><style>.hero-platform-detail{display:block;margin-top:17px;font-size:16px;font-weight:400;color:var(--muted)}.hero .sub b{font-size:clamp(19px,2.1vw,25px);font-weight:600;line-height:1.65}.product-caption span{display:inline-block;margin-top:7px;font-size:11px}@media(max-width:600px){.hero-platform-detail{font-size:14px}.hero .sub b{font-size:19px}}</style><style id="hero-cta-sides">.hero>.cta{width:min(100%,740px);justify-content:space-between;align-items:center;gap:24px}.hero>.cta .btn{flex:none}@media(max-width:560px){.hero>.cta{width:100%;gap:16px}}</style><style id="workspace-scroll-sequence">.workspace-scroll-track{position:relative;height:calc(100svh + 135vh);margin-top:30px}.workspace-sticky{position:sticky;top:76px;height:calc(100svh - 92px);display:flex;flex-direction:column;justify-content:flex-start}.workspace-sticky .workspace-tabs{margin:0 auto;flex-shrink:0}.workspace-sticky .workspace-panel:not([hidden]){display:flex;flex:1;min-height:0;flex-direction:column}.workspace-sticky .workspace-copy{padding:18px 10px;flex-shrink:0}.workspace-sticky .workspace-copy h3{font-size:24px;margin-bottom:5px}.workspace-sticky .workspace-copy p{font-size:14px}.workspace-sticky .frame{min-height:0;display:flex;flex-direction:column;flex:1;background:#09090b!important;border-radius:20px!important;box-shadow:none!important}.workspace-sticky .bar,.workspace-sticky .shot-cap{flex-shrink:0}.workspace-sticky .bar{padding:9px 16px}.workspace-sticky .shot-cap{padding:9px 16px}.workspace-sticky .shot-button{display:flex;align-items:center;justify-content:center;flex:1;min-height:0;overflow:hidden}.workspace-sticky .shot-img{max-height:100%;height:100%!important;width:100%;object-fit:contain!important;transform:none!important;filter:none!important}@media(max-width:600px){.workspace-sticky{top:65px;height:calc(100svh - 80px)}.workspace-sticky .workspace-copy{padding:18px 0}.workspace-sticky .workspace-copy h3{font-size:21px}.workspace-sticky .workspace-copy p{font-size:13px}.workspace-sticky .frame{flex:0 1 auto}.workspace-sticky .shot-button{aspect-ratio:1419/924}.workspace-sticky{justify-content:center}.workspace-scroll-track{margin-top:24px}}</style><style id="hero-inline-actions">.hero .sub{max-width:1100px!important;width:100%}.hero-platform-row{display:flex;align-items:center;justify-content:center;gap:26px}.hero-platform-row b{white-space:nowrap}.hero-platform-row .btn{flex-shrink:0;font-size:15px!important}.hero-intranet{display:block;margin-top:12px}.hero-platform-detail{margin-top:18px}@media(max-width:800px){.hero-platform-row{gap:14px;flex-wrap:wrap}.hero-platform-row b{font-size:19px!important}.hero-platform-row .btn{font-size:13px!important;padding:10px 15px}}@media(max-width:600px){.hero-platform-row b{order:-1;flex-basis:100%;white-space:normal}.hero-platform-row{column-gap:32px;row-gap:14px}.hero-intranet{margin-top:20px}}</style></head><body><div class="bg-fx" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="wm-fixed"><div class="wm">AnClicker</div></div></div><header class="nav"><a class="brand" href="#top"><i>AnClicker</i></a><nav><a href="#what">功能定位</a><a href="#process">流程搭建</a><a href="#features">核心能力</a><a href="#shots">界面展示</a><a href="#agent">对话 Agent</a><a href="#app">应用场景</a><a href="#download">下载使用</a></nav><button class="theme-btn" id="themeBtn" aria-label="切换深浅色主题" title="切换深浅色主题">◐</button></header><main class="page" id="top"><section class="hero"><div class="eyebrow"><span class="app-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 3 12 10-6 1 3 6-3 1-3-6-4 4z"/></svg></span>AnClicker · 桌面自动化工作台</div><h1><span class="ln">AnClicker</span><span class="ln">让流程<span class="brandw">自动发生。</span></span></h1><p class="sub"><span class="hero-platform-row"><a class="btn primary" href="#download">下载体验 ↗</a><b>Windows、macOS、Linux 三端可用。</b><a class="btn ghost" href="#shots">界面展示 ↓</a></span><b class="hero-intranet">内网可用，流程在本地运行。</b><span class="hero-platform-detail">从键鼠操作到可视化工作流，让重复任务可编辑、可观察、可复用。</span></p><div class="trust"><span class="dot"></span><span>三端可用 · 内网可用 · 本地执行</span></div><div class="hero-product"><img src="#site-image-0" alt="AnClicker v1.6.3 对话 Agent 与本地模型设置界面"></div><p class="product-caption">AnClicker v1.6.3 · 对话 Agent 与本地模型设置<br><span>内网或离线使用前需准备相关依赖、模型与组件；各平台能力依系统权限而异。</span></p><div class="hero-stats"><div class="fs"><div class="v">键鼠录制</div><div class="k">记录操作，编辑复用</div></div><div class="fs"><div class="v">流程编排</div><div class="k">顺序 / 循环 / 条件</div></div><div class="fs"><div class="v">本地 OCR</div><div class="k">按需配置识别能力</div></div><div class="fs"><div class="v">跨平台</div><div class="k">Windows / macOS / Linux</div></div></div><div class="scroll-hint">Scroll to explore</div></section><section class="sec" id="what"><div class="kicker">01 · What · 功能定位</div><h2>把重复操作，变成可复用的流程。</h2><p class="lede">AnClicker 将键鼠操作、图像识别、OCR、Excel 和网页操作，组织成可保存、可重复执行的流程。你决定每一步如何运行，也决定何时接入模型与外部服务。</p><div class="two" style="margin-top:44px"><article class="mod"><span class="k">Local first</span><h3>本地执行 · 数据由你掌控</h3><p>指令、配置、日志与截图保存在本机，可按数据目录备份与迁移。</p></article><article class="mod"><span class="k">Visual workflow</span><h3>可视化编排 · 每一步都清晰</h3><p>表格与流程图双编辑，用顺序、循环和条件判断表达实际任务。</p></article></div></section><section class="sec" id="process"><div class="kicker">02 · Pipeline · 流程搭建</div><h2>从操作到流程，只需五步。</h2><p class="lede">先搭建，再检查。让每次触发，都有清晰的执行路径。</p><div class="flow-wrap"><div class="nodes"><div class="node on"><div class="bub mono">01</div><h3>添加指令</h3><p>从指令树拖入节点，或录制实际的键鼠操作。</p></div><div class="node on"><div class="bub mono">02</div><h3>配置参数</h3><p>设置目标、变量、时间间隔与识别条件。</p></div><div class="node on"><div class="bub mono">03</div><h3>连接流程</h3><p>用连线组织顺序、判断、循环与后续步骤。</p></div><div class="node on"><div class="bub mono">04</div><h3>运行观察</h3><p>开始、暂停、恢复，通过日志观察执行情况。</p></div><div class="node on"><div class="bub mono">05</div><h3>保存复用</h3><p>保存流程，按需导出、备份与迁移任务数据。</p></div></div></div></section><section class="sec" id="features"><div class="kicker">03 · Capabilities · 核心能力</div><h2>从一次点击，到一整套工作流。</h2><p class="lede">按需组合能力，让重复任务有章可循。</p><div class="g3" style="margin-top:44px"><article class="mod"><div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m7 3 12 10-6 1 3 6-3 1-3-6-4 4z"/></svg></div><span class="k">01 / Input</span><h3>系统级键鼠模拟操作</h3><p>点击、双击、拖拽、滚轮与组合键；支持配置间隔与延时。</p></article><article class="mod"><div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg></div><span class="k">02 / Record</span><h3>键鼠录制与回放</h3><p>记录操作，再将录制结果继续编辑并加入流程。</p></article><article class="mod"><div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H4v5m12-5h4v5M4 16v5h4m12-5v5h-4"/><path d="M8 12h8m-4-4v8"/></svg></div><span class="k">03 / Vision</span><h3>图像识别与 OCR</h3><p>结合坐标、图像、文字识别完成定位与后续操作。</p></article><article class="mod"><div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M4 9h16M10 9v12M4 15h16"/></svg></div><span class="k">04 / Data</span><h3>变量与 Excel</h3><p>管理全局及任务变量，导入导出流程，复用任务数据。</p></article><article class="mod"><div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18m-12 0v11"/></svg></div><span class="k">05 / Window</span><h3>窗口绑定与后台操作</h3><p>Windows 可按组件和绑定模式配置后台键鼠、截图与取色。</p></article><article class="mod"><div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></div><span class="k">06 / Extend</span><h3>独立指令 · 开放扩展</h3><p>通过独立参数编辑器、执行器与统一注册表维护扩展。</p></article></div></section><section class="sec" id="shots"><div class="kicker">04 · Workspace · 界面展示</div><h2>每一步，都有清晰的工作界面。</h2><p class="lede">表格精确编辑，流程图梳理逻辑，录制还原操作，对话辅助起草。四个工作页，连接同一套自动化流程。</p><div class="workspace-scroll-track"><div class="workspace-sticky"><div class="workspace-tabs" role="group" aria-label="选择工作页"><button type="button" class="workspace-tab active" aria-pressed="true" data-workspace="table">表格图</button><button type="button" class="workspace-tab" aria-pressed="false" data-workspace="flow">流程图</button><button type="button" class="workspace-tab" aria-pressed="false" data-workspace="record">录制</button><button type="button" class="workspace-tab" aria-pressed="false" data-workspace="agent">对话 Agent</button></div><article class="workspace-panel" data-panel="table" ><div class="workspace-copy"><h3>逐条编辑，运行有据可查。</h3><p>在指令表格中查看参数与重复设置，通过运行日志观察任务进展。</p></div><figure class="frame f-c"><div class="bar"><i></i><i></i><i></i><span>AnClicker v1.6.3 · 表格图</span></div><button class="shot-button" data-image="#site-image-1" aria-label="放大：表格图"><img class="shot-img" loading="lazy" src="#site-image-1" alt="AnClicker v1.6.3 表格图实机截图"></button><figcaption class="shot-cap"><b>表格图</b><span>点击查看大图 ↗</span></figcaption></figure></article><article class="workspace-panel" data-panel="flow" hidden><div class="workspace-copy"><h3>把执行逻辑，连接成图。</h3><p>用节点与连线组织顺序、循环和分支，直观看清任务的执行路径。</p></div><figure class="frame f-c"><div class="bar"><i></i><i></i><i></i><span>AnClicker v1.6.3 · 流程图</span></div><button class="shot-button" data-image="#site-image-2" aria-label="放大：流程图"><img class="shot-img" loading="lazy" src="#site-image-2" alt="AnClicker v1.6.3 流程图实机截图"></button><figcaption class="shot-cap"><b>流程图</b><span>点击查看大图 ↗</span></figcaption></figure></article><article class="workspace-panel" data-panel="record" hidden><div class="workspace-copy"><h3>操作一次，成为可编辑的步骤。</h3><p>设置倒计时与录制选项，预览键鼠事件，再写入表格与流程图。</p></div><figure class="frame f-c"><div class="bar"><i></i><i></i><i></i><span>AnClicker v1.6.3 · 录制</span></div><button class="shot-button" data-image="#site-image-3" aria-label="放大：录制"><img class="shot-img" loading="lazy" src="#site-image-3" alt="AnClicker v1.6.3 录制实机截图"></button><figcaption class="shot-cap"><b>录制</b><span>点击查看大图 ↗</span></figcaption></figure></article><article class="workspace-panel" data-panel="agent" hidden><div class="workspace-copy"><h3>从一句需求，到指令草稿。</h3><p>对话生成的指令先保存在草稿区，可检查参数、调整顺序，再写入工作流。</p></div><figure class="frame f-c"><div class="bar"><i></i><i></i><i></i><span>AnClicker v1.6.3 · 对话 Agent</span></div><button class="shot-button" data-image="#site-image-4" aria-label="放大：对话 Agent"><img class="shot-img" loading="lazy" src="#site-image-4" alt="AnClicker v1.6.3 对话 Agent实机截图"></button><figcaption class="shot-cap"><b>对话 Agent</b><span>点击查看大图 ↗</span></figcaption></figure></article></div></div></section><section class="sec" id="agent"><div class="kicker">05 · Agent · 对话 Agent</div><h2>用对话起草，让流程落地。</h2><p class="lede">v1.6.3 提供对话 Agent。可配置本地小模型或兼容模型服务，辅助编写指令草稿、修改参数及操作独立浏览器。</p><div class="two" style="margin-top:44px"><article class="mod"><span class="k">Draft</span><h3>先生成草稿</h3><p>把自然语言需求拆成可编辑的指令步骤，保留人工检查与调整入口。</p></article><article class="mod"><span class="k">Execute</span><h3>检查后执行</h3><p>将草稿写入表格与流程图，确认参数及连线后运行任务。</p></article></div></section><div class="note-card"><p>版本说明：Windows 使用 v1.6.3，macOS 与 Linux 使用 v1.6.2。下载菜单已分别链接对应的 GitHub 程序包。</p></div><section class="sec" id="philosophy"><div class="kicker">Built around you · 产品理念</div><h2>流程在本地。<br><span style="color:var(--accent)">掌控在你手中。</span></h2><p class="lede">从一个点击，到一套完整任务，AnClicker 把执行、扩展与控制交还给使用者。</p><div class="g3" style="margin-top:40px"><article class="mod"><span class="k">01 / Local execution</span><h3>本地执行</h3><p>指令、配置、截图与日志保存在本机，便于备份和迁移。准备好依赖后，可运行不依赖网络的本地流程；网页与在线模型等能力按需联网。</p></article><article class="mod"><span class="k">02 / Open architecture</span><h3>开放扩展</h3><p>按需组合本地模型、OCR、视觉识别及外部接口。通过独立指令的参数编辑器与执行器扩展能力，让工具适应你的任务。</p></article><article class="mod"><span class="k">03 / Your control</span><h3>由你掌控</h3><p>模型辅助生成草稿，使用者检查参数并决定执行。运行、暂停、恢复与结束集中在控制面板，步骤可修改，流程可复用。</p></article></div><div class="name-story"><span class="kicker">Behind the name · 名称释义</span><h3>An<span>Clicker</span><small>按-点击者</small></h3><p><b>An-</b> 取自 Analog（模拟），谐音「按」，代表模拟人工触发；<b>Clicker</b> 意为「点击者」。这是一个自定义造词，承载着把日常操作变为自动化流程的想法。</p></div></section><section class="sec" id="app"><div class="kicker">06 · Scenarios · 应用场景</div><h2>把时间，留给更重要的事。</h2><p class="lede">以下为可组合的流程示例，具体效果取决于目标应用、权限与环境。</p><div class="g3" style="margin-top:44px"><article class="mod"><span class="k">Office</span><h3>日常办公操作</h3><p>将重复点击、文本输入与表格处理组合成可保存的任务。</p></article><article class="mod"><span class="k">Web</span><h3>网页流程辅助</h3><p>将网页录制、浏览器操作与数据处理串联起来。</p></article><article class="mod"><span class="k">Verification</span><h3>截图与结果核验</h3><p>结合截图、OCR 与运行日志，观察任务执行结果。</p></article></div></section><section class="sec" id="download"><div class="kicker">07 · Get started · 下载使用</div><h2>下一次重复，让流程来完成。</h2><p class="lede">选择与你的系统及处理器架构对应的完整程序包，解压后运行。使用说明、开发进展与反馈入口均在项目仓库。</p><div class="cta"><div class="download-control"><a class="btn primary download-main" href="https://github.com/714248411/AnClicker/releases/download/v1.6.3/AnClicker-v1.6.3-win.zip">下载 v1.6.3 · Windows</a><button class="download-toggle" type="button" aria-label="选择下载平台" aria-expanded="false" aria-controls="platformDownloads"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 7 5 5 5-5"/></svg></button><div class="download-menu" id="platformDownloads" hidden><a href="https://github.com/714248411/AnClicker/releases/download/v1.6.3/AnClicker-v1.6.3-win.zip"><span>Windows</span><small>v1.6.3 · ZIP 下载 ↓</small></a><a href="https://github.com/714248411/AnClicker/releases/download/v1.6.2/AnClicker-v1.6.2-mac.zip"><span>macOS</span><small>v1.6.2 · ZIP 下载 ↓</small></a><a href="https://github.com/714248411/AnClicker/releases/download/v1.6.2/AnClicker-v1.6.2-linux.zip"><span>Linux</span><small>v1.6.2 · ZIP 下载 ↓</small></a></div></div><a class="btn ghost" href="https://github.com/714248411/AnClicker" target="_blank" rel="noopener noreferrer">GitHub 仓库 ↗</a><a class="btn ghost" href="https://github.com/714248411/AnClicker#readme" target="_blank" rel="noopener noreferrer">使用文档 ↗</a></div><div class="trust"><span class="dot"></span><span>离线使用前需准备依赖、模型及组件；在线模型与网页功能按需联网。</span></div></section><footer class="foot"><span>AnClicker</span><a href="https://github.com/714248411/AnClicker/issues" target="_blank" rel="noopener noreferrer">反馈与建议 ↗</a></footer></main><button class="to-top" aria-label="返回顶部">↑</button><dialog id="lightbox"><button id="closeLightbox" aria-label="关闭大图">×</button><img alt="界面大图"><p>点击空白区域或按 Esc 关闭</p></dialog><script>const root=document.documentElement;document.querySelector('#themeBtn').addEventListener('click',()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('anclicker-dark-default-theme',root.dataset.theme)}catch(e){}});const topButton=document.querySelector('.to-top');addEventListener('scroll',()=>topButton.classList.toggle('show',scrollY>500),{passive:true});topButton.addEventListener('click',()=>scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));const dialog=document.querySelector('#lightbox');document.querySelectorAll('[data-image]').forEach(button=>button.addEventListener('click',()=>{dialog.querySelector('img').src=button.dataset.image;dialog.querySelector('img').alt=button.querySelector('img').alt;dialog.showModal()}));document.querySelector('#closeLightbox').onclick=()=>dialog.close();dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});</script><script>(()=>{const toggle=document.querySelector('.download-toggle'),menu=document.querySelector('.download-menu');function close(){menu.hidden=true;toggle.setAttribute('aria-expanded','false')}toggle.addEventListener('click',()=>{menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden))});document.addEventListener('click',event=>{if(!event.target.closest('.download-control'))close()});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!menu.hidden){close();toggle.focus()}});menu.addEventListener('click',event=>{if(event.target.closest('a'))close()})})();</script><script>(()=>{const track=document.querySelector('.workspace-scroll-track');const tabs=[...document.querySelectorAll('[data-workspace]')];const panels=[...document.querySelectorAll('[data-panel]')];let active=-1,scheduled=false;function select(index){if(active===index)return;active=index;tabs.forEach((tab,i)=>{tab.classList.toggle('active',i===index);tab.setAttribute('aria-pressed',String(i===index))});panels.forEach((panel,i)=>panel.hidden=i!==index)}function position(){const step=innerHeight*.45;const start=track.getBoundingClientRect().top+scrollY-76;return{step,start}}function update(){scheduled=false;const {step,start}=position();select(Math.max(0,Math.min(tabs.length-1,Math.floor((scrollY-start)/step))))}tabs.forEach((tab,index)=>tab.addEventListener('click',()=>{const {start,step}=position();select(index);scrollTo({top:start+step*(index+.12),behavior:'instant'})}));addEventListener('scroll',()=>{if(!scheduled){scheduled=true;requestAnimationFrame(update)}},{passive:true});addEventListener('resize',update);update()})();</script><script src="site-images.js"></script></body></html>
