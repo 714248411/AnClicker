@@ -1,5 +1,3 @@
-from anclicker.app.paths import get_install_folder
-from anclicker.app.paths import get_install_folder
 """Prepare writable application storage before importing desktop libraries."""
 
 import os
@@ -12,6 +10,7 @@ from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
 _module_imports = _DeferredImports(globals(), {
+    'get_install_folder': ('from', 'anclicker.app.paths', ('get_install_folder',), 0),
     'traceback': ('import', 'traceback', (), False),
 })
 
@@ -28,7 +27,11 @@ def storage_install_folder(install):
 def prepare_environment():
     override = os.environ.get(DATA_DIR_ENV, "").strip()
     frozen = getattr(sys, "frozen", False)
-    install = Path(sys.executable).parent if frozen else Path(get_install_folder())
+    if frozen:
+        install = Path(sys.executable).parent
+    else:
+        get_install_folder = _module_imports.load('get_install_folder')
+        install = Path(get_install_folder())
     if override:
         target = Path(override).expanduser().resolve()
     elif not frozen or sys.platform == "win32":
