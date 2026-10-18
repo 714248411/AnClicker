@@ -1,4 +1,4 @@
-# AnClicker｜按-点击者
+# AnClicker
 
 **以按为令，让流程自动发生。**
 
