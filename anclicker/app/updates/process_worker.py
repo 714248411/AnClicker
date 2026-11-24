@@ -5,10 +5,10 @@ import subprocess
 import sys
 import tempfile
 import time
-from types import SimpleNamespace
 from pathlib import Path
 import velopack
 
+from anclicker.app.updates.config import create_update_manager
 from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
@@ -33,8 +33,6 @@ def encode(value):
 def decode(value):
     if value is None:
         return None
-    if value.get('external_release'):
-        return SimpleNamespace(**value)
     if value.get('info'):
         return velopack.UpdateInfo(decode(value['target']), [decode(v) for v in value['deltas']], value['downgrade'], decode(value['base']))
     return velopack.VelopackAsset(**value)
@@ -99,13 +97,7 @@ def main():
     root = Path(sys.argv[sys.argv.index('--update-worker') + 1])
     request = json.loads((root / 'request.json').read_text(encoding='utf-8'))
     try:
-        if request['action'] == 'github-check':
-            from anclicker.app.updates.github_check import check_latest
-            value = check_latest()
-            result = {'event': 'found' if value else 'none', 'value': value}
-            (root / 'result.json').write_text(json.dumps(result), encoding='utf-8')
-            return
-        manager = velopack.UpdateManager(request['source'])
+        manager = create_update_manager(request['source'])
         if request['action'] == 'check':
             value = manager.get_update_pending_restart()
             event = 'pending'

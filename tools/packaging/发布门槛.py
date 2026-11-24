@@ -43,6 +43,7 @@ class ReleaseContext:
     pack_id: str
     version: str
     runtime: str
+    delivery_channel: str = "stable"
 
 
 def allow_project_artifact(relative_path: PurePosixPath) -> bool:
@@ -215,7 +216,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
             or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and result.get("full_checks") is not True)
             or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and not result.get("rpa_validation", {}).get("web_recording"))
             or result.get("version") != context.version
-            or result.get("update_config") != update_source_config()
+            or result.get("update_config") != update_source_config(context.delivery_channel)
             or Path(result.get("data_root", "")).resolve() != data_dir.resolve()
         ):
             raise RuntimeError(f"实际 EXE 启动自检失败: {executable}: {result}")

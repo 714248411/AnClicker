@@ -31,6 +31,7 @@ seed_cache = Path(project_root) / 'artifacts/build/release-seed'
 seed_cache.mkdir(parents=True, exist_ok=True)
 def stable_seed(name, content):
     target = seed_cache / name
+    target.parent.mkdir(parents=True, exist_ok=True)
     if not target.is_file() or target.read_bytes() != content:
         target.write_bytes(content)
     return str(target)
@@ -103,8 +104,10 @@ if sys.platform == 'win32' and os.environ.get('ANCLICKER_BUNDLE_WXOCR') == '1':
     instruction_datas.append((str(Path(project_root)/'.local/models/wechat'), 'ocr_models/wechat'))
 if sys.platform == 'win32':
     import json
-    source_snapshot = stable_seed(UPDATE_CONFIG['snapshot_name'],
-                                  json.dumps(update_source_config(), sort_keys=True).encode('utf-8'))
+    delivery_channel = os.environ.get('ANCLICKER_BUILD_CHANNEL', 'stable')
+    snapshot = update_source_config(delivery_channel)
+    source_snapshot = stable_seed(f"{delivery_channel}/{UPDATE_CONFIG['snapshot_name']}",
+                                  json.dumps(snapshot, sort_keys=True).encode('utf-8'))
     instruction_datas.append((source_snapshot, '.'))
 dynamic_instruction_imports = list(instruction_hidden_imports())
 dynamic_instruction_imports += list(ui_hidden_imports())

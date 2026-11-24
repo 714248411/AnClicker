@@ -1,14 +1,11 @@
-"""Build verified Windows Portable releases and publish directly to Qiniu Kodo."""
+"""Publish the exact verified internal stable Full to the original Qiniu feed."""
 from __future__ import annotations
 import argparse
 import hashlib
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 import time
 import zipfile
 from dataclasses import dataclass
@@ -47,7 +44,7 @@ anclicker = _module_imports.load('anclicker')  # Enable source-tree legacy entry
 CURRENT_VERSION, APP_ID, EXECUTABLE_NAME, UPDATE_CONFIG, update_source_config = _module_imports.load('info_CURRENT_VERSION_etc')
 ReleaseContext, validate_release = _module_imports.load('ReleaseContext_validate_release')
 stage, run_stage = _module_imports.load('stage_run_stage')
-DEFAULT_APP = ROOT / 'artifacts/dist/velopack' / APP_ID
+DEFAULT_APP = ROOT / 'artifacts/dist/velopack/stable' / APP_ID
 
 
 class ReleaseError(ValueError):
@@ -147,71 +144,34 @@ def verify_public(config, name, size, sha256):
     verify_public_package(config.url(name), size, sha256)
 
 
-def check_source(config, path=None):
-    expected = {'url': config.source_url, 'pack_id': UPDATE_CONFIG['pack_id'], 'runtime': UPDATE_CONFIG['runtime']}
-    public = update_source_config() if path is None else json.loads(path.read_text(encoding='utf-8'))
-    if public != expected:
-        raise ReleaseError('客户端更新源与上传目标不一致，停止操作')
+def check_legacy_route(config):
+    if (config.source_url, config.bucket, config.region) != (
+            UPDATE_CONFIG['url'], UPDATE_CONFIG['bucket'], UPDATE_CONFIG['region']):
+        raise ReleaseError('迁移只允许写入 AnClicker 的原更新地址')
 
 
-def acquire_baseline(config, asset):
-    """Reuse only a Full whose content matches the freshly fetched public index."""
-    name = safe_filename(asset['FileName'])
-    def valid(path):
-        return path.is_file() and path.stat().st_size == asset['Size'] and digest(path) == asset['SHA256'].upper()
-    cache = ROOT / 'artifacts/build' / 'release-cache' / asset['SHA256'].lower()
-    target = cache / name
-    if valid(target):
-        print('复用已校验基线缓存:', name, flush=True)
-        return target
-    # A previous local release usually already contains the exact online Full.
-    for candidate in (ROOT / 'artifacts/release').glob('*/' + name):
-        if valid(candidate):
-            print('复用已校验本地 Full:', name, flush=True)
-            return candidate
-    cache.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=cache, suffix='.partial', delete=False) as stream:
-        partial = Path(stream.name)
-    try:
-        with requests.get(config.url(name), stream=True, timeout=(15, 120)) as response:
-            response.raise_for_status()
-            with partial.open('wb') as stream:
-                for chunk in response.iter_content(1024 * 1024):
-                    stream.write(chunk)
-        if not valid(partial):
-            raise ReleaseError('远程 Full 基线大小或哈希不匹配')
-        partial.replace(target)
-    finally:
-        partial.unlink(missing_ok=True)
-    return target
-
-
-def build(config, output):
-    check_source(config)
-    if output.exists() and any(output.iterdir()):
-        raise ReleaseError('输出目录必须为空，请使用新目录')
-    version = CURRENT_VERSION.removeprefix('v')
-    remote = get_feed(config)
-    assert_newer(version, remote)
-    command = [sys.executable, str(ROOT / 'tools/packaging/build_velopack.py'), '--output', str(output)]
-    full = [a for a in current_assets(remote) if a['Type'] == 'Full']
-    if full:
-        base = max(full, key=lambda a: version_tuple(a['Version']))
-        target = run_stage('获取并验证增量基线', acquire_baseline, config, base)
-        command.extend(['--base', str(target)])
-    run_stage('构建与启动验收', subprocess.run, command, cwd=ROOT, check=True)
-    # Publish only this release's assets; preserve the baseline nupkg for delta checks.
-    path = output / UPDATE_CONFIG['feed_name']
-    feed = json.loads(path.read_text(encoding='utf-8-sig'))
-    feed['Assets'] = current_assets(feed, version)
-    path.write_text(json.dumps(feed, ensure_ascii=False, indent=2), encoding='utf-8')
-    run_stage('发布内容核对', validate_local, config, output, DEFAULT_APP)
-    print('本地发布准备完成:', output)
+def verify_internal_stable(assets):
+    """Require the exact migration Full to be available anonymously first."""
+    if len(assets) != 1 or assets[0]['Type'] != 'Full':
+        raise ReleaseError('旧源迁移需要与内部正式渠道相同的单个 Full 包')
+    asset = assets[0]
+    base = update_source_config()['url']
+    response = requests.get(base + UPDATE_CONFIG['feed_name'], timeout=(15, 60))
+    response.raise_for_status()
+    active = current_assets(response.json())
+    full = [item for item in active if item['Type'] == 'Full']
+    latest = max(full, key=lambda item: version_tuple(item['Version']), default={})
+    fields = ('PackageId', 'Version', 'FileName', 'Size')
+    if (any(latest.get(key) != asset[key] for key in fields)
+            or latest.get('SHA256', '').lower() != asset['SHA256'].lower()):
+        raise ReleaseError('内部正式渠道尚未提供相同的 Full，停止旧源迁移')
+    from tools.packaging.public_package_verify import verify_public_package
+    verify_public_package(base + quote(asset['FileName']), asset['Size'], asset['SHA256'])
 
 
 def validate_local(config, release, app):
     verify_once = _module_imports.load('verify_once')
-    check_source(config)
+    check_legacy_route(config)
     context = ReleaseContext(ROOT, app, release, release / UPDATE_CONFIG['portable_name'],
                              APP_ID, UPDATE_CONFIG['pack_id'], CURRENT_VERSION.removeprefix('v'), UPDATE_CONFIG['runtime'])
     verify_once(context, 'publish', lambda: _validate_local(config, release, app))
@@ -220,7 +180,7 @@ def validate_local(config, release, app):
 
 
 def _validate_local(config, release, app):
-    check_source(config)
+    check_legacy_route(config)
     version = CURRENT_VERSION.removeprefix('v')
     version_tuple(version)
     CArchiveReader = _module_imports.load('CArchiveReader')
@@ -232,8 +192,8 @@ def _validate_local(config, release, app):
     if any(name == 'qiniu' or name.startswith('qiniu.') or '发布Velopack' in name for name in modules):
         raise ReleaseError('客户端包含发布专用模块')
     public = json.loads((app / UPDATE_CONFIG['snapshot_name']).read_text(encoding='utf-8'))
-    if public != {'url': config.source_url, 'pack_id': UPDATE_CONFIG['pack_id'], 'runtime': UPDATE_CONFIG['runtime']}:
-        raise ReleaseError('客户端更新源与发布目标不同，请重新构建')
+    if public != update_source_config():
+        raise ReleaseError('过渡包必须连接内部正式渠道')
     path = release / UPDATE_CONFIG['feed_name']
     feed = json.loads(path.read_text(encoding='utf-8-sig'))
     assets = current_assets(feed, version)
@@ -326,6 +286,7 @@ class QiniuUploader:
 def publish(config, release, app):
     feed, assets = run_stage('发布前哈希检查', validate_local, config, release, app)
     assert_newer(CURRENT_VERSION.removeprefix('v'), get_feed(config))
+    run_stage('核对内部正式渠道', verify_internal_stable, assets)
     uploader = QiniuUploader(config)
     for asset in assets:
         path = release / asset['FileName']
@@ -335,6 +296,7 @@ def publish(config, release, app):
         run_stage('公网校验 ' + path.name, verify_public, config, path.name, asset['Size'], asset['SHA256'])
     # Recheck before the only mutable public object is replaced.
     assert_newer(CURRENT_VERSION.removeprefix('v'), get_feed(config))
+    run_stage('再次核对内部正式渠道', verify_internal_stable, assets)
     path = release / UPDATE_CONFIG['feed_name']
     for asset in assets:
         package = release / asset['FileName']
@@ -367,22 +329,14 @@ def publish(config, release, app):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['build', 'publish'])
+    parser = argparse.ArgumentParser(description='Publish the verified stable transition to the legacy feed.')
+    parser.add_argument('command', choices=['publish'])
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--app-dir', type=Path, default=DEFAULT_APP)
-    parser.add_argument('--publish', action='store_true')
-    parser.add_argument('--yes', action='store_true')
+    parser.add_argument('--yes', action='store_true', required=True)
     args = parser.parse_args()
-    if (args.command == 'publish' or args.publish) and not args.yes:
-        parser.error('发布需要显式 --yes')
-    if args.command == 'build' and args.app_dir.resolve() != DEFAULT_APP.resolve():
-        parser.error('--app-dir 仅适用于发布已有构建')
     config = PublishConfig.from_environment()
-    if args.command == 'build':
-        run_stage('构建准备总计', build, config, args.output.resolve())
-    if args.command == 'publish' or args.publish:
-        run_stage('发布总计', publish, config, args.output.resolve(), args.app_dir.resolve())
+    run_stage('旧源迁移', publish, config, args.output.resolve(), args.app_dir.resolve())
 
 
 if __name__ == '__main__':

@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import velopack
 from anclicker.platform.qt_compat.QtCore import QCoreApplication, QThread, QTimer, Signal
 
-from anclicker.app.updates.config import update_url
+from anclicker.app.updates.config import create_update_manager, update_url
 from anclicker.app.updates.process_worker import run_isolated, UpdateCancelled
 
-LOGGER = logging.getLogger(__name__)
 UpdateManagerFactory = Callable[[str], Any]
 
 
@@ -61,11 +58,11 @@ class CheckUpdateThread(QThread):
         parent=None,
         *,
         source_url: str | None = None,
-        manager_factory: UpdateManagerFactory = velopack.UpdateManager,
+        manager_factory: UpdateManagerFactory = create_update_manager,
         managed_checker: Callable[[], bool] = is_velopack_managed,
     ):
         super().__init__(parent)
-        self.source_url = source_url if source_url is not None else update_url()
+        self.source_url = source_url
         self.manager_factory = manager_factory
         self.managed_checker = managed_checker
 
@@ -73,27 +70,14 @@ class CheckUpdateThread(QThread):
         if not self.managed_checker():
             self.check_skipped.emit("当前进程不是 Velopack 管理版本，跳过更新检查。")
             return
-        if not self.source_url:
-            self.check_skipped.emit("此构建未配置自更新地址。")
-            return
         try:
-            if self.manager_factory is velopack.UpdateManager:
-                self.check_progress.emit('正在检查七牛更新源…')
-                try:
-                    event, value = run_isolated(self, 'check', self.source_url, timeout=6)
-                except UpdateCancelled:
-                    raise
-                except Exception as primary_error:
-                    if self.isInterruptionRequested():
-                        raise UpdateCancelled()
-                    LOGGER.warning('七牛检查失败，转为 GitHub：%s', primary_error)
-                    self.check_progress.emit('七牛暂不可用，正在检查 GitHub…')
-                    try:
-                        event, value = run_isolated(self, 'github-check', self.source_url, timeout=6)
-                    except UpdateCancelled:
-                        raise
-                    except Exception as fallback_error:
-                        raise RuntimeError('七牛和 GitHub 均暂时无法连接，请检查网络后重试。') from fallback_error
+            source_url = self.source_url if self.source_url is not None else update_url()
+            if not source_url:
+                self.check_skipped.emit("此构建未配置自更新地址。")
+                return
+            if self.manager_factory is create_update_manager:
+                self.check_progress.emit('正在检查内部更新渠道…')
+                event, value = run_isolated(self, 'check', source_url, timeout=6)
                 if event == 'pending':
                     self.pending_update_found.emit(value)
                 elif event == 'found':
@@ -101,7 +85,7 @@ class CheckUpdateThread(QThread):
                 else:
                     self.no_update.emit()
                 return
-            manager_ = self.manager_factory(self.source_url)
+            manager_ = self.manager_factory(source_url)
             pending_update_ = manager_.get_update_pending_restart()
             if pending_update_ is not None:
                 self.pending_update_found.emit(pending_update_)
@@ -131,11 +115,11 @@ class DownloadUpdateThread(QThread):
         parent=None,
         *,
         source_url: str | None = None,
-        manager_factory: UpdateManagerFactory = velopack.UpdateManager,
+        manager_factory: UpdateManagerFactory = create_update_manager,
     ):
         super().__init__(parent)
         self.update_info = update_info_
-        self.source_url = source_url if source_url is not None else update_url()
+        self.source_url = source_url
         self.manager_factory = manager_factory
         self.uses_delta = is_delta_update(update_info_)
         self._last_raw_progress: int | None = None
@@ -156,11 +140,12 @@ class DownloadUpdateThread(QThread):
 
     def run(self) -> None:
         try:
-            if self.manager_factory is velopack.UpdateManager:
-                run_isolated(self, 'download', self.source_url, self.update_info, self._handle_velopack_progress)
+            source_url = self.source_url if self.source_url is not None else update_url()
+            if self.manager_factory is create_update_manager:
+                run_isolated(self, 'download', source_url, self.update_info, self._handle_velopack_progress)
                 self.download_finished.emit(self.update_info)
                 return
-            manager_ = self.manager_factory(self.source_url)
+            manager_ = self.manager_factory(source_url)
             manager_.download_updates(
                 self.update_info,
                 progress_callback=self._handle_velopack_progress,
@@ -178,7 +163,7 @@ def apply_update_and_restart(
     *,
     source_url: str | None = None,
     restart_args: list[str] | None = None,
-    manager_factory: UpdateManagerFactory = velopack.UpdateManager,
+    manager_factory: UpdateManagerFactory = create_update_manager,
 ) -> None:
     """应用已下载更新并重启当前程序。"""
     manager_ = manager_factory(source_url if source_url is not None else update_url())

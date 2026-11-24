@@ -14,6 +14,7 @@ import sys as _import_sys
 from pathlib import Path as _ImportPath
 if __package__ in (None, ""):
     _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[2]))
+from info import UPDATE_CHANNELS
 from tools.packaging.resource_archive import require_expanded_resources
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -68,10 +69,36 @@ def export_portable(source: Path, version: str) -> Path:
     return destination
 
 
+def stage_runtime_bundle(source: Path, app: Path) -> None:
+    """Carry forward the portable runtimes from an authenticated release."""
+    import json
+
+    models = source / 'models'
+    manifest = json.loads((models / 'bundle-manifest.json').read_text(encoding='utf-8'))
+    if set(manifest['models']) != {'splitter', 'converter'}:
+        raise ValueError('Runtime bundle must provide both portable models')
+    for model in manifest['models'].values():
+        name = model['file']
+        if Path(name).name != name:
+            raise ValueError('Invalid model filename in runtime bundle')
+        shutil.copy2(models / name, app / 'models' / name)
+    for metadata in ('bundle-manifest.json', 'dual_model.json', 'recommended_dual_model.json',
+                     'active_model.json'):
+        shutil.copy2(models / metadata, app / 'models' / metadata)
+    for license_file in models.glob('LICENSE-*'):
+        shutil.copy2(license_file, app / 'models' / license_file.name)
+    for runtime in ('llama-cpu', 'llama-vulkan'):
+        shutil.copytree(models / runtime, app / 'models' / runtime)
+    shutil.copytree(source / 'runtime/crawl4ai/python', app / 'runtime/crawl4ai/python')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/release/velopack')
     parser.add_argument('--base', type=Path, help='Optional previous matching full.nupkg')
+    parser.add_argument('--channel', default='stable', choices=UPDATE_CHANNELS)
+    parser.add_argument('--runtime-bundle', type=Path,
+                        help='Verified application directory containing the portable AI and Crawl4AI runtimes')
     parser.add_argument('--clean', action='store_true', help='Discard PyInstaller cache for troubleshooting')
     args = parser.parse_args()
     if sys.platform != 'win32':
@@ -87,19 +114,23 @@ def main():
             parser.error('Base must be an AnClicker win-x64 full package.')
         shutil.copy2(base, output / base.name)
     subprocess.run(['dotnet', 'tool', 'restore'], cwd=ROOT, check=True)
-    dist = ROOT / 'artifacts/dist/velopack'
+    dist = ROOT / 'artifacts/dist/velopack' / args.channel
+    environment = build_environment()
+    environment['ANCLICKER_BUILD_CHANNEL'] = args.channel
     run_stage('PyInstaller 增量构建' if not args.clean else 'PyInstaller 清理构建', subprocess.run, [sys.executable, '-m', 'PyInstaller', *(['--clean'] if args.clean else []), '-y',
-        '--distpath', str(dist), '--workpath', str(ROOT / 'artifacts/build/velopack'),
-        str(ROOT / 'tools/packaging/main.spec')], cwd=ROOT, env=build_environment(), check=True)
+        '--distpath', str(dist), '--workpath', str(ROOT / 'artifacts/build/velopack' / args.channel),
+        str(ROOT / 'tools/packaging/main.spec')], cwd=ROOT, env=environment, check=True)
     app = dist / APP_ID
     require_expanded_resources(app)
+    if args.runtime_bundle:
+        stage_runtime_bundle(args.runtime_bundle.resolve(), app)
     run_stage('Velopack 打包', subprocess.run, ['dotnet', 'tool', 'run', 'vpk', 'pack', '--packId', UPDATE_CONFIG['pack_id'],
         '--packVersion', version, '--packDir', str(app), '--mainExe', EXECUTABLE_NAME,
         '--channel', UPDATE_CONFIG['runtime'], '--runtime', UPDATE_CONFIG['runtime'], '--packTitle', Path(UPDATE_CONFIG['launcher_name']).stem, '--noInst',
         '--icon', str(ROOT / 'resources/clicker.ico'), '--releaseNotes', str(ROOT / 'tools/packaging/RELEASE_NOTES.md'),
         '--outputDir', str(output)], cwd=ROOT, check=True)
     context = ReleaseContext(ROOT, app, output, output / UPDATE_CONFIG['portable_name'],
-        APP_ID, UPDATE_CONFIG['pack_id'], version, UPDATE_CONFIG['runtime'])
+        APP_ID, UPDATE_CONFIG['pack_id'], version, UPDATE_CONFIG['runtime'], args.channel)
     run_stage('产物与启动验收', validate_release, context)
     for name in (UPDATE_CONFIG['portable_name'], UPDATE_CONFIG['feed_name']):
         if not (output / name).is_file():

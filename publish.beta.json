@@ -1,0 +1,27 @@
+{
+  "key": "an-clicker",
+  "project": "an-clicker",
+  "name": "AnClicker",
+  "software_type": "internal",
+  "pack_id": "AnClicker",
+  "api_base_url": "https://www.ytsoftware.cn",
+  "update_provider": "qiniu",
+  "output_dir": "build/updates/beta/{version}",
+  "delivery_channel": "beta",
+  "package": {
+    "type": "portable",
+    "main_executable": "AnClicker.exe"
+  },
+  "build_commands": [
+    [
+      ".venv/Scripts/python.exe",
+      "tools/packaging/check_internal_update.py",
+      "--channel",
+      "beta",
+      "--version",
+      "{version}",
+      "--output",
+      "{output}"
+    ]
+  ]
+}

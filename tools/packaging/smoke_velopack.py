@@ -34,7 +34,7 @@ ReleaseContext, validate_archive, validate_portable_release, _validate_delta = _
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--app', type=Path, default=ROOT / 'artifacts/dist/velopack' / APP_ID)
+    parser.add_argument('--app', type=Path, default=ROOT / 'artifacts/dist/velopack/stable' / APP_ID)
     args = parser.parse_args()
     sandbox = Path(tempfile.mkdtemp(prefix='ac-upgrade-'))
     feed = sandbox / 'feed'
@@ -53,7 +53,8 @@ def main():
     # Delta reconstruction must be byte-for-byte identical to the target full.
     # The executable retains the production application version; package metadata is test-only.
     context = ReleaseContext(ROOT, args.app.resolve(), feed, feed / UPDATE_CONFIG['portable_name'],
-                             APP_ID, UPDATE_CONFIG['pack_id'], '0.0.2', UPDATE_CONFIG['runtime'])
+                             APP_ID, UPDATE_CONFIG['pack_id'], '0.0.2', UPDATE_CONFIG['runtime'],
+                             json.loads((args.app / UPDATE_CONFIG['snapshot_name']).read_text(encoding='utf-8'))['delivery_channel'])
     validate_portable_release(context)
     # Check delta payloads separately from the application's version assertion.
     CURRENT_VERSION = _module_imports.load('CURRENT_VERSION')
@@ -73,7 +74,8 @@ def main():
             raise RuntimeError(f'Upgrade did not produce a restart report; inspect {sandbox}')
         report = json.loads(result.read_text(encoding='utf-8'))
         assert report == {'from': '0.0.1', 'downloaded': True, 'to': '0.0.2',
-                          'restarted': True, 'data_preserved': True}, report
+                          'restarted': True, 'data_preserved': True,
+                          'next_source': json.loads((args.app / UPDATE_CONFIG['snapshot_name']).read_text(encoding='utf-8'))['url']}, report
         assert not (portable / 'current/data').exists()
         print(f'Local upgrade passed: {result}\n{report}')
     finally:

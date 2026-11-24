@@ -25,12 +25,13 @@ _module_imports = _DeferredImports(globals(), {
     'QtGui_QColor_etc': ('from', 'anclicker.platform.qt_compat.QtGui', ('QColor', 'QFont', 'QGuiApplication', 'QPainter', 'QPainterPath', 'QPixmap'), 0),
     'QApplication_QSplashScreen': ('from', 'anclicker.platform.qt_compat.QtWidgets', ('QApplication', 'QSplashScreen'), 0),
     'show_window': ('from', 'anclicker.platform.services', ('show_window',), 0),
-    'info_APP_NAME_etc': ('from', 'info', ('APP_NAME', 'CURRENT_VERSION', 'SINGLETON_ENV', 'SINGLETON_KEY_DEFAULT', 'WINDOW_TITLE', 'update_source_config'), 0),
+    'info_APP_NAME_etc': ('from', 'info', ('APP_NAME', 'CURRENT_VERSION', 'SINGLETON_ENV', 'SINGLETON_KEY_DEFAULT', 'WINDOW_TITLE'), 0),
     'LoadingSplashScreen_show_splash_screen': ('from', 'anclicker.app.startup_splash', ('LoadingSplashScreen', 'show_splash_screen'), 0),
     'MigrationWindow': ('from', 'anclicker.ui.migration_gui', ('MigrationWindow',), 0),
     'Workbook': ('from', 'openpyxl', ('Workbook',), 0),
     'LEGACY_HEADERS': ('from', 'anclicker.storage.legacy_workbook', ('LEGACY_HEADERS',), 0),
     'Main_window': ('from', 'anclicker.app.Start_Win', ('Main_window',), 0),
+    'installed_update_config': ('from', 'anclicker.app.updates.config', ('installed_update_config',), 0),
     'run': ('from', 'anclicker.app.updates.local_smoke', ('run',), 0),
     'validate_instruction_editors_validate_legacy_migration': ('from', 'anclicker.app.ui_validation', ('validate_instruction_editors', 'validate_legacy_migration'), 0),
     'validate_image_execution': ('from', 'anclicker.ui.image_validation', ('validate_image_execution',), 0),
@@ -141,7 +142,7 @@ QLibraryInfo, QLocale, QLockFile, Qt, QTimer, QTranslator, qVersion = _module_im
 QColor, QFont, QGuiApplication, QPainter, QPainterPath, QPixmap = _module_imports.load('QtGui_QColor_etc')
 QApplication, QSplashScreen = _module_imports.load('QApplication_QSplashScreen')
 show_window = _module_imports.load('show_window')
-APP_NAME, CURRENT_VERSION, SINGLETON_ENV, SINGLETON_KEY_DEFAULT, WINDOW_TITLE, update_source_config = _module_imports.load('info_APP_NAME_etc')
+APP_NAME, CURRENT_VERSION, SINGLETON_ENV, SINGLETON_KEY_DEFAULT, WINDOW_TITLE = _module_imports.load('info_APP_NAME_etc')
 
 SINGLETON_KEY = os.environ.get(SINGLETON_ENV, SINGLETON_KEY_DEFAULT)
 
@@ -307,7 +308,7 @@ def main():
                             else app.applicationVersion()
                         ),
                         "title": main_window.windowTitle(),
-                        "update_config": update_source_config(),
+                        "update_config": _module_imports.load("installed_update_config")(),
                         "runtime": {
                             "python": sys.version.split()[0],
                             "qt": qVersion(),
