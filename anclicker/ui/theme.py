@@ -1,5 +1,6 @@
 """Workspace palette and stylesheet application."""
 import os
+from anclicker.ui.toolbar_style import toolbar_stylesheet
 from anclicker.platform.qt_compat.QtCore import Qt, QTimer
 from anclicker.platform.qt_compat.QtGui import QColor, QPalette, QGuiApplication
 from anclicker.app.paths import RESOURCE_FOLDER
@@ -21,6 +22,9 @@ THEMES = {
 
 def apply_theme(self) -> None:
     c = self.THEMES[self.theme_mode]
+    os.environ['ANCLICKER_UI_THEME'] = self.theme_mode
+    from anclicker.platform.rpa_bridge import get_bridge
+    get_bridge().set_theme(self.theme_mode)
     if hasattr(self, 'agent_page'):
         self.agent_page.apply_theme(self.theme_mode)
     tabs_palette = self.tabs.palette()
@@ -70,9 +74,9 @@ def apply_theme(self) -> None:
         QMainWindow, QWidget#centralwidget {{ background: {c['bg']}; color: {c['text']}; }}
         QWidget {{ font-family: 'Microsoft YaHei UI'; font-size: 13px; }}
         QLabel {{ color: {c['text']}; }}
-        QWidget#instructionEditorBody {{ background: {c['bg']}; color: {c['text']}; }}
+        QWidget#instructionEditorBody {{ background: {c['surface']}; color: {c['text']}; }}
         QDockWidget[instructionParameter="true"], QScrollArea#parameterScroll,
-        QWidget#parameterViewport {{ background: {c['bg']}; color: {c['text']}; border: none; }}
+        QWidget#parameterViewport {{ background: {c['surface']}; color: {c['text']}; border: none; }}
         QWidget#tab, QWidget#editorView, QWidget#multifunctionView,
         QWidget#beginnerView, QStackedWidget {{ background: {c['bg']}; color: {c['text']}; }}
         QMenuBar, QMenu, QToolBar {{ background: {c['nav']}; color: {c['text']}; border-color: {c['line']}; spacing: 4px; }}
@@ -83,17 +87,23 @@ def apply_theme(self) -> None:
         QMenuBar::item:selected, QMenu::item:selected {{ background: {c['surface3']}; color: {c['accent']}; }}
         QToolBar {{ border-bottom: 1px solid {c['line']}; padding: 0px 2px; spacing: 2px; font-size: 11px; }}
         QToolBar QToolButton {{ padding: 2px 5px; border-radius: 4px; font-size: 11px; }}
+        QToolBar QToolButton[toolbarTextOnly="true"] {{ padding: 1px 5px 3px; }}
+        QToolBar QToolButton::menu-indicator {{ subcontrol-origin: padding; subcontrol-position: center right; right: 1px; width: 6px; height: 6px; }}
         QToolBar QToolButton:hover {{ background: {c['surface3']}; color: {c['accent']}; }}
+        {toolbar_stylesheet(self.theme_mode)}
         QTabWidget::pane {{ border: none; background: {c['bg']}; top: 0px; }}
         QTabWidget#workspaceTabs {{ background: {c["bg"]}; }}
         QTabWidget#workspaceTabs::pane {{ border: none; padding: 0px; margin: 0px; top: 0px; }}
         QWidget#multifunctionView {{ background: {c['surface']}; }}
+        QMainWindow#dockWorkspace > QTabBar {{ qproperty-drawBase: 0; padding-left: 8px; border: none; background: transparent; }}
         QTabBar::tab {{ background: {c['surface']}; color: {c['dim']}; padding: 4px 12px; border: 1px solid {c['line']}; border-radius: 8px; margin: 2px; }}
+        QMainWindow#dockWorkspace > QTabBar::tab:first {{ margin-left: 8px; }}
         QTabBar::tab:selected {{ background: {c['accent']}; color: {c['accent_text']}; font-weight: 700; }}
         QTabBar::tab:hover:!selected {{ background: {c['surface3']}; color: {c['accent']}; }}
         QWidget#instructionPaletteHost, QGroupBox#groupBox_3 {{ background: {c['surface']}; color: {c['text']}; border: none; border-radius: 12px; }}
         QGroupBox#groupBox_3 {{ margin-top: 0px; padding-top: 20px; }}
-        QWidget#instructionTreeSurface {{ background: {c['surface2']}; border: none; border-radius: 12px; }}
+        QWidget#instructionTreeSurface {{ background: {c['surface2']}; border: none; border-top-left-radius: 0px; border-top-right-radius: 0px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }}
+        QLineEdit#instructionSearchEdit {{ border-top-left-radius: 6px; border-top-right-radius: 6px; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px; }}
         QTreeWidget#instructionTree {{ border: none; background: transparent; }}
         QGroupBox#groupBox_3::title {{ color: {c['text']}; subcontrol-origin: border; subcontrol-position: top left; top: 6px; left: 12px; padding: 0px; }}
         QWidget#instructionPaletteHost QTreeWidget, QWidget#instructionPaletteHost QLineEdit,
@@ -113,6 +123,7 @@ def apply_theme(self) -> None:
         QFrame#workspacePanel[attachedToNavigation="true"] {{ border-top-left-radius: 0px; }}
         QLabel#cardTitle {{ color: {c['text']}; font-size: 18px; font-weight: 700; padding: 4px; }}
         QLabel#sectionTitle {{ color: {c['text']}; font-size: 15px; font-weight: 700; padding: 2px 4px 7px 4px; }}
+        QLabel#sectionTitle[compactPanelTitle="true"] {{ padding: 1px 4px 2px 4px; }}
         QLabel#mutedText {{ color: {c['dim']}; padding: 3px; }}
         QWidget[compactRecording="true"] QFrame#recordingControls {{ background: {c['surface']}; border: none; border-radius: 6px; }}
         QWidget[compactRecording="true"] QLabel#pageTitle {{ padding: 0px 2px; font-size: 14px; }}
@@ -160,17 +171,20 @@ def apply_theme(self) -> None:
         QTableWidget#commandTable::item:selected, QTableWidget#commandTable::item:selected:alternate {{ background-color: {c['accent2']}; color: white; }}
         QTableWidget::item:selected, QListWidget::item:selected {{ background: {c['accent2']}; color: white; }}
         QHeaderView {{ background: {c['surface2']}; color: {c['accent']}; }}
+        QHeaderView#commandTableHeader, QWidget#commandTableHeaderViewport {{ background: {c['surface2']}; border: none; border-top-left-radius: 8px; border-top-right-radius: 8px; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px; }}
+        QWidget#commandTableViewport {{ background: {c['surface']}; border: none; border-radius: 0px; }}
         QHeaderView::section {{ background: {c['surface2']}; color: {c['accent']}; border: none; border-right: 1px solid {c['line']}; padding: 7px; font-weight: 700; }}
         QTableCornerButton::section, QAbstractScrollArea::corner {{ background: {c['surface2']}; border: none; border-right: 1px solid {c['line']}; border-bottom: 1px solid {c['line']}; }}
         QToolTip {{ background: {c['surface3']}; color: {c['text']}; border: 1px solid {c['line']}; border-radius: 6px; padding: 5px; }}
         QDialog {{ background: {c['bg']}; color: {c['text']}; }}
         QDialogButtonBox QPushButton {{ min-width: 76px; }}
-        QScrollBar:vertical {{ background: {c['bg']}; width: 11px; }}
-        QScrollBar::handle:vertical {{ background: {c['surface3']}; min-height: 24px; border-radius: 5px; }}
+        QScrollBar:vertical {{ background: {c['bg']}; width: 6px; }}
+        QScrollBar::handle:vertical {{ background: {c['surface3']}; min-height: 24px; border-radius: 3px; }}
         QScrollBar::handle:vertical:hover {{ background: {c['accent2']}; }}
         QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: {c['bg']}; }}
-        QScrollBar:horizontal {{ background: {c['bg']}; height: 11px; }}
-        QScrollBar::handle:horizontal {{ background: {c['surface3']}; min-width: 24px; border-radius: 5px; }}
+        QScrollBar:horizontal {{ background: {c['bg']}; height: 6px; }}
+        QScrollBar::handle:horizontal {{ background: {c['surface3']}; min-width: 24px; border-radius: 3px; }}
+        QScrollBar::handle:horizontal:hover {{ background: {c['accent2']}; }}
         QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: {c['bg']}; }}
         QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; }}
         QFrame#recordingOptionSeparator {{ background: {c['line']}; border: none; }}
@@ -192,4 +206,6 @@ def apply_theme(self) -> None:
         QGroupBox {{ color: {c['accent']}; background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 10px; margin-top: 10px; padding-top: 10px; font-weight: 700; }}
         QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 5px; }}
     """)
+    picker=getattr(self.window,'recent_project_picker',None)
+    if picker is not None:picker.apply_theme(c)
     QTimer.singleShot(0, self._align_search_row)

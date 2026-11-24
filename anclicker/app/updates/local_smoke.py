@@ -47,6 +47,12 @@ def run(app, window):
             source_url=str(feed), restart_args=['--velopack-local-smoke'])
         window.auto_update.mark_update_ready(update)
         window.view_workspace.title_bar.updateButton.click()
+        if getattr(window, '_update_exit_requested', False):
+            raise RuntimeError('Update entry installed without explicit confirmation')
+        prompt = window.auto_update._update_prompt
+        if prompt is None or not prompt.isVisible():
+            raise RuntimeError('Manual update entry did not show confirmation')
+        prompt.update_button.click()
         if not getattr(window, '_update_exit_requested', False):
             raise RuntimeError('Title-bar update did not schedule a restart')
     else:

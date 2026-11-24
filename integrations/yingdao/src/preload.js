@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('yingdao', {
     pickElement: () => ipcRenderer.invoke('browser:pickElement'),
     pickForScrape: () => ipcRenderer.invoke('browser:pickForScrape'),
     // 坐标拾取（多点，最多 9 个）：在浏览器里点几个点，返回坐标列表
-    pickPoints: (maxPoints, initialPoints) => ipcRenderer.invoke('browser:pickPoints', maxPoints, initialPoints),
+    pickPoints: (maxPoints, initialPoints, target) => ipcRenderer.invoke('browser:pickPoints', maxPoints, initialPoints, target),
     // 缩放
     setZoomLevel: (level) => ipcRenderer.invoke('browser:setZoomLevel', level),
     resetZoom: () => ipcRenderer.invoke('browser:resetZoom'),
@@ -53,6 +53,12 @@ contextBridge.exposeInMainWorld('yingdao', {
     switchTab: (id) => ipcRenderer.invoke('browser:switchTab', id),
     closeTab: (id) => ipcRenderer.invoke('browser:closeTab', id),
     getTabs: () => ipcRenderer.invoke('browser:getTabs'),
+    selectWindow: (target, background = false) => ipcRenderer.invoke('browser:selectWindow', target, background),
+    restoreCdp: () => ipcRenderer.invoke('browser:restoreCdp'),
+    openCdp: (params) => ipcRenderer.invoke('browser:openCdp', params),
+    backgroundInput: (kind, payload, target) => ipcRenderer.invoke('browser:backgroundInput', kind, payload, target),
+    remoteTabs: (endpoints) => ipcRenderer.invoke('browser:remoteTabs', endpoints),
+    openRemote: (params) => ipcRenderer.invoke('browser:openRemote', params),
     // 多账号：清空浏览器登录数据 / 取登录方式选项
     clearData: () => ipcRenderer.invoke('browser:clearData'),
     getLoginModes: () => ipcRenderer.invoke('browser:getLoginModes'),
@@ -104,6 +110,7 @@ contextBridge.exposeInMainWorld('yingdao', {
 // Only the local hidden renderer receives the host's instruction requests.
 contextBridge.exposeInMainWorld('acHost', {
   agent: params => ipcRenderer.invoke('ac:agent',params),
+  region: params => ipcRenderer.invoke('ac:region',params),
   recordControl: action => ipcRenderer.invoke('ac:recordControl',action),
   windowTitles: () => ipcRenderer.invoke('ac:windowTitles'),
   ready: () => ipcRenderer.send('ac:ready'),

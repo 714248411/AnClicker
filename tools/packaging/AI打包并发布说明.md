@@ -5,7 +5,7 @@
 ## 交付要求与边界
 
 - 只生成绿色便携 ZIP，不生成 Setup 或 MSI。构建必须使用 `--noInst`，资产清单必须包含 Portable，不能包含 Installer。
-- 用户交付文件为 `delivery/AnClicker-v<版本>-win.zip`。完整解压后双击根目录 `An Clicker.exe`，不要单独移动 EXE 或 `current`。
+- 用户交付文件为 `delivery/AnClicker-v<版本>-win.zip`。完整解压后双击根目录 `AnClicker.exe`，不要单独移动 EXE 或 `current`。
 - Full、可选 Delta、更新索引和内部 Portable 文件用于更新与构建管理，不作为普通用户安装入口。内部文件名保持 Velopack 原样，不直接改名破坏资产引用。
 - `build_velopack.py` 只做本地构建；`发布Velopack.py` 恢复历史七牛 Kodo 直传。只有用户明确授权生产发布时，才执行 `publish --yes` 或 `build --publish --yes`。不要照抄其他项目的凭据、项目标识或云端清理逻辑。
 - 保留已有用户改动、数据及历史产物；不得为打包执行仓库回退或清空已有输出目录。新建独立输出目录，失败重试也使用新目录。
@@ -82,7 +82,7 @@ if ($LASTEXITCODE -ne 0) { throw '本地升级验证失败，不得声称升级�
 
 构建脚本已自动执行以下门槛，不要仅凭 PyInstaller 或 `vpk pack` 返回成功就交付：
 
-1. 拒绝 Setup 和 Installer 资产；便携 ZIP 必须包含 `.portable`、`Update.exe`、`An Clicker.exe`、`current/AnClicker.exe`、`current/sq.version`。
+1. 拒绝 Setup 和 Installer 资产；便携 ZIP 必须包含 `.portable`、`Update.exe`、`AnClicker.exe`、`current/AnClicker.exe`、`current/sq.version`。
 2. 检查程序目录和归档路径安全、CRC、Windows GUI EXE；禁止用户数据库和可变 `data`、`profiles` 混入。`defaults/命令集.db` 必须是构建时生成的空白种子。
 3. 实际启动 onedir EXE、Portable `current` EXE 和根目录启动器，检查窗口、版本和启动报告；再次启动验证数据库及文件保留。根启动器会先退出，必须等待子程序报告，不能把启动器退出码当作成功。
 4. 若生成 Delta，实际还原并逐项比较与目标 Full 的文件集合和内容，再启动还原后的程序。缺少或存在多个不明确的基线时不得绕过失败。
@@ -184,3 +184,26 @@ Portable、delivery、assets、RELEASES 和本地测试包不上传；历史远�
 ## v1.5.2 起的文件命名
 
 Windows 完整包为 `AnClicker-v<版本>-win.zip`，对应源码包为 `AnClicker-v<版本>-win-DaiMa.zip`。Linux 和 macOS 后续原生构建沿用 `linux`、`mac` 平台后缀，源码在平台后加 `-DaiMa`；不得将 Windows 二进制改名作为其他平台的可运行包。哈希文件在 ZIP 名称后添加 `.sha256`。
+
+## v1.8.3 完整七牛更新包
+
+普通 onedir ZIP 不含 Velopack 根启动器和 current/sq.version，不能自动更新。当前完整发布流程为 check_release_183.py → check_release_models_183.py → build_release_183.py → package_release_183.py --stage → qiniu_release_183.py pack → export_qiniu_183.py → qiniu_release_183.py validate → smoke_qiniu_183_upgrade.py → qiniu_release_183.py publish <外部凭据文件>。上传必须在明确授权后执行。
+
+产物位于 artifacts/release/v1.8.3-qiniu，交付包位于 delivery。只向七牛上传正式 Full 和索引，发布脚本负责公网完整哈希及 CDN 索引校验。保留双模型、OCR、Electron、Crawl4AI 与 CPU/Vulkan 运行库。更新门槛禁止省略这些文件。
+
+Data 位于根启动器同级，不能置于可替换的 current 中。旧普通 ZIP 用户需退出旧程序、备份 Data，换用完整受管理包后再使用七牛更新。启动仅检查一次，20 秒超时静默结束；下载与安装需手动进入检查更新并确认。
+
+升级验证使用正式 Full，通过隔离目录中的较低 sq.version 元数据模拟旧版本，实际验证检查、下载、手动确认、安装、重启及数据库/图片保留。这不是对真实旧版二进制的兼容性测试，也不上传测试元数据。
+
+验收子进程设置 PYTHONDONTWRITEBYTECODE=1，避免依赖导入生成缓存改变验收文件清单。依赖 wheel 的包专属 .libs 路径及 pip/setuptools 启动器模板按实际用途校验，不删除必备运行文件。
+
+公网大包校验按 16 MiB 分段读取，连接中断仅重试当前段；逐段范围和最终 SHA-256 均须匹配。任何校验失败都禁止写入新索引。已上传但尚未发布索引的同内容包可安全复用。
+
+
+### 下个版本：复制 Data 手动迁移
+关闭新旧程序，将旧 Data 的全部内容复制到新版根目录 Data（包括命令集.db、exports 和 images），然后启动新版。启动会将已复制且相对路径匹配的最近项目、当前项目、项目控制设置和定时任务路径改为新版 Data，并在 migration_backups 中保留数据库备份。图片仍优先有效绝对路径，再搜索 Data。外部未复制文件不会被猜测替换。
+空目录中误粘贴为 Data/Data 时，可直接使用内层数据；外层已存在数据库时不自动覆盖，以外层为准。
+发布前运行 tools/check_portable_data_migration.py 以及图片路径回归。下一版根目录启动器统一为 AnClicker.exe（不含空格），同步打包标题、校验和说明。
+
+### v1.8.4 发布流程
+使用 check_release_184.py、check_release_models_184.py、build_release_184.py、package_release_184.py --stage、check_frozen_data_migration_184.py、qiniu_release_184.py pack/startup/validate、smoke_qiniu_184_upgrade.py、export_qiniu_184.py。升级测试使用已发布的真实 v1.8.3 便携包，验证启动器改名、安装重启和 Data 保留。发布仍仅上传七牛完整更新包与版本索引；校验全部公网字节后才更新索引。

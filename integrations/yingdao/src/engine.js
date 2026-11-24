@@ -105,6 +105,9 @@
         var inputs = document.querySelectorAll('input,select,textarea');
         var buttons = document.querySelectorAll('button,a,input[type=button],input[type=submit],div[onclick],span[onclick],li[onclick]');
         out.inputCount = inputs.length;
+        out.url = location.href;
+        out.title = document.title;
+        out.inputDetails = Array.from(inputs).slice(0,40).map(e=>({tag:e.tagName,id:e.id,name:e.name,type:e.type,placeholder:e.getAttribute('placeholder'),visible:!!e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'}));
         out.clickableCount = buttons.length;
         if (!buttons.length) out.hints.push('当前文档里没有明显的可点击元素（可能都在 iframe 里，或需要先点某个菜单展开）');
         return out;
@@ -260,55 +263,38 @@
 
     // 返回一段 JS 表达式：求值得到目标元素（或在页面里找不到时返回 null）
     // by 支持 CSS选择器/XPath/文本内容/智能匹配/锚点定位
-    locatorSnippet(by, esc, escAnchor, rel) {
-      const H = this.queryHelpersJS();
+    anchorResultSnippet(selector, anchor, relation, highlight = false) {
+      if (!window.AnClickerAnchorLocator) throw new Error('锚点定位组件未加载，请完整解压新版程序');
+      const options = {selector, anchor, relation, highlight};
+      return '(' + window.AnClickerAnchorLocator.resolve.toString() + ')(' + JSON.stringify(options) + ')';
+    },
+
+    locatorSnippet(by, selector, anchor, rel) {
+      const value = JSON.stringify(String(selector || ''));
       if (by === '锚点定位') {
-        return `(function(){ ${H}
-          var __anchors = String('${escAnchor}' || '').split(/[;；]/).map(function(s){ return s.trim(); }).filter(Boolean)
-            .map(function(s){ return __rpaFind(s); }).filter(Boolean);
-          var __anchor = __anchors[0];
-          if (!__anchor) return null;
-          var SEL = '${esc}';
-          var REL = '${rel}';
-          var aR = __anchor.getBoundingClientRect();
-          var tol = 6;
-          var ovV = function(r){ return Math.min(r.bottom, aR.bottom) - Math.max(r.top, aR.top) > 0; };
-          var ovH = function(r){ return Math.min(r.right, aR.right) - Math.max(r.left, aR.left) > 0; };
-          if (REL === '内部') { return SEL ? __anchor.querySelector(SEL) : (__anchor.children[0] || null); }
-          if (REL === '相邻') { return SEL ? (__anchor.nextElementSibling && __anchor.nextElementSibling.matches(SEL) ? __anchor.nextElementSibling : null) : __anchor.nextElementSibling; }
-          var cands = SEL ? __rpaAll(SEL) : __rpaAll('a,button,input,select,textarea,span,div,label,td,th');
-          var best = null, bd = Infinity;
-          cands.forEach(function(c){
-            if (c === __anchor || __anchors.indexOf(c) >= 0 || __anchor.contains(c)) return;
-            var r = c.getBoundingClientRect();
-            if (r.width === 0 && r.height === 0) return;
-            var d = Infinity;
-            if (REL === '下方') { if (r.top >= aR.bottom - tol && ovH(r)) d = r.top - aR.bottom; }
-            else if (REL === '上方') { if (r.bottom <= aR.top + tol && ovH(r)) d = aR.top - r.bottom; }
-            else if (REL === '右侧') { if (r.left >= aR.right - tol && ovV(r)) d = r.left - aR.right; }
-            else if (REL === '左侧') { if (r.right <= aR.left + tol && ovV(r)) d = aR.left - r.right; }
-            else { d = Math.hypot(r.left - aR.left, r.top - aR.top); }
-            if (d < bd) { bd = d; best = c; }
-          });
-          return best;
-        })()`;
+        return '(function(){const result=' + this.anchorResultSnippet(selector, anchor, rel) +
+          ';if(!result.element && (result.report.count>1 || !result.report.anchors.length)) throw new Error(result.report.reason);return result.element;})()';
       }
-      if (by === 'XPath') {
-        return `(function(){ ${H} var a = []; try { a = __rpaAllXPath('${esc}'); } catch(e) {} return a.length ? a[0] : null; })()`;
+      const H = this.queryHelpersJS();
+      if (by === 'XPath') return '(function(){' + H + 'const a=__rpaAllXPath('+value+');return a.length?a[0]:null;})()';
+      if (by === '文本内容') return '(function(){' + H + 'return __rpaByText('+value+',true);})()';
+      return '(function(){' + H + 'return __rpaFind('+value+') || __rpaByText('+value+','+(by==='智能匹配'?'false':'true')+') || __rpaByText('+value+',true) || __rpaByAttr('+value+');})()';
+    },
+
+    async previewLocator({selector = '', by = '智能匹配', anchor = '', anchorRel = '下方'}) {
+      selector = this.expand(selector); anchor = this.expand(anchor);
+      let source;
+      if (by === '锚点定位') {
+        source = 'const result=' + this.anchorResultSnippet(selector,anchor,anchorRel,true) + ';const report=result.report;';
+      } else {
+        source = 'const el=' + this.locatorSnippet(by,selector,anchor,anchorRel) + ';const report={found:!!el,count:el?1:0,anchors:[],reason:el?"已找到目标元素":"未找到目标元素"};' +
+          'if(el){el.scrollIntoView({block:"center"});const r=el.getBoundingClientRect();report.target={tag:el.tagName,text:String(el.innerText||el.value||"").slice(0,100),rect:{x:r.x,y:r.y,width:r.width,height:r.height}};}';
       }
-      if (by === '文本内容') {
-        return `(function(){ ${H} return __rpaByText('${esc}', true); })()`;
-      }
-      if (by === '智能匹配') {
-        return `(function(){ ${H}
-          return __rpaFind('${esc}') || __rpaByText('${esc}', false) || __rpaByText('${esc}', true) || __rpaByAttr('${esc}');
-        })()`;
-      }
-      // 默认 CSS选择器：先严格按选择器找，找不到再按文本/属性救一把（很多时候选择器已失效，
-      // 但页面上那行字还在，这时能救回来比直接报错有用得多）
-      return `(function(){ ${H}
-        return __rpaFind('${esc}') || __rpaByText('${esc}', true) || __rpaByAttr('${esc}');
-      })()`;
+      // Search each frame for success; a main-document failure must not hide a
+      // valid iframe result. Diagnostics are read from the main page afterwards.
+      const found = await this.execJSAny('(()=>{' + source + 'return report.found?report:null;})()');
+      if (found) return found;
+      return await this.execJS('(()=>{' + source + 'return report;})()');
     },
 
     // 在浏览器里探测"这个元素到底能不能找到"（给排错用），走的是同一套稳健查找
@@ -367,7 +353,7 @@
       }
       const esc = selector.replace(/'/g, "\\'");
       const escA = (anchor || '').replace(/'/g, "\\'");
-      const snippet = this.locatorSnippet(by, esc, escA, anchorRel);
+      const snippet = this.locatorSnippet(by, selector, anchor, anchorRel);
       const secs = waitSec == null ? LOCATE_WAIT_SEC : Math.max(0, Number(waitSec) || 0);
       const limit = Math.round(secs * 1000);
       const code = `(async () => {
@@ -401,6 +387,139 @@
           `若目标在跨域 iframe 里，请用「🎯 在浏览器中选取元素」重新拾取，或把定位方式改成「智能匹配」`);
       }
       return true;
+    },
+
+
+    formLabelCode(p,readOnly) {
+      const options={action:p.action,label:this.expand(p.label||''),value:this.expand(p.value||''),readOnly};
+      if (!['填入','清空','选择','勾选','取消勾选'].includes(options.action)||!options.label.trim()) throw new Error('请提供操作及网页字段名称');
+      function operate(p) {
+        const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
+        const label=norm(p.label);
+        let matches=[...document.querySelectorAll('input,textarea,select')].filter(e=>{
+          const names=[e.getAttribute('aria-label'),e.getAttribute('placeholder'),...[...(e.labels||[])].map(l=>{const c=l.cloneNode(true);c.querySelectorAll('input,textarea,select,button').forEach(n=>n.remove());return c.textContent;})];
+          const ids=(e.getAttribute('aria-labelledby')||'').split(/\s+/).filter(Boolean);
+          if(ids.length)names.push(ids.map(id=>document.getElementById(id)?.textContent||'').join(' '));
+          return names.some(n=>norm(n)===label)&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden';
+        });
+        if(!matches.length){
+          const ordinal=/^第([1-9][0-9]*)个(输入框|文本框|下拉框|复选框)$/.exec(label);
+          if(ordinal){
+            const controls=[...document.querySelectorAll('input,textarea,select')].filter(e=>{
+              if(!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return false;
+              if(ordinal[2]==='下拉框')return e.tagName==='SELECT';
+              if(ordinal[2]==='复选框')return e.tagName==='INPUT'&&e.type==='checkbox';
+              return e.tagName==='TEXTAREA'||(e.tagName==='INPUT'&&['text','email','search','tel','url','password','number','date','time'].includes(e.type));
+            });
+            const found=controls[Number(ordinal[1])-1];if(found)matches=[found];
+          }
+        }
+        if(!matches.length)throw new Error('未找到字段：'+label);
+        if(matches.length!==1)throw new Error('同名字段不唯一，请进一步指定：'+label);
+        const e=matches[0],type=(e.type||'').toLowerCase();
+        if(e.disabled||e.readOnly)throw new Error('字段不可编辑：'+label);
+        let option=null;
+        if(['填入','清空'].includes(p.action)&&!(e.tagName==='TEXTAREA'||(e.tagName==='INPUT'&&['text','email','search','tel','url','password','number','date','time'].includes(type))))throw new Error('该字段不是可填写文本框');
+        if(p.action==='选择'){
+          if(e.tagName!=='SELECT'||e.multiple)throw new Error('该字段不是单选下拉框');
+          let options=[...e.options].filter(o=>norm(o.label)===norm(p.value));
+          if(!options.length){const nth=/^第([1-9][0-9]*)项$/.exec(p.value);if(nth){const selected=[...e.options].filter(o=>!o.disabled&&!(o.parentElement.tagName==='OPTGROUP'&&o.parentElement.disabled)&&o.value!=='')[Number(nth[1])-1];if(selected)options=[selected];}}
+          if(options.length!==1||options[0].disabled)throw new Error('选项不存在、不唯一或不可用');
+          option=options[0];
+        }
+        if(['勾选','取消勾选'].includes(p.action)&&type!=='checkbox')throw new Error('该字段不是复选框');
+        if(!p.readOnly){
+          e.scrollIntoView({block:'center'});
+          if(p.action==='勾选'||p.action==='取消勾选'){
+            const want=p.action==='勾选';if(e.checked!==want)e.click();
+          } else {
+            const proto=e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto,'value').set.call(e,option?option.value:p.action==='清空'?'':p.value);
+            e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));
+          }
+        }
+        const value=option?(e.options[e.selectedIndex]?.label||''):e.value;
+        const verified=p.action==='勾选'?e.checked===true:p.action==='取消勾选'?e.checked===false:value===(option?option.label:p.action==='清空'?'':p.value);
+        return {url:location.href,title:document.title,readyState:document.readyState,label:p.label,action:p.action,value:type==='password'?'[redacted]':value,checked:e.checked,verified};
+      }
+      return '('+operate.toString()+')('+JSON.stringify(options)+')';
+    },
+    async formByLabel(p,readOnly=false) {
+      const code=this.formLabelCode(p,readOnly),deadline=Date.now()+10000;
+      while(true){
+        if(this.cancelRequested)throw new Error(ERR_STOP);
+        try{return await this.execJS(code);}
+        catch(error){if(!String(error.message).includes('未找到字段')||Date.now()>=deadline)throw error;}
+        await this.sleepInterruptible(.2);
+      }
+    },
+
+    async pageScrollState() {
+      return this.execJS('(()=>{const e=document.scrollingElement;if(!e)throw new Error("页面没有滚动容器");return {url:location.href,title:document.title,readyState:document.readyState,y:e.scrollTop,maxY:Math.max(0,e.scrollHeight-e.clientHeight),viewportHeight:e.clientHeight};})()');
+    },
+    async scrollPageToPosition(p) {
+      const ratios = {'顶部':0,'中间':.5,'底部':1};
+      if (!Object.prototype.hasOwnProperty.call(ratios,p.position)) throw new Error('不支持的页面位置');
+      const ratio=ratios[p.position], deadline=Date.now()+10000;
+      let stable=0, previous=null;
+      while (Date.now()<deadline) {
+        if (this.cancelRequested) throw new Error(ERR_STOP);
+        await this.execJS('(()=>{const e=document.scrollingElement;if(!e)throw new Error("页面没有滚动容器");e.scrollTo({top:Math.max(0,e.scrollHeight-e.clientHeight)*'+ratio+',left:e.scrollLeft,behavior:"instant"});})()');
+        await this.sleepInterruptible(.2);
+        const state=await this.pageScrollState();
+        const valid=['interactive','complete'].includes(state.readyState)&&Math.abs(state.y-state.maxY*ratio)<=2;
+        stable=valid&&previous!==null&&Math.abs(state.maxY-previous)<2?stable+1:0;
+        if (stable>=3) return {...state,position:p.position,scrolled:true};
+        previous=state.maxY;
+      }
+      throw new Error('页面滚动位置未能稳定达到目标');
+    },
+
+    async scrollElementToCenter(p) {
+      const selector = this.expand(p.selector || '').trim();
+      const by = p.by || '智能匹配', anchor = this.expand(p.anchor || '');
+      const behavior = p.behavior || '平滑滚动';
+      const timeout = Number(p.timeout ?? 10), settle = Number(p.settle ?? .3);
+      if (!selector) throw new Error('请先拾取或填写目标元素');
+      if (!['智能匹配','CSS选择器','XPath','文本内容','锚点定位'].includes(by)) throw new Error('不支持的定位方式');
+      if (!['平滑滚动','立即定位'].includes(behavior)) throw new Error('不支持的滚动方式');
+      if (!Number.isFinite(timeout) || timeout < 0 || timeout > 60 || !Number.isFinite(settle) || settle < 0 || settle > 30) throw new Error('等待元素需为 0–60 秒，滚动后等待需为 0–30 秒');
+      if (by === '锚点定位' && !anchor.trim()) throw new Error('请设置辅助锚点');
+      let locator = this.locatorSnippet(by, selector, anchor, p.anchorRel || '下方');
+      if (by === 'CSS选择器') locator = '(function(){' + this.queryHelpersJS() + 'return __rpaAll('+JSON.stringify(selector)+')[0] || null;})()';
+      const probe = async action => this.execJSAny('(()=>{const e='+locator+';if(!e)return null;const w=e.ownerDocument.defaultView;const s=w.getComputedStyle(e);if(!e.getClientRects().length||s.visibility==="hidden"||s.display==="none")return null;'+
+        (action === 'start' ? 'e.scrollIntoView({block:"center",inline:"center",behavior:'+JSON.stringify(behavior==='平滑滚动'?'smooth':'instant')+'});' : '')+
+        (action === 'stop' ? 'let n=e;while(n){if(n.scrollTo)n.scrollTo({left:n.scrollLeft,top:n.scrollTop,behavior:"instant"});n=n.parentElement||(n.getRootNode&&n.getRootNode().host);}w.scrollTo({left:w.scrollX,top:w.scrollY,behavior:"instant"});' : '')+
+        'const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,viewportWidth:w.innerWidth,viewportHeight:w.innerHeight};})()',1000);
+      let started = false;
+      try {
+        const deadline = Date.now() + timeout * 1000;
+        let rect;
+        do {
+          if (this.cancelRequested) throw new Error(ERR_STOP);
+          rect = await probe('find');
+          if (rect) break;
+          if (Date.now() >= deadline) throw new Error('等待目标元素超时：'+selector+'；请检查网页窗口、定位或先展开隐藏内容');
+          await this.sleepInterruptible(.1);
+        } while (true);
+        rect = await probe('start'); started = true;
+        if (!rect) throw new Error('目标元素已消失，请重新定位');
+        let previous = rect, stable = 0;
+        const finish = Date.now() + 5000;
+        while (stable < 3) {
+          await this.sleepInterruptible(.1);
+          rect = await probe('find');
+          if (!rect) throw new Error('滚动期间目标元素已消失');
+          stable = Math.abs(rect.x-previous.x)<.5 && Math.abs(rect.y-previous.y)<.5 ? stable+1 : 0;
+          previous = rect;
+          if (Date.now() > finish) throw new Error('页面持续变化，滚动未能稳定，请重试');
+        }
+        if (rect.x+rect.width<=0||rect.y+rect.height<=0||rect.x>=rect.viewportWidth||rect.y>=rect.viewportHeight) throw new Error('目标仍不可见，请检查页面是否禁止滚动');
+        await this.sleepInterruptible(settle);
+        return {scrolled:true,rect};
+      } finally {
+        if (started && this.cancelRequested) {try {await probe('stop');} catch (_) {}}
+      }
     },
 
     async click({ selector, clickType = '单击', by = 'CSS选择器', anchor = '', anchorRel = '下方' }) {
@@ -460,7 +579,7 @@
       const evt = clickType === '双击' ? 'dblclick' : (clickType === '右键' ? 'contextmenu' : 'click');
       const btn = clickType === '右键' ? '2' : '0';
       const code = `(() => {
-        const el = ${this.locatorSnippet(by, esc, escA, anchorRel)};
+        const el = ${this.locatorSnippet(by, selector, anchor, anchorRel)};
         if (!el) throw new Error('元素未找到');
         el.scrollIntoView({block:'center', inline:'center'});
         function fire(type, x, y) {
@@ -495,16 +614,18 @@
       return await this.execJSAny(code);
     },
 
-    async input({ selector, text, clear = '是', by = 'CSS选择器', anchor = '', anchorRel = '下方', pressEnter = '否' }) {
+    async input({ selector, text, textVariable = '', clear = '是', by = 'CSS选择器', anchor = '', anchorRel = '下方', pressEnter = '否' }) {
       selector = this.expand(selector);
-      text = this.expand(text);
+      if (textVariable && !Object.prototype.hasOwnProperty.call(this.vars, textVariable)) throw new Error('未找到输入变量：' + textVariable);
+      text = textVariable ? this.vars[textVariable] : this.expand(text);
+      if (typeof text !== 'string') throw new Error('网页输入需要文本，请将区域读取格式设为制表符文本');
       anchor = this.expand(anchor);
       await this.locate(selector, by, anchor, anchorRel);
       const esc = selector.replace(/'/g, "\\'");
       const escA = (anchor || '').replace(/'/g, "\\'");
       const escT = text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n');
       const code = `(() => {
-        const el = ${this.locatorSnippet(by, esc, escA, anchorRel)};
+        const el = ${this.locatorSnippet(by, selector, anchor, anchorRel)};
         if (!el) throw new Error('元素未找到');
         el.scrollIntoView({block:'center', inline:'center'});
         el.focus();
@@ -552,15 +673,18 @@
       const H = this.queryHelpersJS();
       const code = `(() => {
         ${H}
-        const el = ${this.locatorSnippet(by, esc, escA, anchorRel)};
-        return el ? __rpaText(el) : '';
+        const el = ${this.locatorSnippet(by, selector, anchor, anchorRel)};
+        if (!el) throw new Error('读取时元素已消失');
+        return {textValue:__rpaText(el)};
       })()`;
-      let text = await this.execJSAny(code);
+      // A truthy envelope preserves valid empty strings across frame dispatch.
+      const read=async()=>{const r=await this.execJSAny(code);if(!r||typeof r.textValue!=='string')throw new Error('未收到元素文本');return r.textValue;};
+      let text = await read();
       // 值可能是空字符串（内容还没渲染出来），再等几轮
       if (!text) {
         for (let i = 0; i < 5; i++) {
           await new Promise(r => setTimeout(r, 300));
-          text = await this.execJSAny(code);
+          text = await read();
           if (text) break;
         }
       }
@@ -611,7 +735,7 @@
       const esc = selector.replace(/'/g, "\\'");
       const escA = (anchor || '').replace(/'/g, "\\'");
       const ms = timeout * 1000;
-      const snippet = this.locatorSnippet(by, esc, escA, anchorRel);
+      const snippet = this.locatorSnippet(by, selector, anchor, anchorRel);
       const code = `(async () => {
         const t0 = Date.now();
         while (Date.now() - t0 < ${ms}) {
@@ -1053,7 +1177,7 @@
       await this.locate(selector, by, anchor, anchorRel);
       const esc = selector.replace(/'/g, "\\'");
       const escA = (anchor || '').replace(/'/g, "\\'");
-      const snip = this.locatorSnippet(by, esc, escA, anchorRel);
+      const snip = this.locatorSnippet(by, selector, anchor, anchorRel);
 
       await this.execJSAny(`(function(){
         var el = ${snip};
@@ -1185,7 +1309,7 @@
 
       // 4) 一条一格，从起始单元格往下竖着写
       values.forEach((v, i) => {
-        dstWs[this.colName(start.c) + (start.r + i + 1)] = this.makeCell(v);
+        dstWs[this.colName(start.c) + (start.r + i + 1)] = filter === '文本与数字' ? { t: 's', v: String(v) } : this.makeCell(v);
       });
       const sc = this.scanCells(dstWs);
       dstWs['!ref'] = (sc.maxR >= 0 && sc.maxC >= 0) ? ('A1:' + this.colName(sc.maxC) + (sc.maxR + 1)) : 'A1:A1';
@@ -1209,11 +1333,18 @@
       }
       const out = XLSX.write(dstBook, { bookType: 'xlsx', type: 'array' });
       await window.yingdao.writeFile(outPath, (out instanceof Uint8Array) ? out : new Uint8Array(out));
+      const savedBook=XLSX.read(await window.yingdao.readFile(outPath),{type:'array'});
+      const savedSheet=savedBook.Sheets[dstSheetName];
+      values.forEach((v,i)=>{
+        const addr=this.colName(start.c)+(start.r+i+1),expected=dstWs[addr],actual=savedSheet&&savedSheet[addr];
+        if(!actual||actual.v!==expected.v||actual.t!==expected.t||(actual.f||'')!==(expected.f||''))throw new Error('保存后单元格读回不一致：'+addr);
+      });
 
       return {
         path: outPath,
         count: values.length,
         filtered: list.length - values.length,
+        verification:{verified:true,method:'workbook_state',text:'已从保存文件读回 '+values.length+' 个单元格：'+dstSheetName+'!'+startText,path:outPath},
         msg: '提取到 ' + values.length + ' 条（按「' + filter + '」过滤掉 ' + (list.length - values.length) + ' 条）→ ' +
              '写入「' + dstSheetName + '」' + startText + ' 起，' + (save === '另存为' ? '另存为 ' : '保存到 ') + outPath
       };
@@ -1625,13 +1756,15 @@
       return excelBooks.length;
     },
 
-    async excelOpen(path) {
+    async excelOpen(path, sheetName = '') {
       if (typeof XLSX === 'undefined') throw new Error('Excel 组件未加载');
       path = this.expand(path);
       if (!path) throw new Error('请先选择要打开的Excel文件（打开Excel指令需填写文件路径）');
       const buf = await window.yingdao.readFile(path);
       const book = XLSX.read(buf, { type: 'array' });
-      this.registerBook(book, path, book.SheetNames[0]);
+      sheetName = this.expand(sheetName);
+      if (sheetName && !book.Sheets[sheetName]) throw new Error('找不到工作表：' + sheetName);
+      this.registerBook(book, path, sheetName || book.SheetNames[0]);
     },
 
     async excelNew(path, sheetName = 'Sheet1') {
@@ -1682,13 +1815,15 @@
 
     excelWrite(cell, value) {
       const ws = this.getWS();
-      ws[cell] = this.makeCell(this.expand(value));
+      const address=String(cell).trim().toUpperCase();this.parseCell(address);
+      ws[address] = this.makeCell(this.expand(value));
       this.recalcFormulas(this.getActiveBook());
       this.refreshRef();
+      return {verification:{verified:true,method:'workbook_state',text:'已写入并读回当前工作表 '+address+'：'+String(this.excelRead(address)),saved:false}};
     },
 
     // 读取区域 -> 二维数组
-    excelReadRange(range) {
+    excelReadRange(range, format = '二维数组') {
       const ws = this.getWS();
       const { r0, c0, r1, c1 } = this.parseRange(range);
       const result = [];
@@ -1696,11 +1831,82 @@
         const row = [];
         for (let c = c0; c <= c1; c++) {
           const addr = this.colName(c) + (r + 1);
-          row.push(ws[addr] ? ws[addr].v : '');
+          row.push(ws[addr] ? (format === '制表符文本' ? XLSX.utils.format_cell(ws[addr]) : ws[addr].v) : '');
         }
         result.push(row);
       }
+      if (format === '制表符文本') return result.map(row => row.join('\t')).join('\n');
       return result;
+    },
+
+
+    async excelFillWeb({range = '', mode = '按表头对应', header = '首行表头'}) {
+      if (!['按表头对应','按顺序'].includes(mode)) throw new Error('未知填入方式');
+      const ws = this.getWS();
+      const area = range || ws['!ref'];
+      if (!area) throw new Error('当前工作表没有内容');
+      const bounds = this.parseRange(area);
+      if ((bounds.r1-bounds.r0+1)*(bounds.c1-bounds.c0+1)>5000) throw new Error('本次内容过多，请选取要填入的区域');
+      const rows=[];
+      for(let r=bounds.r0;r<=bounds.r1;r++) {
+        const row=[];
+        for(let c=bounds.c0;c<=bounds.c1;c++) {const cell=ws[this.colName(c)+(r+1)];row.push(cell?XLSX.utils.format_cell(cell):'');}
+        rows.push(row);
+      }
+      const headings=header==='首行表头'?rows.shift():[];
+      if(!rows.length) throw new Error('表格只有表头，没有要填入的数据');
+      const payload=JSON.stringify({rows,headings,mode});
+      const code='('+function(data){
+        const normalize=s=>String(s||'').normalize('NFKC').replace(/[\s:：*＊]/g,'').toLowerCase();
+        const fields=Array.from(document.querySelectorAll('input,textarea,select')).filter(el=>
+          !el.disabled&&!el.readOnly&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&
+          !['hidden','button','submit','reset','checkbox','radio','file','password','image'].includes((el.type||'').toLowerCase()));
+        if(!fields.length)throw new Error('当前网页没有可填入的输入框，请先打开目标页面');
+        const labelText=e=>{const copy=e.cloneNode(true);copy.querySelectorAll('input,textarea,select,button').forEach(x=>x.remove());return copy.textContent;};
+        const names=el=>{
+          const values=[el.getAttribute('aria-label'),el.getAttribute('placeholder'),...Array.from(el.labels||[]).map(labelText)];
+          const ids=(el.getAttribute('aria-labelledby')||'').split(/\s+/);ids.forEach(id=>{const label=document.getElementById(id);if(label)values.push(label.textContent);});
+          const previous=el.previousElementSibling;if(previous&&previous.textContent.length<80)values.push(labelText(previous));
+          return values.map(normalize).filter(Boolean);
+        };
+        const assignments=[];
+        if(data.mode==='按表头对应') {
+          if(!data.headings.length||data.headings.some(x=>!normalize(x)))throw new Error('对应填入需要完整的首行表头');
+          if(new Set(data.headings.map(normalize)).size!==data.headings.length)throw new Error('表头重复，无法确定对应关系');
+          data.headings.forEach((heading,col)=>{
+            const matches=fields.filter(el=>names(el).includes(normalize(heading)));
+            if(matches.length!==data.rows.length)throw new Error('字段“'+heading+'”有'+matches.length+'个输入框，但表格有'+data.rows.length+'行数据；请明确区域或目标表单');
+            matches.forEach((el,row)=>assignments.push({el,value:String(data.rows[row][col]),heading,row}));
+          });
+        }else{
+          const values=data.rows.flat();
+          if(values.length!==fields.length)throw new Error('表格有'+values.length+'项，网页有'+fields.length+'个可填输入框，数量不一致，未填入');
+          fields.forEach((el,index)=>assignments.push({el,value:String(values[index]),row:Math.floor(index/data.rows[0].length)}));
+        }
+        if(new Set(assignments.map(x=>x.el)).size!==assignments.length)throw new Error('多个表头对应同一个输入框，未填入');
+        // Validate every destination before the first write.
+        assignments.forEach(a=>{
+          if(a.el.tagName==='SELECT'){
+            const options=Array.from(a.el.options).filter(o=>!o.disabled&&(o.value===a.value||o.text===a.value));
+            if(options.length!==1)throw new Error('下拉框找不到唯一选项：'+a.value);a.value=options[0].value;
+          }
+          const probe=a.el.cloneNode(a.el.tagName==='SELECT');probe.value=a.value;
+          if(probe.value!==a.value)throw new Error('输入框不接受原始内容：'+(a.heading||a.el.type));
+          if(a.el.maxLength>=0&&a.value.length>a.el.maxLength)throw new Error('内容超过输入框长度：'+(a.heading||a.row));
+        });
+        assignments.sort((a,b)=>a.row-b.row||fields.indexOf(a.el)-fields.indexOf(b.el));
+        assignments.forEach(a=>{
+          if(!a.el.isConnected)throw new Error('网页结构发生变化，请检查已填入内容后重试');
+          const proto=a.el.tagName==='SELECT'?HTMLSelectElement.prototype:a.el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;
+          Object.getOwnPropertyDescriptor(proto,'value').set.call(a.el,a.value);
+          a.el.dispatchEvent(new Event('input',{bubbles:true}));a.el.dispatchEvent(new Event('change',{bubbles:true}));
+          if(a.el.value!==a.value)throw new Error('网页没有保留填入值：'+(a.heading||a.row));
+        });
+        assignments.forEach(a=>{if(!a.el.isConnected||a.el.value!==a.value)throw new Error('表单后续事件改变了已填值，请检查网页');});
+        return {filled:assignments.length,rows:data.rows.length,mode:data.mode,submitted:false,
+          verification:{verified:true,method:'form_state',text:'已逐项读回 '+assignments.length+' 个字段，共 '+data.rows.length+' 行，未提交表单'}};
+      }.toString()+')('+payload+')';
+      const result=await this.execJSAny(code);this.vars['表格填入结果']=result;return result;
     },
 
     // 写入区域（二维数组）
@@ -2424,6 +2630,7 @@
     },
     // 按勾选的多种格式保存到同一基名，返回写出的文件路径列表
     async excelSaveFormats(path, formats) {
+      delete this.vars['保存核验'];
       if (!excelBook) throw new Error('请先打开Excel');
       let list = (Array.isArray(formats) ? formats : []).filter(f => this.isValidFormat(f));
       if (!list.length) list = this.defaultFormats();
@@ -2440,6 +2647,9 @@
         const target = this.swapExt(base, meta.ext);
         const buf = this.exportBook(fmt);
         await window.yingdao.writeFile(target, buf);
+        const actual=new Uint8Array(await window.yingdao.readFile(target));
+        const expected=buf instanceof Uint8Array?buf:new Uint8Array(buf);
+        if(actual.length!==expected.length||actual.some((v,i)=>v!==expected[i]))throw new Error('保存后文件字节读回不一致：'+target);
         written.push(target);
       }
       // 以第一个格式的文件作为当前路径（xlsx 优先）
@@ -2447,6 +2657,7 @@
       const book = this.getActiveBook();
       if (book) book.path = mainPath;
       excelPath = mainPath;
+      this.vars['保存核验']={verified:true,method:'workbook_state',text:'已保存并读回核对文件：'+written.join('；'),paths:written};
       return written;
     },
 
@@ -2840,6 +3051,8 @@
       // 每条指令开始前检查中断标记（点「停止」后不再执行后续指令）
       if (this.cancelRequested) throw new Error(ERR_STOP);
       const p = cmd.params || {};
+      if (!p.browserWindow?.remote && ['acListCdpWindows','backgroundClick','backgroundClicks','backgroundKey'].includes(cmd.id)) await B().restoreCdp();
+      if (p.browserWindow && !p.browserWindow.remote && cmd.id !== 'acListBrowserWindows') await B().selectWindow(p.browserWindow, ['backgroundClick','backgroundClicks','backgroundKey'].includes(cmd.id) && !p.pickOnly);
       switch (cmd.id) {
         case 'openUrl': {
           const r = await this.openUrl(p.url, p.target, p.loginMode, p.engine, p.waitType !== '立即返回');
@@ -2847,6 +3060,16 @@
           if (p.waitType !== '立即返回' && ['Edge','内置Chrome'].includes(r.badge)) await this.waitPageReady();
           return r;
         }
+        case 'acOpenCdpPage': await B().openCdp(p); return await B().getTabs();
+        case 'acListCdpWindows': return [...await B().getTabs(),...await B().remoteTabs(p.cdpEndpoints || [])];
+        case 'acOpenRemotePage': await B().openRemote(p); return [...await B().getTabs(),...await B().remoteTabs(p.cdpEndpoints || [])];
+        case 'acListBrowserWindows': return await B().getTabs();
+        case 'acPreviewLocator': return await this.previewLocator(p);
+        case 'scrollPageToPosition': return await this.scrollPageToPosition(p);
+        case 'formByLabel': return await this.formByLabel(p);
+        case 'formLabelState': return await this.formByLabel(p,true);
+        case 'pageScrollState': return await this.pageScrollState();
+        case 'scrollElementToCenter': return await this.scrollElementToCenter(p);
         case 'click': return await this.click(p);
         case 'input': return await this.input(p);
         case 'getText': return await this.getText(p);
@@ -2864,6 +3087,49 @@
           }
           return d;
         }
+        case 'backgroundClick':
+        case 'backgroundClicks': {
+          const single = cmd.id === 'backgroundClick';
+          if (p.pickOnly) return await B().pickPoints(single ? 1 : 1000, this.parsePoints(p.points), p.browserWindow);
+          const points = this.parsePoints(p.points);
+          if (!points.length || (single && points.length !== 1)) throw new Error(single ? '请设置一个点击坐标' : '请设置点击坐标');
+          const done = [];
+          for (let i = 0; i < points.length; i++) {
+            if (this.cancelRequested) throw new Error(ERR_STOP);
+            done.push(await B().backgroundInput('click', {...points[i],clickType:p.clickType}, p.browserWindow));
+            if (i < points.length - 1) await this.sleepInterruptible(Math.max(0,Number(p.interval) || 0));
+          }
+          return done;
+        }
+        case 'backgroundKey': {
+          const name = p.key || '回车(Enter)';
+          const raw = String(p.customKey == null ? '' : p.customKey);
+          const aliases = {return:'Enter',esc:'Escape',space:' ',up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',ctrl:'Control'};
+          const namedKeys = ['Enter','Tab','Escape','Backspace','Delete','Insert','Home','End','PageUp','PageDown','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Shift','Control','Alt','Meta',...Array.from({length:12},(_,i)=>'F'+(i+1))];
+          const canonical = value => aliases[value.toLowerCase()] || namedKeys.find(k=>k.toLowerCase()===value.toLowerCase());
+          let sequence;
+          if (name !== '自定义') sequence = [this.parseKeySpec(name, p.customKey)];
+          else if (canonical(raw.trim())) sequence = [{key:canonical(raw.trim()),modifiers:[]}];
+          else if (/^(?:(?:ctrl|control|shift|alt|cmd|meta|win)\s*\+\s*)+/i.test(raw.trim())) {
+            const match = raw.trim().match(/^((?:(?:ctrl|control|shift|alt|cmd|meta|win)\s*\+\s*)+)(.*)$/i);
+            const base = match[2];
+            if (!base || (!canonical(base) && Array.from(base).length !== 1)) throw new Error('组合键末尾请填写一个字符或功能键，例如 Ctrl+A、Ctrl+Enter');
+            const modifiers = match[1].split('+').map(v=>v.trim().toLowerCase()).filter(Boolean).map(v=>({ctrl:'control',cmd:'meta',win:'meta'}[v]||v));
+            sequence = [{key:canonical(base)||base,modifiers:[...new Set(modifiers)]}];
+          } else sequence = Array.from(raw).map(key=>({key,modifiers:[]}));
+          if (!sequence.length || sequence.length > 1000) throw new Error('连续按键请填写 1 至 1000 个字符');
+          const interval = p.interval == null ? 0.1 : Number(p.interval);
+          if (!Number.isFinite(interval) || interval < 0 || interval > 3600) throw new Error('按键间隔必须为 0 至 3600 秒');
+          const times = p.times == null ? 1 : Number(p.times);
+          if (!Number.isInteger(times) || times < 1 || times > 20) throw new Error('按几次必须为 1 至 20 的整数，可通过指令重复次数执行更多轮');
+          const total = times * sequence.length;
+          for (let i = 0; i < total; i++) {
+            if (this.cancelRequested) throw new Error(ERR_STOP);
+            await B().backgroundInput('key', sequence[i % sequence.length], p.browserWindow);
+            if (i + 1 < total) await this.sleepInterruptible(interval);
+          }
+          return sequence.map(spec=>spec.key).join('');
+        }
         case 'clickXY': return p.pickOnly === true ? await B().pickPoints(1000, this.parsePoints(p.points)) : await this.clickXY(p);
         case 'pickElement': return await B().pickElement();
         case 'scrapeText': return await this.scrapeText(p);
@@ -2879,7 +3145,7 @@
           const r = await this.extractTextToTable(p);
           ui.log(r.msg);
           this.vars['提取结果路径'] = r.path;
-          return { path: r.path, count: r.count };
+          return { path: r.path, count: r.count, verification:r.verification };
         }
         case 'clipboardCopy': {
           const r = await this.clipboardCopy(p);
@@ -2902,11 +3168,17 @@
         case 'typeText': return await this.typeText(p);
         case 'hotkey': return await this.hotkey(p);
         case 'mouseClick': return await this.mouseClick(p);
-        case 'excelOpen': return await this.excelOpen(p.path);
+        case 'inspectActiveSheet': {
+          const ws=this.getWS(),rec=this.getActiveBook(),area=ws['!ref']||'A1:A1',bounds=this.parseRange(area);
+          if(bounds.r1>200||bounds.c1>49)throw new Error('当前表格较大，请先明确要修改的行');
+          return {path:rec.path,sheet:this.getActiveSheetName(),range:area,rows:this.excelReadRange('A1:'+this.colName(bounds.c1)+(bounds.r1+1))};
+        }
+        case 'excelOpen': return await this.excelOpen(p.path, p.sheetName);
         case 'excelNew': return await this.excelNew(p.path, p.sheetName);
         case 'excelRead': this.vars[p.varName] = this.excelRead(p.cell); return;
-        case 'excelWrite': this.excelWrite(p.cell, p.value); return;
-        case 'excelReadRange': this.vars[p.varName] = this.excelReadRange(p.range); return;
+        case 'excelWrite': return this.excelWrite(p.cell, p.value);
+        case 'excelFillWeb': return await this.excelFillWeb(p);
+        case 'excelReadRange': this.vars[p.varName] = this.excelReadRange(p.range, p.format); return;
         case 'excelWriteRange': this.excelWriteRange(p.range, this.vars[p.data]); return;
         case 'excelCopyPaste': this.excelCopyPaste(p.from, p.to, p.mode); return;
         case 'excelSheetCopyPaste': this.excelSheetCopyPaste(p.fromBook, p.fromSheet, p.fromRange, p.toBook, p.toSheet, p.toRange, p.mode); return;

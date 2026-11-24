@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "splitter": "anclicker-v8-splitter-f16.gguf",
+  "converter": "anclicker-v8-converter-f16.gguf",
+  "splitter_mode": "pairwise",
+  "serial_models": true,
+  "embedding_enabled": true,
+  "correction_memory_enabled": true
+}

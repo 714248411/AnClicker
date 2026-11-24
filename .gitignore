@@ -89,3 +89,19 @@ anclicker_private_agent/
 # Consolidated local dependencies, historical builds and validation evidence.
 /.local/
 /artifacts/
+
+# Local model assets and service state; Python sources remain tracked.
+/models/*.gguf
+/models/*.zip
+/models/llama-cpu/
+/models/llama-vulkan/
+/models/vc-*
+/models/vc_redist*
+/models/*.log
+/models/service.*
+/models/activity
+/models/*-probe.json
+/models/verified-*.json
+
+/models/anclicker-planner-v1/adapter/
+/models/anclicker-planner-v1/merged/

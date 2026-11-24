@@ -10,7 +10,7 @@ from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
 _module_imports = _DeferredImports(globals(), {
-    'run_agent_model_validation': ('from', 'anclicker.execution.agent_model_validation', ('run',), 0),
+    'run_agent_model_validation': ('from', 'models.agent_model_validation', ('run',), 0),
     'background_dm_main': ('from', 'anclicker.platform.background_dm_worker', ('main',), 0),
     'ocr_worker_main': ('from', 'anclicker.platform.local_ocr_worker', ('main',), 0),
     'update_worker_main': ('from', 'anclicker.app.updates.process_worker', ('main',), 0),
@@ -41,6 +41,14 @@ _module_imports = _DeferredImports(globals(), {
 })
 
 
+if __name__ == "__main__" and "--capability-embedding-worker" in sys.argv:
+    from models.capability_onnx_worker import main as embedding_main
+    raise SystemExit(embedding_main(sys.argv[sys.argv.index('--capability-embedding-worker')+1:]))
+
+if __name__ == "__main__" and "--language-validation" in sys.argv:
+    from models.language_validation import run as language_validation
+    raise SystemExit(language_validation(sys.argv[sys.argv.index('--language-validation')+1:]))
+
 if __name__ == "__main__" and "--agent-model-smoke" in sys.argv:
     run_agent_model_validation = _module_imports.load('run_agent_model_validation')
 
@@ -70,6 +78,22 @@ if __name__ == "__main__" and "--startup-animation" in sys.argv:
 
     raise SystemExit(run_animation(sys.argv[sys.argv.index("--startup-animation") + 1]))
 
+# Standalone exports enter a separate host before any editor or update startup.
+if __name__ == "__main__":
+    standalone_manifest = (Path(sys.executable).parent / 'standalone-project.json'
+                           if getattr(sys, 'frozen', False) else None)
+    if '--standalone-project' in sys.argv:
+        standalone_manifest = Path(sys.argv[sys.argv.index('--standalone-project') + 1])
+    if standalone_manifest is not None and standalone_manifest.is_file():
+        from anclicker.app.standalone_runner import main as standalone_main
+        try:
+            raise SystemExit(standalone_main(standalone_manifest))
+        except Exception as error:
+            from anclicker.platform.qt_compat.QtWidgets import QApplication, QMessageBox
+            standalone_app = QApplication.instance() or QApplication(sys.argv)
+            QMessageBox.critical(None, '独立应用无法启动', str(error))
+            raise SystemExit(1)
+
 # Handle lifecycle hooks before storage, Qt and singleton initialization.
 if __name__ == "__main__" and sys.platform == "win32" and getattr(sys, "frozen", False):
     velopack = _module_imports.load('velopack')
@@ -80,16 +104,21 @@ prepare_environment, record_startup_error = _module_imports.load('prepare_enviro
 
 STARTUP_DATA_FOLDER = prepare_environment()
 
-# Keep a diagnostic trace for isolated release checks, including native crashes.
+# Keep native crash diagnostics for normal runs as well as release checks.
+# Retain the file handle for the process lifetime (required by faulthandler).
 _SMOKE_TRACE = None
-if "--release-smoke" in sys.argv:
+_CRASH_TRACE = None
+try:
     faulthandler = _module_imports.load('faulthandler')
-
-    _SMOKE_TRACE = (Path(STARTUP_DATA_FOLDER) / "startup-trace.log").open(
-        "a", encoding="utf-8"
-    )
-    faulthandler.enable(file=_SMOKE_TRACE)
-    faulthandler.dump_traceback_later(35, repeat=True, file=_SMOKE_TRACE)
+    crash_folder = Path(STARTUP_DATA_FOLDER) / 'logs'
+    crash_folder.mkdir(parents=True, exist_ok=True)
+    _CRASH_TRACE = (crash_folder / 'native-crash.log').open('a', encoding='utf-8')
+    faulthandler.enable(file=_CRASH_TRACE)
+    if '--release-smoke' in sys.argv:
+        _SMOKE_TRACE = (Path(STARTUP_DATA_FOLDER) / 'startup-trace.log').open('a', encoding='utf-8')
+        faulthandler.dump_traceback_later(35, repeat=True, file=_SMOKE_TRACE)
+except OSError:
+    pass
 
 
 def smoke_stage(stage):
@@ -253,6 +282,8 @@ def main():
 
             smoke_stage("rpa")
             rpa_validation = validate_rpa()
+            from anclicker.app.dependency_validation import validate_dependencies
+            rpa_validation['dependencies'] = validate_dependencies()
         smoke_stage("waiting-report-timer")
 
         def report_ready():
@@ -308,7 +339,40 @@ def main():
             app.exit(0)
 
         QTimer.singleShot(500, report_ready)
-    return app.exec()
+    result = app.exec()
+    transfer = getattr(app, '_whole_data_import', None)
+    workspace_transfer = getattr(app, '_whole_workspace_import', None)
+    if transfer or workspace_transfer:
+        # No GUI callbacks can write the old database after this point.
+        from anclicker.storage.data_bundle import apply_import
+        import subprocess
+        import logging
+        import faulthandler
+        faulthandler.disable()
+        logging.shutdown()
+        for handle in (_CRASH_TRACE, _SMOKE_TRACE):
+            if handle is not None:
+                handle.close()
+        try:
+            if workspace_transfer:
+                from anclicker.storage.workspace_bundle import apply_workspace_import
+                destination = apply_workspace_import(*workspace_transfer)
+                os.environ['ANCLICKER_DATA_DIR'] = str(destination)
+            else:
+                stage, destination, *options = transfer
+                apply_import(stage, destination, adapt=options[0] if options else True,
+                             remember=bool(options), new_partition=bool(len(options)>1 and options[1]),
+                             disable_schedules=not bool(len(options)>2 and options[2]))
+                if options:
+                    os.environ['ANCLICKER_DATA_DIR'] = destination
+        except Exception as error:
+            from anclicker.platform.qt_compat.QtWidgets import QMessageBox
+            QMessageBox.critical(None, '导入未完成', f'原 Data 已保留，未切换数据：{error}')
+            return 1
+        instance_lock.unlock()
+        command = [sys.executable] if getattr(sys, 'frozen', False) else [sys.executable, str(Path(__file__).resolve())]
+        subprocess.Popen(command, cwd=str(Path(sys.executable).parent) if getattr(sys, 'frozen', False) else str(Path(__file__).resolve().parent))
+    return result
 
 
 if __name__ == "__main__":

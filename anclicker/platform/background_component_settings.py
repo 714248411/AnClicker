@@ -53,7 +53,7 @@ def write_config(values, path=None):
 
 
 def configure_automatically(parent=None):
-    """A cancellable modal progress window; downloading never blocks the Qt thread."""
+    """A cancellable modal progress window; file verification never blocks the Qt thread."""
     QThread, Signal, Slot, QTimer = _module_imports.load('QThread_Signal_Slot_QTimer')
     QDialog, QVBoxLayout, QLabel, QPushButton = _module_imports.load('QDialog_QVBoxLayout_QLabel_QPushButton')
     ensure_component = _module_imports.load('ensure_component')
@@ -188,7 +188,7 @@ def ComponentSettings(parent):
         fields['reg_extra'].setEnabled(not native)
         manual.setVisible(not automatic.isChecked())
         setup.setVisible(automatic.isChecked())
-        hint.setText('首次绑定时自动识别本地组件；缺失时下载并校验，升级后继续使用，无需填写路径。'
+        hint.setText('使用安装包内置的离线 DLL，自动校验并配置；不联网下载，无需填写路径。'
                      if automatic.isChecked() else
                      '手动配置于下一次绑定时生效。COM 版本需有效授权；注册码加密保存在本机。')
 

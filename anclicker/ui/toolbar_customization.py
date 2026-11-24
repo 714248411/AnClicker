@@ -1,8 +1,10 @@
 """Persistent menu shortcuts; Qt's toolbar extension handles limited space."""
 import json
+from anclicker.ui.context_menu_style import style_context_menu
 from anclicker.platform.qt_compat.QtCore import QObject, QEvent, QTimer, Qt
 from anclicker.platform.qt_compat.QtGui import QAction
 from anclicker.platform.qt_compat.QtWidgets import QMenu, QToolButton
+from anclicker.ui.toolbar_style import configure_toolbar_icons
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -15,18 +17,20 @@ _module_imports = _DeferredImports(globals(), {
 SETTING = '工具栏自选功能'
 
 class ToolbarCustomization(QObject):
-    ROOTS = {'文件', '界面方案', '视图', '界面字号', '工具', '检查更新'}
+    ROOTS = {'文件', '界面方案', '视图', '界面字号', '设置', '检查更新'}
 
     def __init__(self, window):
         super().__init__(window)
         self.window, self.toolbar = window, window.toolBar
         self.sources, self.proxies = {}, {}
+        self._sources_dirty=True
         self.watched = set()
         try:
             saved = json.loads(window.db.get_setting_value(SETTING) or '[]')
         except (ValueError, TypeError):
             saved = []
         self.selected = list(dict.fromkeys(x for x in saved if isinstance(x, str))) if isinstance(saved, list) else []
+        self.selected = ['设置/' + key[3:] if key.startswith('工具/') else key for key in self.selected]
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.sync)
@@ -54,6 +58,7 @@ class ToolbarCustomization(QObject):
 
     def eventFilter(self, obj, event):
         if event.type() in (QEvent.Type.ActionAdded, QEvent.Type.ActionRemoved, QEvent.Type.ActionChanged):
+            self._sources_dirty=True
             self.timer.start(0)
         return False
 
@@ -85,7 +90,9 @@ class ToolbarCustomization(QObject):
         return sources
 
     def sync(self):
-        self.sources = self.collect()
+        if self._sources_dirty:
+            self.sources = self.collect()
+            self._sources_dirty=False
         wanted = [key for key in self.selected if key in self.sources]
         for key in list(self.proxies):
             if key not in wanted:
@@ -111,6 +118,7 @@ class ToolbarCustomization(QObject):
             self.toolbar.widgetForAction(proxy).setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
 
         self.reorder.refresh()
+        configure_toolbar_icons(self.toolbar)
 
     def trigger(self, key):
         self.sync()
@@ -129,13 +137,17 @@ class ToolbarCustomization(QObject):
     def populate(self):
         self.sync()
         self.menu.clear()
+        style_context_menu(self.menu, self.window)
         groups = {(): self.menu}
+        self.menu._tool_submenus = []
         for key, (source, labels) in self.sources.items():
             path = ()
             for label in labels:
                 next_path = path + (label,)
                 if next_path not in groups:
                     groups[next_path] = groups[path].addMenu(label)
+                    self.menu._tool_submenus.append(groups[next_path])
+                    style_context_menu(groups[next_path], self.window)
                 path = next_path
             choice = groups[path].addAction(source.text())
             choice.setCheckable(True)

@@ -158,7 +158,7 @@
           </font>
          </property>
          <property name="text">
-          <string>An Clicker</string>
+          <string>AnClicker</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignmentFlag::AlignCenter</set>

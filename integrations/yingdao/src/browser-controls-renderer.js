@@ -12,6 +12,7 @@ function expand(value){expanded=value;panel.hidden=!value;updateToggle();call('e
 function showError(error){status.textContent='打开失败：'+String(error.message||error);status.title=status.textContent;status.className='error';trigger.classList.add('error');updateToggle();}
 function render(next){
   state=next;
+  document.documentElement.dataset.focused=String(!!state.focused);
   if(!editing)address.value=(state.error||state.loading)?(state.requestedUrl||state.url||''):(state.url||state.requestedUrl||'');
   status.className=state.error?'error':'';
   status.textContent=state.error?'打开失败：'+state.error:state.loading?'正在加载…':'';

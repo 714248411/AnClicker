@@ -10,7 +10,7 @@ class ShortcutTable(QDialog):
         super().__init__(parent)
         self.setWindowTitle("快捷键说明")
         self.table = QtWidgets.QTableWidget()
-        self.table.setRowCount(12)
+        self.table.setRowCount(0)
         self.table.setColumnCount(2)
         if title:
             self.table.setHorizontalHeaderLabels(title)
@@ -42,5 +42,7 @@ class ShortcutTable(QDialog):
         self.setLayout(layout_)
 
         table_height_ = self.table.verticalHeader().length()
-        self.resize(width, table_height_ + 150)
+        self.resize(max(width, 540), min(640, table_height_ + 150))
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        from anclicker.ui.settings_theme import apply_settings_theme
+        apply_settings_theme(self, parent)

@@ -1,7 +1,7 @@
 """Application-wide public configuration. Never load publishing credentials here."""
 
-APP_NAME = "An Clicker"
-CURRENT_VERSION = "v1.6.2"
+APP_NAME = "AnClicker"
+CURRENT_VERSION = "v1.9.2"
 WINDOW_TITLE = f"{APP_NAME}    [{CURRENT_VERSION}]"
 # Stable application identity: changing these can break data/update compatibility.
 APP_ID = "AnClicker"
@@ -11,7 +11,8 @@ COMPANY_NAME = "YanYi and contributors"
 COPYRIGHT = "Copyright © 2022–2026 YanYi and contributors"
 VERSION = CURRENT_VERSION.removeprefix("v")
 WINDOWS_VERSION = tuple(int(part) for part in VERSION.split(".")) + (0,)
-SINGLETON_KEY_DEFAULT = f"FasterThanLight_{APP_NAME}_SingletonKey"
+# Keep the legacy process/update identities independent of the display name.
+SINGLETON_KEY_DEFAULT = "FasterThanLight_An Clicker_SingletonKey"
 DATA_DIR_ENV = "ANCLICKER_DATA_DIR"
 SINGLETON_ENV = "ANCLICKER_SINGLETON_KEY"
 
@@ -23,7 +24,7 @@ UPDATE_CONFIG = {
     "project": "an-clicker",
     "public_base_url": "https://updates.ytsoftware.cn",
     "snapshot_name": "update-source.json",
-    "launcher_name": f"{APP_NAME}.exe",
+    "launcher_name": "AnClicker.exe",
     "bucket": "ytsoftware-velopack",
     "region": "z0",
     "access_key_env": "QINIU_ACCESS_KEY",

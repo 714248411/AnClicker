@@ -16,7 +16,8 @@ CONTROLS = LOOPS | {'条件判断', '颜色判断', '变量比较'}
 
 
 def ordered_edges(edges, nodes):
-    return sorted(edges, key=lambda edge: nodes[edge.target].type_id not in CONTROLS)
+    return sorted(edges, key=lambda edge: (0 if edge.source == 'start' and nodes[edge.target].type_id == '多线程启动'
+                                          else 1 if nodes[edge.target].type_id in CONTROLS else 2))
 
 
 def reachable(start, outgoing, blocked=()):
@@ -247,8 +248,14 @@ def execute_control_flow(worker, snapshot, context, start_id=None, single=False)
         while pending:
             checkpoint()
             current = pending.pop(0)
+            if current in context.metadata.get("parallel_reserved", ()):
+                visited.add(current)
+                continue
             if current in (None, 'end', boundary):
                 continue
+            scope = context.metadata.get('parallel_allowed')
+            if scope is not None and current not in scope:
+                raise ValueError('子线程跳转超出分支范围：' + str(current))
             if allowed is not None and current not in allowed:
                 deferred.append(current)
                 continue
@@ -304,7 +311,11 @@ def execute_control_flow(worker, snapshot, context, start_id=None, single=False)
             targets = [edge.target for edge in edges]
             if not targets and strict and allowed is None and command.type_id not in CONTROLS:
                 targets = [next_row(current)]
-            pending[0:0] = targets
+            if (not strict and allowed is None and command.type_id == '多线程启动'
+                    and any(edge.target == current for edge in normal.get('start', ()))):
+                deferred.extend(targets)
+            else:
+                pending[0:0] = targets
         return deferred
 
     try:
@@ -314,7 +325,7 @@ def execute_control_flow(worker, snapshot, context, start_id=None, single=False)
             if current in visited and not strict:
                 continue
             try:
-                walk(current)
+                pending.extend(walk(current))
             except _Transfer as transfer:
                 strict = True
                 pending = [transfer.target] if transfer.target != 'end' else []

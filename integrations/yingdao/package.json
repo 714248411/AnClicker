@@ -2,5 +2,8 @@
   "name": "anclicker-rpa-runtime",
   "version": "1.0.0",
   "private": true,
-  "main": "src/main.js"
+  "main": "src/main.js",
+  "dependencies": {
+    "ws": "8.22.1"
+  }
 }

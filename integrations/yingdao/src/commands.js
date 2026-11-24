@@ -1,6 +1,9 @@
 // 指令库 —— 中文指令名对齐世博自动化 RPA 术语
 // 每个指令：id(英文键)、name(中文名)、category(分类)、params(参数定义)
 window.COMMANDS = [
+{"id":"formByLabel","name":"按名称操作网页表单","type_id":"按名称操作网页表单","category":"网页自动化","color":"#4a6cf7","params":[{"key":"action","label":"操作","type":"select","default":"填入","options":["填入","清空","选择","勾选","取消勾选"]},{"key":"label","label":"页面上的字段名称","type":"text","default":""},{"key":"value","label":"填写内容或选项文字","type":"text","default":""}]},
+  {"id":"scrollPageToPosition","name":"滚动网页到指定位置","type_id":"滚动网页到指定位置","category":"网页自动化","color":"#4a6cf7","params":[{"key":"position","label":"页面位置","type":"select","default":"中间","options":["顶部","中间","底部"]}]},
+  {"id":"scrollElementToCenter","name":"滚动元素到页面中心","type_id":"滚动元素到页面中心","category":"网页自动化","color":"#4a6cf7","params":[{"key":"selector","label":"目标元素","type":"text","default":""},{"key":"by","label":"定位方式","type":"select","default":"智能匹配","options":["智能匹配","CSS选择器","XPath","文本内容","锚点定位"]},{"key":"behavior","label":"滚动方式","type":"select","default":"平滑滚动","options":["平滑滚动","立即定位"]},{"key":"timeout","label":"等待元素（秒）","type":"number","default":10},{"key":"settle","label":"滚动后等待（秒）","type":"number","default":0.3},{"key":"anchor","label":"辅助锚点","type":"text","default":""},{"key":"anchorRel","label":"目标相对锚点","type":"select","default":"下方","options":["下方","上方","右侧","左侧","内部","相邻"]}]},
   // ===== 网页自动化 =====
   { id: 'openUrl', name: '打开网页', category: '网页自动化', color: '#4a6cf7',
     params: [
@@ -24,6 +27,7 @@ window.COMMANDS = [
     ] },
   { id: 'input', name: '输入文本', category: '网页自动化', color: '#4a6cf7',
     params: [
+      {"key":"textVariable","label":"从变量读取内容(可选)","type":"text","default":""},
       { key: 'selector', label: '元素定位', type: 'text', default: '' },
       { key: 'anchor', label: '锚点元素(可选，多个用;分隔)', type: 'text', default: '' },
       { key: 'anchorRel', label: '目标相对锚点的方位', type: 'select', default: '下方', options: ['下方', '下方第1个', '上方', '右侧', '左侧', '内部', '相邻'] },
@@ -260,6 +264,7 @@ window.COMMANDS = [
   // ===== Excel =====
   { id: 'excelOpen', name: '打开Excel', category: 'Excel', color: '#16a085',
     params: [
+      {"key":"sheetName","label":"工作表名(留空=第一个)","type":"text","default":""},
       { key: 'path', label: '文件路径', type: 'text', default: '' }
     ] },
   { id: 'excelRead', name: '读取单元格', category: 'Excel', color: '#16a085',
@@ -274,6 +279,7 @@ window.COMMANDS = [
     ] },
   { id: 'excelReadRange', name: '读取区域', category: 'Excel', color: '#16a085',
     params: [
+      {"key":"format","label":"读取格式","type":"select","default":"二维数组","options":["二维数组","制表符文本"]},
       { key: 'range', label: '区域(如A1:C5)', type: 'text', default: 'A1:C5' },
       { key: 'varName', label: '保存到变量(二维数组)', type: 'text', default: '变量1' }
     ] },
@@ -468,3 +474,5 @@ window.CATEGORIES = [];
 window.COMMANDS.forEach(c => {
   if (!window.CATEGORIES.includes(c.category)) window.CATEGORIES.push(c.category);
 });
+
+window.COMMANDS.push({"id":"excelFillWeb","name":"表格填入网页","type_id":"表格填入网页","category":"网页自动化","color":"#16a085","params":[{"key":"range","label":"表格区域（留空使用当前工作表内容）","type":"text","default":""},{"key":"mode","label":"填入方式","type":"select","default":"按表头对应","options":["按表头对应","按顺序"]},{"key":"header","label":"首行内容","type":"select","default":"首行表头","options":["首行表头","无表头"]}]});

@@ -34,23 +34,10 @@ class Ui_InstructionEditor(object):
 
         self.parameterFormLayout.setWidget(0, QFormLayout.LabelRole, self.label_0)
 
-        self.container_0 = QWidget(self.parameterGroupBox)
-        self.container_0.setObjectName(u"container_0")
-        self.fieldLayout_0 = QHBoxLayout(self.container_0)
-        self.fieldLayout_0.setObjectName(u"fieldLayout_0")
-        self.fieldLayout_0.setContentsMargins(0, 0, 0, 0)
-        self.parameter_0 = QLineEdit(self.container_0)
+        self.parameter_0 = QLineEdit(self.parameterGroupBox)
         self.parameter_0.setObjectName(u"parameter_0")
 
-        self.fieldLayout_0.addWidget(self.parameter_0)
-
-        self.auxiliary_0 = QPushButton(self.container_0)
-        self.auxiliary_0.setObjectName(u"auxiliary_0")
-
-        self.fieldLayout_0.addWidget(self.auxiliary_0)
-
-
-        self.parameterFormLayout.setWidget(0, QFormLayout.FieldRole, self.container_0)
+        self.parameterFormLayout.setWidget(0, QFormLayout.FieldRole, self.parameter_0)
 
         self.label_1 = QLabel(self.parameterGroupBox)
         self.label_1.setObjectName(u"label_1")
@@ -80,24 +67,37 @@ class Ui_InstructionEditor(object):
 
         self.parameterFormLayout.setWidget(2, QFormLayout.LabelRole, self.label_2)
 
-        self.parameter_2 = QComboBox(self.parameterGroupBox)
-        self.parameter_2.addItem("")
-        self.parameter_2.addItem("")
-        self.parameter_2.addItem("")
-        self.parameter_2.addItem("")
-        self.parameter_2.addItem("")
-        self.parameter_2.addItem("")
-        self.parameter_2.addItem("")
+        self.container_2 = QWidget(self.parameterGroupBox)
+        self.container_2.setObjectName(u"container_2")
+        self.fieldLayout_2 = QHBoxLayout(self.container_2)
+        self.fieldLayout_2.setObjectName(u"fieldLayout_2")
+        self.fieldLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.parameter_2 = QLineEdit(self.container_2)
         self.parameter_2.setObjectName(u"parameter_2")
 
-        self.parameterFormLayout.setWidget(2, QFormLayout.FieldRole, self.parameter_2)
+        self.fieldLayout_2.addWidget(self.parameter_2)
+
+        self.auxiliary_2 = QPushButton(self.container_2)
+        self.auxiliary_2.setObjectName(u"auxiliary_2")
+
+        self.fieldLayout_2.addWidget(self.auxiliary_2)
+
+
+        self.parameterFormLayout.setWidget(2, QFormLayout.FieldRole, self.container_2)
 
         self.label_3 = QLabel(self.parameterGroupBox)
         self.label_3.setObjectName(u"label_3")
 
         self.parameterFormLayout.setWidget(3, QFormLayout.LabelRole, self.label_3)
 
-        self.parameter_3 = QLineEdit(self.parameterGroupBox)
+        self.parameter_3 = QComboBox(self.parameterGroupBox)
+        self.parameter_3.addItem("")
+        self.parameter_3.addItem("")
+        self.parameter_3.addItem("")
+        self.parameter_3.addItem("")
+        self.parameter_3.addItem("")
+        self.parameter_3.addItem("")
+        self.parameter_3.addItem("")
         self.parameter_3.setObjectName(u"parameter_3")
 
         self.parameterFormLayout.setWidget(3, QFormLayout.FieldRole, self.parameter_3)
@@ -107,9 +107,7 @@ class Ui_InstructionEditor(object):
 
         self.parameterFormLayout.setWidget(4, QFormLayout.LabelRole, self.label_4)
 
-        self.parameter_4 = QComboBox(self.parameterGroupBox)
-        self.parameter_4.addItem("")
-        self.parameter_4.addItem("")
+        self.parameter_4 = QLineEdit(self.parameterGroupBox)
         self.parameter_4.setObjectName(u"parameter_4")
 
         self.parameterFormLayout.setWidget(4, QFormLayout.FieldRole, self.parameter_4)
@@ -134,12 +132,24 @@ class Ui_InstructionEditor(object):
         self.parameter_6 = QComboBox(self.parameterGroupBox)
         self.parameter_6.addItem("")
         self.parameter_6.addItem("")
-        self.parameter_6.addItem("")
-        self.parameter_6.addItem("")
-        self.parameter_6.addItem("")
         self.parameter_6.setObjectName(u"parameter_6")
 
         self.parameterFormLayout.setWidget(6, QFormLayout.FieldRole, self.parameter_6)
+
+        self.label_7 = QLabel(self.parameterGroupBox)
+        self.label_7.setObjectName(u"label_7")
+
+        self.parameterFormLayout.setWidget(7, QFormLayout.LabelRole, self.label_7)
+
+        self.parameter_7 = QComboBox(self.parameterGroupBox)
+        self.parameter_7.addItem("")
+        self.parameter_7.addItem("")
+        self.parameter_7.addItem("")
+        self.parameter_7.addItem("")
+        self.parameter_7.addItem("")
+        self.parameter_7.setObjectName(u"parameter_7")
+
+        self.parameterFormLayout.setWidget(7, QFormLayout.FieldRole, self.parameter_7)
 
 
         self.rootLayout.addWidget(self.parameterGroupBox)
@@ -214,10 +224,10 @@ class Ui_InstructionEditor(object):
 
         self.retranslateUi(InstructionEditor)
 
-        self.parameter_2.setCurrentIndex(0)
-        self.parameter_4.setCurrentIndex(0)
+        self.parameter_3.setCurrentIndex(0)
         self.parameter_5.setCurrentIndex(0)
-        self.parameter_6.setCurrentIndex(3)
+        self.parameter_6.setCurrentIndex(0)
+        self.parameter_7.setCurrentIndex(3)
         self.errorPolicyComboBox.setCurrentIndex(1)
 
 
@@ -227,37 +237,38 @@ class Ui_InstructionEditor(object):
     def retranslateUi(self, InstructionEditor):
         self.titleLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u6587\u672c", None))
         self.parameterGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u6307\u4ee4\u53c2\u6570", None))
-        self.label_0.setText(QCoreApplication.translate("InstructionEditor", u"\u5143\u7d20\u5b9a\u4f4d", None))
-        self.parameter_0.setText("")
-        self.auxiliary_0.setText(QCoreApplication.translate("InstructionEditor", u"\u62fe\u53d6\u5143\u7d20", None))
-        self.label_1.setText(QCoreApplication.translate("InstructionEditor", u"\u951a\u70b9\u5143\u7d20(\u53ef\u9009\uff0c\u591a\u4e2a\u7528;\u5206\u9694)", None))
+        self.label_0.setText(QCoreApplication.translate("InstructionEditor", u"\u4ece\u53d8\u91cf\u8bfb\u53d6\u5185\u5bb9(\u53ef\u9009)", None))
+        self.label_1.setText(QCoreApplication.translate("InstructionEditor", u"\u5143\u7d20\u5b9a\u4f4d", None))
         self.parameter_1.setText("")
         self.auxiliary_1.setText(QCoreApplication.translate("InstructionEditor", u"\u62fe\u53d6\u5143\u7d20", None))
-        self.label_2.setText(QCoreApplication.translate("InstructionEditor", u"\u76ee\u6807\u76f8\u5bf9\u951a\u70b9\u7684\u65b9\u4f4d", None))
-        self.parameter_2.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u4e0b\u65b9", None))
-        self.parameter_2.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u4e0b\u65b9\u7b2c1\u4e2a", None))
-        self.parameter_2.setItemText(2, QCoreApplication.translate("InstructionEditor", u"\u4e0a\u65b9", None))
-        self.parameter_2.setItemText(3, QCoreApplication.translate("InstructionEditor", u"\u53f3\u4fa7", None))
-        self.parameter_2.setItemText(4, QCoreApplication.translate("InstructionEditor", u"\u5de6\u4fa7", None))
-        self.parameter_2.setItemText(5, QCoreApplication.translate("InstructionEditor", u"\u5185\u90e8", None))
-        self.parameter_2.setItemText(6, QCoreApplication.translate("InstructionEditor", u"\u76f8\u90bb", None))
+        self.label_2.setText(QCoreApplication.translate("InstructionEditor", u"\u951a\u70b9\u5143\u7d20(\u53ef\u9009\uff0c\u591a\u4e2a\u7528;\u5206\u9694)", None))
+        self.parameter_2.setText("")
+        self.auxiliary_2.setText(QCoreApplication.translate("InstructionEditor", u"\u62fe\u53d6\u5143\u7d20", None))
+        self.label_3.setText(QCoreApplication.translate("InstructionEditor", u"\u76ee\u6807\u76f8\u5bf9\u951a\u70b9\u7684\u65b9\u4f4d", None))
+        self.parameter_3.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u4e0b\u65b9", None))
+        self.parameter_3.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u4e0b\u65b9\u7b2c1\u4e2a", None))
+        self.parameter_3.setItemText(2, QCoreApplication.translate("InstructionEditor", u"\u4e0a\u65b9", None))
+        self.parameter_3.setItemText(3, QCoreApplication.translate("InstructionEditor", u"\u53f3\u4fa7", None))
+        self.parameter_3.setItemText(4, QCoreApplication.translate("InstructionEditor", u"\u5de6\u4fa7", None))
+        self.parameter_3.setItemText(5, QCoreApplication.translate("InstructionEditor", u"\u5185\u90e8", None))
+        self.parameter_3.setItemText(6, QCoreApplication.translate("InstructionEditor", u"\u76f8\u90bb", None))
 
-        self.label_3.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u5185\u5bb9", None))
-        self.parameter_3.setText("")
-        self.label_4.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u540e\u6309\u56de\u8f66", None))
-        self.parameter_4.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u5426", None))
-        self.parameter_4.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u662f", None))
+        self.label_4.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u5185\u5bb9", None))
+        self.parameter_4.setText("")
+        self.label_5.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u540e\u6309\u56de\u8f66", None))
+        self.parameter_5.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u5426", None))
+        self.parameter_5.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u662f", None))
 
-        self.label_5.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u524d\u6e05\u7a7a", None))
-        self.parameter_5.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u662f", None))
-        self.parameter_5.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u5426", None))
+        self.label_6.setText(QCoreApplication.translate("InstructionEditor", u"\u8f93\u5165\u524d\u6e05\u7a7a", None))
+        self.parameter_6.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u662f", None))
+        self.parameter_6.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u5426", None))
 
-        self.label_6.setText(QCoreApplication.translate("InstructionEditor", u"\u5b9a\u4f4d\u65b9\u5f0f", None))
-        self.parameter_6.setItemText(0, QCoreApplication.translate("InstructionEditor", u"CSS\u9009\u62e9\u5668", None))
-        self.parameter_6.setItemText(1, QCoreApplication.translate("InstructionEditor", u"XPath", None))
-        self.parameter_6.setItemText(2, QCoreApplication.translate("InstructionEditor", u"\u6587\u672c\u5185\u5bb9", None))
-        self.parameter_6.setItemText(3, QCoreApplication.translate("InstructionEditor", u"\u667a\u80fd\u5339\u914d", None))
-        self.parameter_6.setItemText(4, QCoreApplication.translate("InstructionEditor", u"\u951a\u70b9\u5b9a\u4f4d", None))
+        self.label_7.setText(QCoreApplication.translate("InstructionEditor", u"\u5b9a\u4f4d\u65b9\u5f0f", None))
+        self.parameter_7.setItemText(0, QCoreApplication.translate("InstructionEditor", u"CSS\u9009\u62e9\u5668", None))
+        self.parameter_7.setItemText(1, QCoreApplication.translate("InstructionEditor", u"XPath", None))
+        self.parameter_7.setItemText(2, QCoreApplication.translate("InstructionEditor", u"\u6587\u672c\u5185\u5bb9", None))
+        self.parameter_7.setItemText(3, QCoreApplication.translate("InstructionEditor", u"\u667a\u80fd\u5339\u914d", None))
+        self.parameter_7.setItemText(4, QCoreApplication.translate("InstructionEditor", u"\u951a\u70b9\u5b9a\u4f4d", None))
 
         self.commonGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u901a\u7528\u53c2\u6570", None))
         self.repeatLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u91cd\u590d\u6b21\u6570", None))

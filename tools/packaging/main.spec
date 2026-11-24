@@ -43,17 +43,41 @@ def collect_resource_datas():
             for path in resources.rglob('*') if path.is_file()]
 
 
+from tools.packaging.ai_bundle import resources as ai_resources, identity as ai_identity
+import json as ai_json
+if sys.platform == 'win32':
+    from tools.packaging.single_exe_launcher import ensure_launcher
+    ensure_launcher(project_root)
 instruction_datas = collect_resource_datas()
+for resource in ai_resources(project_root):
+    instruction_datas.append((str(Path(project_root)/resource),str(Path(resource).parent)))
+ai_manifest = stable_seed('ai-build-manifest.json',ai_json.dumps(ai_identity(project_root),sort_keys=True).encode('utf8'))
+instruction_datas.append((ai_manifest,'.'))
+instruction_datas.extend((str(path), 'models/knowledge') for path in (Path(project_root)/'models/knowledge').glob('*.json'))
 instruction_datas.append((str(Path(project_root) / "legacy/background_dm_worker.py"), "legacy"))
 # A separately configured Python interpreter cannot read this executable's PYZ.
 # Collect the same maintained source files for that standalone worker as well.
-for source in (('info.py', 'anclicker/__init__.py', 'anclicker/_imports.py', 'anclicker/app/__init__.py',
-               'anclicker/app/paths.py', 'anclicker/platform/__init__.py',
+for source in ('info.py', 'anclicker/__init__.py', 'anclicker/_imports.py', 'anclicker/app/__init__.py',
+               'anclicker/app/paths.py', 'anclicker/app/installation_paths.py', 'anclicker/platform/__init__.py',
+               'anclicker/storage/__init__.py', 'anclicker/storage/portable_migration.py',
                'anclicker/platform/background_catalog.py',
-               'anclicker/platform/background_dm_worker.py') if sys.platform == 'win32' else ()):
+               'anclicker/platform/background_dm_worker.py'):
     relative = Path(source)
     instruction_datas.append((str(Path(project_root) / relative), str(relative.parent)))
-# The locally verified external DLLs and local registration configuration are not public build inputs.
+# Ship the pinned offline pair; never bundle local registration/configuration.
+if sys.platform == 'win32':
+    import hashlib
+    background_root = Path(project_root) / 'resources/background'
+    background_hashes = ai_json.loads((background_root / 'background_native_72424.json').read_text(encoding='utf8'))
+    for name, key in (('xd47243.dll', 'dll_sha256'), ('Go.dll', 'helper_sha256')):
+        component = background_root / 'dll' / name
+        if not component.is_file() or hashlib.sha256(component.read_bytes()).hexdigest() != background_hashes[key]:
+            raise RuntimeError('Missing or invalid offline background DLL: ' + str(component))
+# Crawl4AI worker source is shipped; its optional environment is installed separately.
+for resource in (Path(project_root) / 'integrations/crawl4ai').glob('*'):
+    if resource.is_file():
+        instruction_datas.append((str(resource), 'integrations/crawl4ai'))
+
 # Native Qt editors call the isolated reference engine; bundle its sources and runtime.
 rpa_root = Path(project_root) / 'integrations' / 'yingdao'
 rpa_runtime = Path(project_root) / '.local/runtimes/electron'
@@ -63,11 +87,17 @@ for folder in ((rpa_root, rpa_runtime) if sys.platform == 'win32' else (rpa_root
     for resource in folder.rglob('*'):
         if resource.is_file() and resource.suffix not in {'.log', '.pyc'}:
             instruction_datas.append((str(resource), str(Path('runtime') / resource.parent.relative_to(rpa_runtime.parent)) if folder == rpa_runtime else str(resource.parent.relative_to(project_root))))
+instruction_datas.append((str(Path(project_root) / 'integrations/crawl4ai/worker.py'), 'integrations/crawl4ai'))
 import rapidocr_onnxruntime
 rapid_source = Path(project_root) / '.local/models/rapidocr'
 if not rapid_source.is_dir():
     rapid_source = Path(rapidocr_onnxruntime.__file__).parent / 'models'
-instruction_datas.extend((str(path), 'ocr_models/rapidocr') for path in rapid_source.glob('*.onnx'))
+rapid_names = ('ch_PP-OCRv4_det_infer.onnx', 'ch_ppocr_mobile_v2.0_cls_infer.onnx', 'ch_PP-OCRv4_rec_infer.onnx')
+for name in rapid_names:
+    path = rapid_source / name
+    if not path.is_file() or path.stat().st_size < 100000:
+        raise RuntimeError('Missing or invalid offline OCR model: ' + str(path))
+    instruction_datas.append((str(path), 'ocr_models/rapidocr'))
 # Native WeChat components remain local opt-in, not publicly redistributed.
 if sys.platform == 'win32' and os.environ.get('ANCLICKER_BUNDLE_WXOCR') == '1':
     instruction_datas.append((str(Path(project_root)/'.local/models/wechat'), 'ocr_models/wechat'))
@@ -108,9 +138,9 @@ a = Analysis(
     ] + instruction_datas + collect_data_files('rapidocr_onnxruntime', excludes=['models/**']),
     # Compatibility shims resolve their implementations through importlib.
     # Include the canonical package so source/frozen module lookup stays equal.
-    hiddenimports=[*COMPATIBILITY_MODULES, *collect_submodules('anclicker'), *centralized_hidden_imports(project_root, excluded=('anclicker.platform.qt_compat.QtTest', 'qt_compat.QtTest')), 'Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
+    hiddenimports=[*COMPATIBILITY_MODULES, *collect_submodules('anclicker'), *collect_submodules('models', filter=lambda name: not name.startswith('models.training')), *centralized_hidden_imports(project_root, excluded=('anclicker.platform.qt_compat.QtTest', 'qt_compat.QtTest')), 'Start_Win', 'pyttsx4.drivers', *dynamic_instruction_imports,
                    *collect_submodules('pynput'), *collect_submodules('rapidocr_onnxruntime'),
-                   'local_ocr_worker', 'onnxruntime', 'tkinter'],
+                   'local_ocr_worker', 'onnxruntime', 'tokenizers', 'tkinter'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -122,6 +152,12 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+# Windows 10 provides UCRT and API-set contracts. Do not redistribute the build
+# machine's newer OS DLLs into the portable application directory.
+if sys.platform == 'win32':
+    a.binaries = [entry for entry in a.binaries
+                  if not (Path(entry[0]).name.casefold() == 'ucrtbase.dll'
+                          or Path(entry[0]).name.casefold().startswith(('api-ms-win-', 'ext-ms-win-')))]
 pyz = PYZ(a.pure)
 
 windows_version = None

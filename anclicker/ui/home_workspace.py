@@ -1,10 +1,12 @@
 """Project-oriented home page; reuse guarded project actions."""
+import os
 from anclicker.platform.qt_compat.QtCore import Qt
 from anclicker.platform.qt_compat.QtWidgets import (QWidget, QScrollArea, QVBoxLayout,
-    QGridLayout, QLabel, QPushButton, QListWidget, QListWidgetItem, QFileDialog,
+    QGridLayout, QLabel, QPushButton, QListWidget, QListWidgetItem,
     QFrame, QSizePolicy)
 from anclicker.ui.recording_layout import control_row
 from anclicker.ui.recent_projects import short_path
+from anclicker.ui.project_files import project_directory
 
 
 class HomeWorkspace(QScrollArea):
@@ -29,19 +31,34 @@ class HomeWorkspace(QScrollArea):
         self.project.setObjectName('sectionTitle')
         self.project.setWordWrap(True)
         current_layout.addWidget(self.project)
+        self.project_folder = QLabel()
+        self.project_folder.setObjectName('mutedText')
+        self.project_folder.setWordWrap(True)
+        current_layout.addWidget(self.project_folder)
         self.summary = QLabel()
         self.summary.setObjectName('mutedText')
         self.summary.setWordWrap(True)
         current_layout.addWidget(self.summary)
         actions = control_row()
-        self.open_button = QPushButton('打开项目…')
+        self.open_button = QPushButton('打开文件…')
         self.open_button.setObjectName('accentButton')
-        self.open_button.clicked.connect(self.open_project)
+        self.open_button.setToolTip('导入单个 .xlsx / .xlsm 指令文件')
+        self.open_button.clicked.connect(lambda: self.view.window.actionf.trigger())
+        self.folder_button = QPushButton('打开文件夹…')
+        self.folder_button.setToolTip('将文件夹内的表格文件加入最近项目')
+        self.folder_button.clicked.connect(lambda: self.view.window.action_import_project_folder.trigger())
+        self.bundle_button = QPushButton('打开项目…')
+        self.bundle_button.setToolTip('导入包含指令、设置和资源的整体项目包，可选择独立分区')
+        self.bundle_button.clicked.connect(lambda: self.view.window.action_import_whole_data.trigger())
         self.save_button = QPushButton('保存项目')
         self.save_button.clicked.connect(self.save_project)
         self.continue_button = QPushButton('继续编辑流程图')
         self.continue_button.clicked.connect(view.show_flow)
-        for button in (self.open_button, self.save_button, self.continue_button):
+        for button in (self.open_button, self.folder_button, self.bundle_button):
+            actions.addWidget(button)
+        current_layout.addLayout(actions)
+        actions = control_row()
+        for button in (self.save_button, self.continue_button):
             actions.addWidget(button)
         current_layout.addLayout(actions)
         layout.addWidget(current)
@@ -101,10 +118,8 @@ class HomeWorkspace(QScrollArea):
         self.refresh_projects()
 
     def open_project(self):
-        path, _ = QFileDialog.getOpenFileName(self, '打开项目', '', 'An Clicker 项目 (*.xlsx)')
-        if path:
-            self.view.window.open_project_path(path)
-            self.refresh_projects()
+        self.view.window.actionf.trigger()
+        self.refresh_projects()
 
     def open_recent(self, item):
         path = item.data(Qt.UserRole)
@@ -118,6 +133,9 @@ class HomeWorkspace(QScrollArea):
         current = str(current) if current and current != 'None' else ''
         self.project.setText(short_path(current) if current else '未关联项目文件 · 可直接编辑当前流程')
         self.project.setToolTip(current)
+        folder = project_directory(db)
+        self.project_folder.setText('项目目录：' + short_path(folder))
+        self.project_folder.setToolTip(folder + '\n新建空白页与另存为默认使用此目录。')
         paths = list(dict.fromkeys(db.get_recently_opened_file('文件列表') or []))[:5]
         self.recent.clear()
         for path in paths:
@@ -125,6 +143,8 @@ class HomeWorkspace(QScrollArea):
             item.setData(Qt.UserRole, path)
             item.setToolTip(path)
             self.recent.addItem(item)
+            if current and os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(current)):
+                self.recent.setCurrentItem(item)
         if not paths:
             item = QListWidgetItem('暂无最近项目，打开或保存项目后会显示在这里')
             item.setFlags(Qt.NoItemFlags)

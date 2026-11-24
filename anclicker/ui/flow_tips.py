@@ -17,8 +17,9 @@ TIPS = (
     '双击指令节点可配置参数；右键可备注、复制或运行。',
     '滚轮缩放画布；Ctrl + 左键拖动空白处可平移。',
     '复制多条指令后，按住 Ctrl + 左键拖动其中任意一个节点，可平移本次复制的整组指令。',
-    '从空白处按住右键拖拽，划过连线后松开即可删除；Esc 可取消。',
-    '右下橙色圆点是异常输出，可连接报错模块。',
+    '水果忍者切线：从空白处按住右键拖动，划过连线后松开即可切除；Esc 可取消。',
+    '右下黄点（橙黄色）是异常情况跳转输出，可连接报错模块。',
+    '将异常输出连线拖到空白区域，确认后自动新增报错模块并连接；回车确认，Esc 取消。',
     '选中节点后右击“存为模板”，下次可从空白处右键插入。',
     '点击“适应视图”，可查看整个流程。',
 )
@@ -54,19 +55,22 @@ class FlowTips(QWidget):
     expandedChanged = Signal(bool)
     INTERVAL_MS = 6000
 
-    def __init__(self, window, parent=None):
+    def __init__(self, window, parent=None, *, tips=TIPS, setting=SETTING, compact=False, default_expanded=True):
         super().__init__(parent)
         self.window = window
+        self.tips = tips
+        self.setting = setting
         self.index = 0
         self.hovered = False
         self.menu_open = False
-        self.expanded = window.db.get_setting_value(SETTING) != 'False'
+        saved = window.db.get_setting_value(self.setting)
+        self.expanded = (str(saved).lower() == 'true') if saved not in (None, '') else default_expanded
         self.setObjectName('flowTips')
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setAccessibleName('流程图操作提示')
+        self.setAccessibleName('表格操作提示' if compact else '流程图操作提示')
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         row = QHBoxLayout(self)
-        row.setContentsMargins(10, 3, 6, 3)
+        row.setContentsMargins(6, 0, 6, 0) if compact else row.setContentsMargins(10, 3, 6, 3)
         row.setSpacing(6)
         badge = QLabel('提示', self)
         badge.setObjectName('flowTipBadge')
@@ -96,15 +100,20 @@ class FlowTips(QWidget):
         self.timer = QTimer(self)
         self.timer.setInterval(self.INTERVAL_MS)
         self.timer.timeout.connect(self.advance)
+        if compact:
+            self.setStyleSheet('QLabel, QToolButton { font-size: 11px; } QToolButton { padding: 0px; min-height: 0px; min-width: 0px; }')
+            self.label.setAlignment(Qt.AlignCenter)
+            for button in (self.previous, self.next):
+                button.setFixedSize(16, 16)
         self.update_tip()
         self.setVisible(self.expanded)
 
     def update_tip(self):
-        self.label.set_tip(TIPS[self.index])
-        self.counter.setText(f'{self.index + 1}/{len(TIPS)}')
+        self.label.set_tip(self.tips[self.index])
+        self.counter.setText(f'{self.index + 1}/{len(self.tips)}')
 
     def advance(self, direction=1):
-        self.index = (self.index + direction) % len(TIPS)
+        self.index = (self.index + direction) % len(self.tips)
         self.update_tip()
         self.sync_timer()
 
@@ -117,7 +126,7 @@ class FlowTips(QWidget):
 
     def set_expanded(self, expanded):
         self.expanded = bool(expanded)
-        self.window.db.set_setting_value(SETTING, str(self.expanded))
+        self.window.db.set_setting_value(self.setting, str(self.expanded))
         self.setVisible(self.expanded)
         self.sync_timer()
         self.expandedChanged.emit(self.expanded)
@@ -148,16 +157,20 @@ class FlowTips(QWidget):
         return False
 
     def contextMenuEvent(self, event):
+        self.show_toggle_menu(event.globalPos())
+        event.accept()
+
+    def show_toggle_menu(self, position):
         self.menu_open = True
         self.sync_timer()
         menu = QMenu(self)
         style_context_menu = _module_imports.load('style_context_menu')
         style_context_menu(menu, self.window)
-        menu.addAction('收起提示', lambda: self.set_expanded(False))
+        menu.addAction('收起提示' if self.expanded else '展开提示',
+                       lambda: self.set_expanded(not self.expanded))
         try:
-            menu.exec(event.globalPos())
+            menu.exec(position)
         finally:
             menu.deleteLater()
             self.menu_open = False
             self.sync_timer()
-        event.accept()

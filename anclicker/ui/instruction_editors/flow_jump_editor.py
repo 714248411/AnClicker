@@ -37,7 +37,7 @@ class JumpEditor(SchemaInstructionEditor):
 
     def _run_auxiliary(self, key):
         if key.endswith('项目路径'):
-            path, _ = QFileDialog.getOpenFileName(self,'选择目标项目',self._controls[key].text(),'An Clicker 项目 (*.xlsx)')
+            path, _ = QFileDialog.getOpenFileName(self,'选择目标项目',self._controls[key].text(),'AnClicker 项目 (*.xlsx)')
             if path: self._controls[key].setText(path)
             return
         super()._run_auxiliary(key)

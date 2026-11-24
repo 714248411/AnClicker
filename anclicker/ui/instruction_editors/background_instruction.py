@@ -4,7 +4,7 @@ from anclicker.platform.qt_compat.QtCore import Qt, QObject, QEvent, QTimer
 from anclicker.platform.qt_compat.QtGui import QPalette
 from anclicker.platform.qt_compat.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QFormLayout, QPushButton, QListWidget, QListWidgetItem, QDialogButtonBox, QMessageBox,
-    QWidget, QPlainTextEdit, QGroupBox, QFileDialog, QComboBox, QCompleter, QCheckBox)
+    QWidget, QPlainTextEdit, QGroupBox, QFileDialog, QComboBox, QCompleter, QCheckBox, QListView)
 from anclicker.instructions.common import SchemaInstructionEditor, InstructionExecutorBase, actions
 from anclicker.platform.background_catalog import METHODS, group_methods, method_name, values_for, label
 
@@ -117,6 +117,10 @@ class BackgroundMethodEditor(BackgroundEditor):
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
         completer.setCompletionMode(QCompleter.PopupCompletion)
+        # Own the popup wrapper before application-wide styling traverses children.
+        # Qt 5/PySide2 lazy native popup wrappers can become invalid while reparenting.
+        operation._completion_popup = QListView(operation)
+        completer.setPopup(operation._completion_popup)
         operation.setCompleter(completer)
         operation._completion_theme = _CompletionTheme(operation)
         self.ui.parameterGroupBox.setTitle('常用设置')
@@ -278,6 +282,9 @@ class BackgroundMethodEditor(BackgroundEditor):
                 control.textChanged.connect(self._save_arguments)
             self.advanced_button.setVisible(bool(self.advancedForm.rowCount()))
             self._update_advanced_indicator()
+            if hasattr(self, '_workspace_owner'):
+                from anclicker.ui.settings_combo import style_settings_combos
+                style_settings_combos(self, self._workspace_owner)
         finally:
             self._building_arguments = False
 
@@ -376,7 +383,12 @@ class BindingEditor(BackgroundEditor):
     def __init__(self, parent=None, draft=None, context=None):
         AUTO, CUSTOM = _module_imports.load('AUTO_CUSTOM')
         super().__init__(parent=parent, draft=None, context=context)
-        self.ui.parameterGroupBox.setTitle('选择窗口与绑定方案')
+        self.ui.parameterGroupBox.setTitle('大漠窗口与后台方案')
+        from anclicker.platform.background_binding import PRESETS, display_preset
+        from anclicker.platform.background_preferences import preferred_preset
+        self._controls['绑定方案'].clear()
+        self._controls['绑定方案'].addItems(PRESETS)
+        self._controls['绑定方案'].setCurrentText(display_preset(preferred_preset()))
         self.preload_label = QLabel(self)
         self.preload_label.setWordWrap(True)
         self.ui.rootLayout.insertWidget(1, self.preload_label)
@@ -440,7 +452,7 @@ class BindingEditor(BackgroundEditor):
         self._controls['绑定等待'].setToolTip('绑定成功后等待画面准备完成，单位为秒')
         component = QPushButton('大漠组件设置…', self.advanced_panel)
         component.setAutoDefault(False);component.clicked.connect(self._configure)
-        component.setToolTip('默认首次绑定时自动配置；可查看进度、重新检查或改用手动组件')
+        component.setToolTip('默认使用随包附带的离线 DLL；可重新检查或改用手动组件')
         advanced.addRow(component)
         self.preset_hint = QLabel(self)
         self.preset_hint.setWordWrap(True)
@@ -488,7 +500,10 @@ class BindingEditor(BackgroundEditor):
                 default = legacy_defaults.get(field.key,field.default) if legacy else field.default
                 self._set_control_value(self._controls[field.key],default)
             super().load_draft(draft)
-            control.setCurrentText(selected_preset(draft.parameters))
+            from anclicker.platform.background_binding import display_preset
+            from anclicker.platform.background_preferences import preferred_preset
+            value = preferred_preset() if not draft.parameters else selected_preset(draft.parameters)
+            control.setCurrentText(display_preset(value))
         finally:
             control.blockSignals(blocked)
         if hasattr(self, 'preset_hint'):
@@ -500,7 +515,8 @@ class BindingEditor(BackgroundEditor):
 
     def _preset_changed(self, text=None):
         AUTO, CUSTOM, PROFILES, MODE_KEYS = _module_imports.load('AUTO_CUSTOM_PROFILES_MODE_KEYS')
-        preset = self._controls['绑定方案'].currentText()
+        from anclicker.platform.background_binding import canonical_preset
+        preset = canonical_preset(self._controls['绑定方案'].currentText())
         custom = preset == CUSTOM
         capture = self.capture_enabled.isChecked()
         if not custom and (preset == AUTO or preset in PROFILES):
@@ -512,7 +528,7 @@ class BindingEditor(BackgroundEditor):
                 self._controls[field.key].setEnabled(custom and (capture or field.key != '图像模式'))
                 self._controls[field.key].setVisible(custom)
                 getattr(self.ui, 'label_' + str(index)).setVisible(custom)
-        text = ('先尝试 DX1，绑定或取图异常时自动尝试 DX2。普通应用不兼容时可改选 GDI 兼容。'
+        text = ('优先沿用上次成功方案，失败后依次尝试其他后台方案；绑定成功后供后续新指令沿用。'
                 if preset == AUTO else '按高级设置中的图像、鼠标和键盘模式绑定。'
                 if custom else '已自动配好图像、鼠标和键盘模式，可直接测试绑定。')
         if not capture:

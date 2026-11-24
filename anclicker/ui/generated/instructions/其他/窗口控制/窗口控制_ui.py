@@ -1,25 +1,17 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file '窗口控制.ui'
+## Form generated from reading UI file '���ڿ���.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.2
+## Created by: Qt User Interface Compiler version 5.15.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from anclicker.platform.qt_compat.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from anclicker.platform.qt_compat.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from anclicker.platform.qt_compat.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QComboBox,
-    QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
-    QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QSizePolicy, QSpacerItem, QSpinBox, QVBoxLayout,
-    QWidget)
+from anclicker.platform.qt_compat.QtCore import *
+from anclicker.platform.qt_compat.QtGui import *
+from anclicker.platform.qt_compat.QtWidgets import *
+
 
 class Ui_InstructionEditor(object):
     def setupUi(self, InstructionEditor):
@@ -43,10 +35,23 @@ class Ui_InstructionEditor(object):
 
         self.parameterFormLayout.setWidget(0, QFormLayout.LabelRole, self.parameterLabel_0)
 
-        self.parameter_0 = QLineEdit(self.parameterGroupBox)
+        self.titlePickerContainer = QWidget(self.parameterGroupBox)
+        self.titlePickerContainer.setObjectName(u"titlePickerContainer")
+        self.titlePickerLayout = QHBoxLayout(self.titlePickerContainer)
+        self.titlePickerLayout.setObjectName(u"titlePickerLayout")
+        self.titlePickerLayout.setContentsMargins(0, 0, 0, 0)
+        self.parameter_0 = QLineEdit(self.titlePickerContainer)
         self.parameter_0.setObjectName(u"parameter_0")
 
-        self.parameterFormLayout.setWidget(0, QFormLayout.FieldRole, self.parameter_0)
+        self.titlePickerLayout.addWidget(self.parameter_0)
+
+        self.pickWindowButton = QPushButton(self.titlePickerContainer)
+        self.pickWindowButton.setObjectName(u"pickWindowButton")
+
+        self.titlePickerLayout.addWidget(self.pickWindowButton)
+
+
+        self.parameterFormLayout.setWidget(0, QFormLayout.FieldRole, self.titlePickerContainer)
 
         self.parameterLabel_1 = QLabel(self.parameterGroupBox)
         self.parameterLabel_1.setObjectName(u"parameterLabel_1")
@@ -54,6 +59,8 @@ class Ui_InstructionEditor(object):
         self.parameterFormLayout.setWidget(1, QFormLayout.LabelRole, self.parameterLabel_1)
 
         self.parameter_1 = QComboBox(self.parameterGroupBox)
+        self.parameter_1.addItem("")
+        self.parameter_1.addItem("")
         self.parameter_1.addItem("")
         self.parameter_1.addItem("")
         self.parameter_1.addItem("")
@@ -77,7 +84,7 @@ class Ui_InstructionEditor(object):
 
         self.rootLayout.addWidget(self.parameterGroupBox)
 
-        self.verticalSpacer = QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.rootLayout.addItem(self.verticalSpacer)
 
@@ -131,7 +138,7 @@ class Ui_InstructionEditor(object):
 
         self.footerLayout.addWidget(self.testButton)
 
-        self.footerSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.footerSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.footerLayout.addItem(self.footerSpacer)
 
@@ -161,12 +168,18 @@ class Ui_InstructionEditor(object):
         self.parameterGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u7a97\u53e3\u63a7\u5236\u53c2\u6570", None))
         self.parameterLabel_0.setText(QCoreApplication.translate("InstructionEditor", u"\u7a97\u53e3\u6807\u9898\u5305\u542b *", None))
         self.parameter_0.setText("")
+        self.pickWindowButton.setText(QCoreApplication.translate("InstructionEditor", u"\u9f20\u6807\u70b9\u9009", None))
+#if QT_CONFIG(tooltip)
+        self.pickWindowButton.setToolTip(QCoreApplication.translate("InstructionEditor", u"\u70b9\u51fb\u76ee\u6807\u7a97\u53e3\u540e\u81ea\u52a8\u586b\u5199\u6807\u9898\u5e76\u8bb0\u4f4f\u6240\u9009\u7a97\u53e3\uff1bEsc \u6216\u53f3\u952e\u53d6\u6d88", None))
+#endif // QT_CONFIG(tooltip)
         self.parameterLabel_1.setText(QCoreApplication.translate("InstructionEditor", u"\u7a97\u53e3\u64cd\u4f5c", None))
         self.parameter_1.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u6fc0\u6d3b", None))
         self.parameter_1.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u6700\u5c0f\u5316", None))
         self.parameter_1.setItemText(2, QCoreApplication.translate("InstructionEditor", u"\u6700\u5927\u5316", None))
         self.parameter_1.setItemText(3, QCoreApplication.translate("InstructionEditor", u"\u8fd8\u539f", None))
         self.parameter_1.setItemText(4, QCoreApplication.translate("InstructionEditor", u"\u5173\u95ed", None))
+        self.parameter_1.setItemText(5, QCoreApplication.translate("InstructionEditor", u"\u7f6e\u9876", None))
+        self.parameter_1.setItemText(6, QCoreApplication.translate("InstructionEditor", u"\u7f6e\u5e95", None))
 
         self.parameterLabel_2.setText(QCoreApplication.translate("InstructionEditor", u"\u672a\u627e\u5230\u65f6\u62a5\u9519", None))
         self.parameter_2.setText(QCoreApplication.translate("InstructionEditor", u"\u542f\u7528", None))

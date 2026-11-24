@@ -4,8 +4,8 @@ from pathlib import Path
 from anclicker.platform.qt_compat.QtCore import Qt, QDateTime, QRectF, QPoint, QSize, Signal, Slot, QTimer, QEvent
 from anclicker.platform.qt_compat.QtGui import QPainter, QColor, QPen, QPalette, QIcon, QPixmap, QPainterPath
 from anclicker.platform.qt_compat.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QPlainTextEdit, QLineEdit, QMenu, QFileDialog, QMessageBox,
-    QWidget, QFormLayout, QListWidget, QListWidgetItem, QFrame, QSpinBox, QScrollArea, QSizePolicy, QSplitter, QToolButton)
+    QPlainTextEdit, QLineEdit, QMenu, QFileDialog, QMessageBox, QComboBox,
+    QWidget, QCheckBox, QFormLayout, QListWidget, QListWidgetItem, QFrame, QSpinBox, QScrollArea, QSizePolicy, QSplitter, QToolButton)
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -268,6 +268,7 @@ class ScheduleDialog(QDialog):
         self.scheduler = scheduler
         self.theme_mode = scheduler.window.view_workspace.theme_mode
         self.setWindowTitle('定时任务')
+        self._window_corner_radius = 24
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self._drag_origin = None
@@ -281,7 +282,7 @@ class ScheduleDialog(QDialog):
         self.setMinimumSize(760, 410)
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
         root = QHBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
+        root.setContentsMargins(1, 1, 1, 1)
         self.splitter = QSplitter(Qt.Horizontal, self)
         self.splitter.setChildrenCollapsible(False)
         self.splitter.setHandleWidth(3)
@@ -296,7 +297,7 @@ class ScheduleDialog(QDialog):
         self.splitter.setStretchFactor(1, 1)
         self.splitter.setSizes([230, 680])
         layout = QVBoxLayout(self.editor_panel)
-        layout.setContentsMargins(16, 6, 8, 6)
+        layout.setContentsMargins(16, 17, 19, 17)
         title = QLabel('新建定时任务')
         self.title_label = title
         title.setObjectName('scheduleTitle')
@@ -335,9 +336,15 @@ class ScheduleDialog(QDialog):
         self.repeat = RepeatSelector(scheduler.window, self)
         self.repeat.addItems(['每天', '工作日', '每周', '自定义', '仅一次'])
         form.addRow('重复', self.repeat)
+        self.main_policy = QComboBox(self)
+        self.main_policy.addItem('暂停主任务(结束后恢复)', True)
+        self.main_policy.addItem('定时任务不影响主任务运行', False)
+        form.addRow('主任务', self.main_policy)
         SegmentedDateTimeEdit = _module_imports.load('SegmentedDateTimeEdit')
         self.when = SegmentedDateTimeEdit(QDateTime.currentDateTime().addSecs(300), self)
         form.addRow('时间', self.when)
+        self.time_form = form
+        self.time_row = form.rowCount() - 1
         self.interval = QSpinBox()
         self.interval.setRange(1, 525600)
         self.interval.setValue(60)
@@ -355,6 +362,7 @@ class ScheduleDialog(QDialog):
         self.advanced_button.setFlat(True)
         self.advanced_button.setAutoDefault(False)
         advanced_actions = QHBoxLayout()
+        self.advanced_actions = advanced_actions
         advanced_actions.addWidget(self.advanced_button, 0, Qt.AlignLeft)
         advanced_actions.addStretch()
         self.save_button = QPushButton('保存')
@@ -368,9 +376,37 @@ class ScheduleDialog(QDialog):
         advanced_layout.setContentsMargins(0, 0, 0, 0)
         advanced_layout.setAlignment(Qt.AlignTop)
         advanced_layout.setSpacing(8)
-        details = QLabel('到达安全暂停点后运行，完成后继续主任务；手动暂停的主任务仍保持暂停。\n'
+        self.random_enabled = QCheckBox('时间段内随机时间运行')
+        advanced_layout.addWidget(self.random_enabled)
+        self.random_range = QWidget(self.advanced)
+        random_form = QFormLayout(self.random_range)
+        random_form.setContentsMargins(0, 0, 0, 0)
+        self.random_start = SegmentedDateTimeEdit(QDateTime.currentDateTime().addSecs(300), self)
+        self.random_end = SegmentedDateTimeEdit(QDateTime.currentDateTime().addSecs(3900), self)
+        random_form.addRow('开始时间', self.random_start)
+        random_form.addRow('结束时间', self.random_end)
+        advanced_layout.addWidget(self.random_range)
+        self.random_tip = QLabel()
+        self.random_tip.setWordWrap(True)
+        self.expanded_save_row = QHBoxLayout()
+        self.expanded_save_row.addStretch()
+        advanced_layout.addLayout(self.expanded_save_row)
+        advanced_layout.addSpacing(4)
+        advanced_layout.addWidget(self.random_tip)
+        self.repeat.currentTextChanged.connect(self._update_random_repeat_hint)
+        self.interval.valueChanged.connect(self._update_random_repeat_hint)
+        self._update_random_repeat_hint()
+        self.random_range.setEnabled(False)
+        self.random_enabled.toggled.connect(self.random_range.setEnabled)
+        self.random_enabled.toggled.connect(lambda checked: self.time_form.setRowVisible(self.time_row, not checked))
+        self._syncing_schedule_time = False
+        self.when.dateTimeChanged.connect(lambda value: self._sync_schedule_time(value, self.random_start))
+        self.random_start.dateTimeChanged.connect(lambda value: self._sync_schedule_time(value, self.when))
+        details = QLabel('暂停模式：到达安全暂停点后运行，结束后恢复；手动暂停仍保持暂停。\n'
+            '不影响主任务运行：定时任务不暂停、恢复或停止主任务，保留主任务原有状态。\n'
+            '操作同一前台键鼠或同一外部文件时仍会相互影响，请使用不同目标窗口或文件。\n'
             '多个到期任务依次执行。录制期间延后执行；按“结束任务”取消当前及待运行任务。\n'
-            '程序需保持打开。关闭期间错过的任务，下次打开补执行一次；不会重复补跑。')
+            '程序需保持打开。随机任务过期不补跑；普通定时任务关闭期间错过，下次打开补执行一次。')
         details.setWordWrap(True)
         details.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.advanced_details = details
@@ -434,13 +470,13 @@ class ScheduleDialog(QDialog):
             'QWidget#scheduleAdvancedBody {background:'+self._surface+';border:none;}'
             'QListWidget#scheduleTaskList {padding:4px;}'
             'QListWidget#scheduleTaskList::item {padding:6px;border:none;}'
-            'QScrollBar:vertical {background:transparent;width:8px;margin:0;}'
-            'QScrollBar::handle:vertical {background:'+self._border+';border-radius:4px;min-height:24px;}'
+            'QScrollBar:vertical {background:transparent;width:6px;margin:0;}'
+            'QScrollBar::handle:vertical {background:'+self._border+';border-radius:3px;min-height:24px;}'
             'QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}'
             'QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent;}')
         self.setStyleSheet(self.styleSheet() + f'''
-            QFrame#scheduleSidebar {{background:{'#242424' if dark else '#f5f6fa'};border:none;border-radius:14px;}}
-            QSplitter::handle {{background:transparent;}}
+            QFrame#scheduleSidebar {{background:{'#242424' if dark else '#f5f6fa'};border:none;border-radius:0px;border-top-left-radius:23px;border-bottom-left-radius:23px;}}
+            QSplitter::handle:horizontal {{background:{self._border};border-left:1px solid {'#242424' if dark else '#f5f6fa'};border-right:1px solid {'#242424' if dark else '#f5f6fa'};}}
             QListWidget#scheduleTaskList {{background:transparent;border:none;padding:0;outline:0;}}
             QListWidget#scheduleTaskList::item {{border:none;border-radius:7px;padding:0;margin:0;}}
             QListWidget#scheduleTaskList::item:selected {{background:{'#3b4255' if dark else '#e2e7ff'};}}
@@ -452,7 +488,7 @@ class ScheduleDialog(QDialog):
             QPushButton#scheduleStateButton:checked {{background:#5266dc;color:white;border-color:#5266dc;}}
         ''')
         self.sidebar.setStyleSheet(f'''
-            QFrame#scheduleSidebar {{background:{'#242424' if dark else '#f5f6fa'};border:none;border-radius:14px;}}
+            QFrame#scheduleSidebar {{background:{'#242424' if dark else '#f5f6fa'};border:none;border-radius:0px;border-top-left-radius:23px;border-bottom-left-radius:23px;}}
             QLabel#scheduleTitle {{font-size:18px;font-weight:600;}}
         ''')
         self.entries.setStyleSheet(f'''
@@ -466,7 +502,37 @@ class ScheduleDialog(QDialog):
             self.load_task(self.scheduler.tasks[0]['id'])
         else:
             self.new_task()
+        self.advanced_button.setChecked(True)
         QTimer.singleShot(0, self.description._ensure_two_lines)
+
+    def _update_random_repeat_hint(self, *_):
+        repeat = self.repeat.currentText()
+        time_only = repeat in ('每天', '工作日')
+        for editor in (self.when, self.random_start, self.random_end):
+            editor.setRepeatMode(repeat)
+        rule = {
+            '每天': '每天 00:00 进入新一轮，在当天时间段内随机运行一次。',
+            '每周': '每隔一周，在同一星期、同一时间段内重新随机运行一次。',
+            '工作日': '每个工作日（周一至周五）在此时间段内随机运行一次，周末跳过。',
+            '仅一次': '仅在所选日期的时间段内随机运行一次，完成后不再重复。',
+            '自定义': f'每隔 {self.interval.value()} 分钟进入下一个时间段，每段随机运行一次。',
+        }.get(repeat, '')
+        extra = '只需设置时分秒；结束早于开始表示跨天，开始和结束不能相同。' if time_only else ('选择星期和时分秒；结束星期早于开始时按下一周计算。' if repeat == '每周' else '跨天请将结束日期设为次日。')
+        self.random_tip.setText(f'跟随重复方式：{repeat}。{rule}{extra}已过期的随机时间段不补跑，自动进入下一有效周期。')
+        if hasattr(self, 'advanced_scroll') and self.advanced_button.isChecked():
+            QTimer.singleShot(0, self._fit_advanced_height)
+
+    def _sync_schedule_time(self, value, target):
+        if self._syncing_schedule_time:
+            return
+        self._syncing_schedule_time = True
+        try:
+            delta = target.dateTime().secsTo(value)
+            end = self.random_end.dateTime().addSecs(delta)
+            target.setDateTime(value)
+            self.random_end.setDateTime(end)
+        finally:
+            self._syncing_schedule_time = False
 
     def _resize_description(self, height):
         old_height = self.description.height()
@@ -485,6 +551,10 @@ class ScheduleDialog(QDialog):
         self.resize(self.width(), max(self.minimumHeight(), window_height+delta, self.minimumSizeHint().height()))
 
     def _toggle_advanced(self, expanded):
+        if expanded:
+            self.expanded_save_row.addWidget(self.save_button, 0, Qt.AlignRight)
+        else:
+            self.advanced_actions.addWidget(self.save_button, 0, Qt.AlignRight)
         if expanded:
             self._collapsed_height = self.height()
         if expanded:
@@ -632,7 +702,7 @@ class ScheduleDialog(QDialog):
         self.sidebar.setMaximumWidth(320)
         self.splitter.addWidget(self.sidebar)
         layout = QVBoxLayout(self.sidebar)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(23, 23, 12, 23)
         layout.setSpacing(10)
         heading = QHBoxLayout()
         title = QLabel('定时任务', self.sidebar)
@@ -680,6 +750,8 @@ class ScheduleDialog(QDialog):
         self._editing = editable
         self.description.setReadOnly(not editable)
         self.form_card.setEnabled(editable)
+        self.random_enabled.setEnabled(editable)
+        self.random_range.setEnabled(editable and self.random_enabled.isChecked())
         self.save_button.setEnabled(editable)
         self.save_button.setToolTip('保存修改并退出编辑' if editable else '双击详情区域或点击任务的笔形图标后编辑')
         self._apply_editor_surface()
@@ -688,10 +760,45 @@ class ScheduleDialog(QDialog):
     def _apply_editor_surface(self):
         surface = ('#242424' if self.theme_mode == 'dark' else '#f5f6fa') if self._editing else self._surface
         self.editor_panel.setStyleSheet(f'''
-            QWidget#scheduleEditor {{background:{surface};border:none;border-radius:14px;}}
+            QWidget#scheduleEditor {{background:{surface};border:none;border-radius:0px;border-top-right-radius:23px;border-bottom-right-radius:23px;}}
             QPlainTextEdit, QFrame#scheduleCard, QWidget#scheduleDateTime,
             QWidget#scheduleAdvancedBody {{background:{surface};}}
         ''')
+        dark = self.theme_mode == 'dark'
+        foreground = '#eef0f6' if dark else '#202938'
+        muted = '#a4adbe' if dark else '#717b8c'
+        hover = '#353945' if dark else '#e9edf8'
+        focus = '#94a3ff' if dark else '#5266dc'
+        # Keep identical date fields across the form and the nested scroll area.
+        for editor in (self.when, self.random_start, self.random_end):
+            editor.setStyleSheet(f'''
+                QWidget#scheduleDateTime {{background:{surface};border:1px solid {self._border};border-radius:10px;}}
+                QLineEdit#scheduleDateSection {{background:transparent;border:none;border-radius:2px;padding:2px 0;
+                    color:{foreground};selection-background-color:#5266dc;selection-color:white;}}
+                QLineEdit#scheduleDateSection:focus {{background:{hover};}}
+                QLineEdit#scheduleDateSection:disabled {{color:{muted};}}
+                QLabel#scheduleDateSeparator {{padding:0;background:transparent;border:none;color:{muted};}}
+                QComboBox#scheduleWeekday {{background:transparent;color:{foreground};border:none;
+                    border-radius:5px;padding:3px 20px 3px 6px;min-height:24px;}}
+                QComboBox#scheduleWeekday:hover {{background:{hover};}}
+                QComboBox#scheduleWeekday:focus {{background:{hover};border:1px solid {focus};}}
+                QComboBox#scheduleWeekday:disabled {{color:{muted};background:transparent;}}
+                QComboBox#scheduleWeekday::drop-down {{border:none;width:18px;background:transparent;}}
+                QComboBox#scheduleWeekday::down-arrow {{image:none;width:0;height:0;}}
+            ''')
+            editor.weekday.view().setStyleSheet(f'''
+                QAbstractItemView {{background:{surface};color:{foreground};border:1px solid {self._border};
+                    padding:4px;outline:0;selection-background-color:#5266dc;selection-color:white;}}
+                QAbstractItemView::item {{min-height:28px;padding:3px 10px;}}
+                QAbstractItemView::item:hover {{background:{hover};color:{foreground};}}
+                QAbstractItemView::item:selected {{background:#5266dc;color:white;}}
+            ''')
+            palette = editor.weekday.view().palette()
+            palette.setColor(QPalette.Base, QColor(surface))
+            palette.setColor(QPalette.Text, QColor(foreground))
+            palette.setColor(QPalette.Window, QColor(surface))
+            editor.weekday.view().setPalette(palette)
+            editor._size_sections()
         for widget in (self.description.viewport(), self.advanced, self.advanced_scroll, self.advanced_scroll.viewport()):
             palette = widget.palette()
             palette.setColor(QPalette.Window, QColor(surface))
@@ -807,8 +914,12 @@ class ScheduleDialog(QDialog):
         self.description.clear()
         self.path.clear()
         self.repeat.setCurrentText('每天')
+        self.main_policy.setCurrentIndex(0)
         self.when.setDateTime(QDateTime.currentDateTime().addSecs(300))
         self.interval.setValue(60)
+        self.random_enabled.setChecked(False)
+        self.random_start.setDateTime(self.when.dateTime())
+        self.random_end.setDateTime(self.when.dateTime().addSecs(3600))
         self.entries.blockSignals(True)
         self.entries.setCurrentRow(-1)
         self.entries.blockSignals(False)
@@ -832,8 +943,13 @@ class ScheduleDialog(QDialog):
         self.description.setPlainText(task.get('description', ''))
         self.path.setText(task['path'])
         self.repeat.setCurrentText(task['repeat'])
-        self.when.setDateTime(QDateTime.fromString(task['next_run'], Qt.ISODate))
+        self.main_policy.setCurrentIndex(0 if task.get('pause_main', True) else 1)
+        self.when.setDateTime(QDateTime.fromString(task.get('random_start', task['next_run']) if task.get('random_enabled') else task['next_run'], Qt.ISODate))
         self.interval.setValue(task.get('interval_minutes', 60))
+        self.random_enabled.setChecked(bool(task.get('random_enabled', False)))
+        self.random_start.setDateTime(self.when.dateTime())
+        self.random_end.setDateTime(QDateTime.fromString(task.get('random_end', task['next_run']), Qt.ISODate))
+        self.random_range.setEnabled(editable and self.random_enabled.isChecked())
         self.enable_button.setToolTip('保存后启用任务' if editable else '启用此任务')
         self.disable_button.setToolTip('保存后暂不启用任务' if editable else '不启用此任务')
         self._show_enabled_state(task.get('enabled', True))
@@ -861,7 +977,8 @@ class ScheduleDialog(QDialog):
             repeat = task['repeat']
             if repeat == '自定义':
                 repeat = f"每 {task.get('interval_minutes', 60)} 分钟"
-            details = f'{day} {due:%H:%M:%S} · {repeat}'
+            details = f'{day} {due:%H:%M:%S} · {repeat}' + (' · 随机' if task.get('random_enabled') else '')
+            details += ' · 暂停主任务' if task.get('pause_main', True) else ' · 不影响主任务运行'
             enabled = task.get('enabled', True)
             item = QListWidgetItem()
             item.setData(Qt.UserRole, task['id'])
@@ -925,7 +1042,11 @@ class ScheduleDialog(QDialog):
                 return
             values = dict(description=self.description.toPlainText().strip(), path=self.path.text().strip(),
                 repeat=self.repeat.currentText(), interval_minutes=self.interval.value(), enabled=enabled,
-                next_run=self.when.dateTime().toString('yyyy-MM-ddTHH:mm:ss'))
+                pause_main=self.main_policy.currentData(),
+                next_run=self.when.dateTime().toString('yyyy-MM-ddTHH:mm:ss'),
+                random_enabled=self.random_enabled.isChecked(),
+                random_start=self.random_start.dateTime().toString('yyyy-MM-ddTHH:mm:ss'),
+                random_end=self.random_end.dateTime().toString('yyyy-MM-ddTHH:mm:ss'))
             task_id = (self.scheduler.update_task(self._task_id, values) if self._task_id is not None
                        else self.scheduler.add(values))
         except (ValueError, OSError) as exc:

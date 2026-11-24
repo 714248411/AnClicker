@@ -153,6 +153,9 @@ class ToolbarReorder(QObject):
         except (ValueError, TypeError):
             saved = []
         self.order = list(dict.fromkeys(x for x in saved if isinstance(x, str))) if isinstance(saved, list) else []
+        self.order = list(dict.fromkeys(
+            'base:actionImportProjectFolder' if key == 'base:actionf' else key
+            for key in self.order))
         for index, action in enumerate(self.toolbar.actions()):
             action.setProperty('toolbarOrderId', 'base:' + (action.objectName() or str(index)))
 

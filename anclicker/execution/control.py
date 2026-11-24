@@ -72,6 +72,9 @@ class ExecutionControl:
             self.is_paused = False
             if self._active_context is not None:
                 self._active_context.stop_requested = True
+                manager = self._active_context.metadata.get("parallel_manager")
+                if manager and not self._active_context.metadata.get("parallel_worker"):
+                    manager.stop(wait=False)
             self.condition.wakeAll()
         finally:
             self.mutex.unlock()
@@ -81,6 +84,9 @@ class ExecutionControl:
         self.mutex.lock()
         try:
             self.schedule_pause_requested = bool(enabled)
+            if enabled and self._active_context is not None:
+                metadata = self._active_context.metadata
+                metadata["visual_input_generation"] = metadata.get("visual_input_generation", 0) + 1
             if not enabled:
                 self.schedule_pause_ack.clear()
             self.condition.wakeAll()

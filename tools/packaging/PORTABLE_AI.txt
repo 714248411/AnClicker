@@ -1,0 +1,20 @@
+1.7.3 本地AI候选版构建
+
+运行时使用两份v6.5 GGUF，离线BGE向量使用ONNX Runtime CPU和tokenizers。
+成品不需要训练环境、torch或transformers；源模型safetensors仍保留用于开发验证。
+构建依赖已加入pyproject.toml和uv.lock。
+
+首次构建前，用训练环境运行 tools/export_capability_onnx.py。
+导出工具会核对source.json中的SHA256；导出依赖使用onnx==1.19.1（本机1.16/1.17 DLL无法加载）。
+用构建环境运行 tools/check_portable_embedding.py，核对分词及向量数值。
+用构建环境运行 tools/build_ai_candidate_173.py，输出 artifacts/dist/v1.7.3-ai-candidate/AnClicker。
+候选目录独立，不覆盖原1.7.3发行压缩包。
+
+main.spec包含纠错案例、ONNX、分词文件和AI构建指纹。
+stage校验源码及资源指纹，并启用embedding、correction_memory和serial_models。
+正式package要求冒烟记录绑定当前EXE、AI资源及配置；旧记录不可复用。
+冒烟及打包排除models/.dual-runtime运行锁和根目录data用户数据。
+
+成品白话规划验证入口：
+AnClicker.exe --language-validation <用例JSON绝对路径> <结果JSON绝对路径>
+该入口只生成草稿和必要追问，不执行用户动作；使用独立ANCLICKER_DATA_DIR保存测试状态。

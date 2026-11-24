@@ -134,13 +134,15 @@ function refreshRef(ws) {
 }
 
 // ---------- Excel 指令 ----------
-function excelOpen(p) {
+function excelOpen(p, sheetName = '') {
   if (!XLSX) throw new Error('缺少 xlsx 依赖：请确认本文件夹内有 xlsx.full.min.js（或 node_modules/xlsx）');
   const fp = expand(p);
   if (!fp || !fs.existsSync(fp)) throw new Error('文件不存在：' + fp);
   const book = readBook(fp);
+  sheetName = expand(sheetName);
+  if (sheetName && !book.Sheets[sheetName]) throw new Error('找不到工作表：' + sheetName);
   const id = 'e' + (bookIdSeq++);
-  excelBooks.push({ id, book, path: fp, activeSheet: book.SheetNames[0] });
+  excelBooks.push({ id, book, path: fp, activeSheet: sheetName || book.SheetNames[0] });
   activeBookId = id;
 }
 function excelNew(p, sheetName) {
@@ -155,9 +157,10 @@ function excelNew(p, sheetName) {
 }
 function excelRead(cell) { const ws = getWS(); return ws[cell] ? ws[cell].v : ''; }
 function excelWrite(cell, value) { const ws = getWS(); ws[expand(cell)] = makeCell(expand(value)); refreshRef(ws); }
-function excelReadRange(range) {
+function excelReadRange(range, format = '二维数组') {
   const ws = getWS(); const { r0, c0, r1, c1 } = parseRange(range); const out = [];
-  for (let r = r0; r <= r1; r++) { const row = []; for (let c = c0; c <= c1; c++) { const a = colName(c) + (r + 1); row.push(ws[a] ? ws[a].v : ''); } out.push(row); }
+  for (let r = r0; r <= r1; r++) { const row = []; for (let c = c0; c <= c1; c++) { const a = colName(c) + (r + 1); row.push(ws[a] ? (format === '制表符文本' ? XLSX.utils.format_cell(ws[a]) : ws[a].v) : ''); } out.push(row); }
+  if (format === '制表符文本') return out.map(row => row.join('\t')).join('\n');
   return out;
 }
 function excelWriteRange(startCell, data) {
@@ -762,11 +765,11 @@ async function runCommand(step) {
     case 'sleep': await sleep(Math.max(0, Number(p.seconds) || 0) * 1000); return;
     case 'setVar': vars[p.name] = expand(p.value); return;
     case 'printLog': log(expand(p.text)); return;
-    case 'excelOpen': excelOpen(p.path); return;
+    case 'excelOpen': excelOpen(p.path, p.sheetName); return;
     case 'excelNew': excelNew(p.path, p.sheetName); return;
     case 'excelRead': vars[p.varName] = excelRead(p.cell); return;
     case 'excelWrite': excelWrite(p.cell, p.value); return;
-    case 'excelReadRange': vars[p.varName] = excelReadRange(p.range); return;
+    case 'excelReadRange': vars[p.varName] = excelReadRange(p.range, p.format); return;
     case 'excelWriteRange': excelWriteRange(p.range, vars[p.data]); return;
     case 'excelCopyPaste': excelCopyPaste(p.from, p.to, p.mode); return;
     case 'excelSheetCopyPaste': excelSheetCopyPaste(p.fromBook, p.fromSheet, p.fromRange, p.toBook, p.toSheet, p.toRange, p.mode); return;
@@ -794,6 +797,7 @@ async function runCommand(step) {
     case 'fileRename': vars['重命名结果'] = fileRename(p.folder, p.sortBy, p.order, p.index, p.mode, p.text, p.type, p.sep, p.parts); return;
     case 'fileFind': vars['查找结果'] = fileFind(p.folder, p.keyword, p.ext); return;
     case 'fileCount': vars['统计结果'] = fileCount(p.folder, p.ext); return;
+    case 'excelFillWeb': throw new Error('表格填入网页需要浏览器，请在 AnClicker 完整版运行；本次未填入');
     case 'openUrl': case 'click': case 'input': case 'getText': case 'waitElement':
     case 'clickXY': case 'scrapeText': case 'scrapeAttr': case 'scrapeList': case 'scrapeExport':
     case 'typeText': case 'mouseClick': case 'hotkey': case 'pressKey': case 'browserWait':

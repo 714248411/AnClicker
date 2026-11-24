@@ -18,14 +18,15 @@ root=Path(__file__).resolve().parents[1]
 sys = _module_imports.load('sys')
 sys.path.insert(0, str(root))
 APP_ID, EXECUTABLE_NAME = _module_imports.load('APP_ID_EXECUTABLE_NAME')
-archive=CArchiveReader(str(root/'artifacts/dist/velopack'/APP_ID/EXECUTABLE_NAME))
+executable=Path(sys.argv[1]) if len(sys.argv)>1 else root/'artifacts/dist/velopack'/APP_ID/EXECUTABLE_NAME
+archive=CArchiveReader(str(executable))
 key=next(k for k in archive.toc if k.endswith('.pyz'))
 pyz=archive.open_embedded_archive(key)
-code=pyz.extract('rpa_validation')
+code=pyz.extract('anclicker.app.rpa_validation')
 def strings(code):
     for item in code.co_consts:
         if isinstance(item,str):yield item
         elif isinstance(item,types.CodeType):yield from strings(item)
 assert 'acRecordStart' in set(strings(code))
-assert 'web_recording_view' in pyz.toc
+assert 'anclicker.ui.web_recording_view' in pyz.toc
 print('Packaged recording validation and UI are present')

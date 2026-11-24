@@ -486,6 +486,10 @@ async function screenshot(selector) {
 }
 
 module.exports = {
+  async backgroundInput(kind, payload) {
+    const sid = await ensureSession();
+    return require('./background-input')[kind]((method, params) => send(method, params, sid), payload);
+  },
   screenshot,
   findBrowsers,
   launch,

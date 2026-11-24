@@ -5,41 +5,32 @@ import sys
 import tempfile
 from pathlib import Path
 from info import APP_ID, DATA_DIR_ENV
+from anclicker.app.installation_paths import get_install_folder, storage_install_folder
+from anclicker.storage.portable_migration import copied_data_folder
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
 _module_imports = _DeferredImports(globals(), {
-    'get_install_folder': ('from', 'anclicker.app.paths', ('get_install_folder',), 0),
     'traceback': ('import', 'traceback', (), False),
 })
-
-
-
-def storage_install_folder(install):
-    # Portable user data must live outside Velopack's replaceable current folder.
-    if (install.name.casefold() == "current" and (install / "sq.version").is_file()
-            and (install.parent / "Update.exe").is_file()):
-        return install.parent
-    return install
 
 
 def prepare_environment():
     override = os.environ.get(DATA_DIR_ENV, "").strip()
     frozen = getattr(sys, "frozen", False)
-    if frozen:
-        install = Path(sys.executable).parent
-    else:
-        get_install_folder = _module_imports.load('get_install_folder')
-        install = Path(get_install_folder())
+    install = Path(sys.executable).parent if frozen else Path(get_install_folder())
     if override:
         target = Path(override).expanduser().resolve()
     elif not frozen or sys.platform == "win32":
-        target = storage_install_folder(install) / "data"
+        from anclicker.storage.data_partitions import selected_partition
+        target = selected_partition(storage_install_folder(install))
     elif sys.platform == "darwin":
         target = Path.home() / "Library" / "Application Support" / APP_ID
     else:
         target = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / APP_ID
+
+    target = Path(copied_data_folder(target))
 
     def initialize(folder):
         folder.mkdir(parents=True, exist_ok=True)

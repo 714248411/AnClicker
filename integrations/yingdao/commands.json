@@ -47,6 +47,12 @@
         "label": "文件路径",
         "type": "text",
         "default": ""
+      },
+      {
+        "key": "sheetName",
+        "label": "工作表名(留空=第一个)",
+        "type": "text",
+        "default": ""
       }
     ],
     "type_id": "打开Excel"
@@ -110,6 +116,16 @@
         "label": "保存到变量(二维数组)",
         "type": "text",
         "default": "变量1"
+      },
+      {
+        "key": "format",
+        "label": "读取格式",
+        "type": "select",
+        "default": "二维数组",
+        "options": [
+          "二维数组",
+          "制表符文本"
+        ]
       }
     ],
     "type_id": "读取区域"
@@ -792,6 +808,76 @@
     "type_id": "点击元素"
   },
   {
+    "id": "scrollElementToCenter",
+    "name": "滚动元素到页面中心",
+    "type_id": "滚动元素到页面中心",
+    "category": "网页自动化",
+    "color": "#4a6cf7",
+    "params": [
+      {
+        "key": "selector",
+        "label": "目标元素",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "by",
+        "label": "定位方式",
+        "type": "select",
+        "default": "智能匹配",
+        "options": [
+          "智能匹配",
+          "CSS选择器",
+          "XPath",
+          "文本内容",
+          "锚点定位"
+        ]
+      },
+      {
+        "key": "behavior",
+        "label": "滚动方式",
+        "type": "select",
+        "default": "平滑滚动",
+        "options": [
+          "平滑滚动",
+          "立即定位"
+        ]
+      },
+      {
+        "key": "timeout",
+        "label": "等待元素（秒）",
+        "type": "number",
+        "default": 10
+      },
+      {
+        "key": "settle",
+        "label": "滚动后等待（秒）",
+        "type": "number",
+        "default": 0.3
+      },
+      {
+        "key": "anchor",
+        "label": "辅助锚点",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "anchorRel",
+        "label": "目标相对锚点",
+        "type": "select",
+        "default": "下方",
+        "options": [
+          "下方",
+          "上方",
+          "右侧",
+          "左侧",
+          "内部",
+          "相邻"
+        ]
+      }
+    ]
+  },
+  {
     "id": "input",
     "name": "输入文本",
     "category": "网页自动化",
@@ -862,6 +948,12 @@
           "智能匹配",
           "锚点定位"
         ]
+      },
+      {
+        "key": "textVariable",
+        "label": "从变量读取内容(可选)",
+        "type": "text",
+        "default": ""
       }
     ],
     "type_id": "输入文本"
@@ -1652,5 +1744,94 @@
       }
     ],
     "type_id": "抓取导出Excel"
+  },
+  {
+    "id": "excelFillWeb",
+    "name": "表格填入网页",
+    "type_id": "表格填入网页",
+    "category": "网页自动化",
+    "color": "#16a085",
+    "params": [
+      {
+        "key": "range",
+        "label": "表格区域（留空使用当前工作表内容）",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "mode",
+        "label": "填入方式",
+        "type": "select",
+        "default": "按表头对应",
+        "options": [
+          "按表头对应",
+          "按顺序"
+        ]
+      },
+      {
+        "key": "header",
+        "label": "首行内容",
+        "type": "select",
+        "default": "首行表头",
+        "options": [
+          "首行表头",
+          "无表头"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "scrollPageToPosition",
+    "name": "滚动网页到指定位置",
+    "type_id": "滚动网页到指定位置",
+    "category": "网页自动化",
+    "color": "#4a6cf7",
+    "params": [
+      {
+        "key": "position",
+        "label": "页面位置",
+        "type": "select",
+        "default": "中间",
+        "options": [
+          "顶部",
+          "中间",
+          "底部"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "formByLabel",
+    "name": "按名称操作网页表单",
+    "type_id": "按名称操作网页表单",
+    "category": "网页自动化",
+    "color": "#4a6cf7",
+    "params": [
+      {
+        "key": "action",
+        "label": "操作",
+        "type": "select",
+        "default": "填入",
+        "options": [
+          "填入",
+          "清空",
+          "选择",
+          "勾选",
+          "取消勾选"
+        ]
+      },
+      {
+        "key": "label",
+        "label": "页面上的字段名称",
+        "type": "text",
+        "default": ""
+      },
+      {
+        "key": "value",
+        "label": "填写内容或选项文字",
+        "type": "text",
+        "default": ""
+      }
+    ]
   }
 ]

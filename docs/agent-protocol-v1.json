@@ -4,6 +4,165 @@
     {
       "type": "function",
       "function": {
+        "name": "cmd_reference",
+        "description": "查询本地记录的微软官方 CMD 命令用途、示例和源链接。仅查询，不执行；未审核条目不能当成已验证用法。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "system_file",
+        "description": "快速打开或复制本机文件；复制使用 robocopy 并核验 SHA-256。路径必须完整。open 仅代表打开请求，需 verify_screen 核验。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "",
+              "enum": [
+                "open",
+                "copy"
+              ]
+            },
+            "source": {
+              "type": "string",
+              "description": ""
+            },
+            "destination": {
+              "type": "string",
+              "description": ""
+            },
+            "overwrite": {
+              "type": "boolean"
+            },
+            "expected_text": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": ""
+              },
+              "minItems": 1,
+              "maxItems": 20
+            },
+            "window_title": {
+              "type": "string",
+              "description": ""
+            },
+            "region": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          "required": [
+            "action",
+            "source"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "verify_screen",
+        "description": "截取目标窗口或区域并离线 OCR，与预期文字逐项比较。窗口必须完整标题或给出区域。verified 才是文字条件通过；未确认不能声称任务完成。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expected_text": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": ""
+              },
+              "minItems": 1,
+              "maxItems": 20
+            },
+            "window_title": {
+              "type": "string",
+              "description": ""
+            },
+            "region": {
+              "type": "string",
+              "description": ""
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120
+            },
+            "minimum_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            }
+          },
+          "required": [
+            "expected_text"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "crawl_page",
+        "description": "使用 Crawl4AI 抓取单个网页正文、Markdown、链接、图片地址、表格和标题。不共享浏览器登录状态；点击和填写仍使用 browser。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "目标网页地址"
+            },
+            "selector": {
+              "type": "string",
+              "description": "可选内容 CSS 选择器"
+            },
+            "wait_for": {
+              "type": "string",
+              "description": "可选等待出现的 CSS 选择器"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 180
+            },
+            "max_chars": {
+              "type": "integer",
+              "minimum": 500,
+              "maximum": 20000
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "browser",
         "description": "操作 Agent 的独立浏览器。先 open 或 view 获取元素 ref；每次操作后重新 view。",
         "parameters": {
@@ -91,6 +250,53 @@
     {
       "type": "function",
       "function": {
+        "name": "draft_append_batch",
+        "description": "把完整任务拆为按顺序执行的单步骤草稿，一条记录只做一件事；全部校验通过后一次追加，不执行。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "instructions": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 30,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type_id": {
+                    "type": "string",
+                    "description": ""
+                  },
+                  "parameters": {
+                    "type": "object"
+                  },
+                  "repeat_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "该单步骤的说明"
+                  }
+                },
+                "required": [
+                  "type_id",
+                  "parameters"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "instructions"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "draft_read",
         "description": "读取当前尚未写入的指令草稿。",
         "parameters": {
@@ -165,6 +371,16 @@
     }
   ],
   "catalog": [
+    {
+      "type_id": "快速文件操作",
+      "name": "快速文件操作",
+      "category": "其他"
+    },
+    {
+      "type_id": "截图OCR核验",
+      "name": "截图OCR核验",
+      "category": "本地OCR"
+    },
     {
       "type_id": "绑定选择窗口",
       "name": "绑定选择窗口",
@@ -661,6 +877,36 @@
       "category": "数据抓取"
     },
     {
+      "type_id": "Crawl4AI网页抓取",
+      "name": "Crawl4AI 网页抓取",
+      "category": "网页抓取工具"
+    },
+    {
+      "type_id": "网页正文提取",
+      "name": "网页正文提取",
+      "category": "网页抓取工具"
+    },
+    {
+      "type_id": "网页链接提取",
+      "name": "网页链接提取",
+      "category": "网页抓取工具"
+    },
+    {
+      "type_id": "网页图片提取",
+      "name": "网页图片提取",
+      "category": "网页抓取工具"
+    },
+    {
+      "type_id": "网页表格提取",
+      "name": "网页表格提取",
+      "category": "网页抓取工具"
+    },
+    {
+      "type_id": "网页标题提取",
+      "name": "网页标题提取",
+      "category": "网页抓取工具"
+    },
+    {
       "type_id": "暂不运行以下指令",
       "name": "暂不运行以下指令",
       "category": "流程"
@@ -707,6 +953,130 @@
     }
   ],
   "instructions": [
+    {
+      "type_id": "快速文件操作",
+      "name": "快速文件操作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "操作": {
+            "type": "string",
+            "description": "操作",
+            "default": "复制",
+            "enum": [
+              "打开",
+              "复制"
+            ]
+          },
+          "源路径": {
+            "type": "string",
+            "description": "源文件或文件夹",
+            "default": ""
+          },
+          "目标路径": {
+            "type": "string",
+            "description": "复制目标完整路径或现有文件夹",
+            "default": ""
+          },
+          "覆盖": {
+            "type": "boolean",
+            "description": "覆盖已有目标",
+            "default": false
+          },
+          "预期文字": {
+            "type": "string",
+            "description": "核验文字（多项用 | 分隔）",
+            "default": ""
+          },
+          "窗口标题": {
+            "type": "string",
+            "description": "核验目标窗口完整标题",
+            "default": ""
+          },
+          "区域": {
+            "type": "string",
+            "description": "核验区域 x,y,w,h",
+            "default": ""
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "操作": "复制",
+        "源路径": "",
+        "目标路径": "",
+        "覆盖": false,
+        "预期文字": "",
+        "窗口标题": "",
+        "区域": ""
+      },
+      "required_fields": [
+        "源路径"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "截图OCR核验",
+      "name": "截图OCR核验",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "预期文字": {
+            "type": "string",
+            "description": "必须出现的文字（多项用 | 分隔）",
+            "default": ""
+          },
+          "窗口标题": {
+            "type": "string",
+            "description": "目标窗口完整标题",
+            "default": ""
+          },
+          "区域": {
+            "type": "string",
+            "description": "截图区域 x,y,w,h（与窗口标题二选一）",
+            "default": ""
+          },
+          "置信度": {
+            "type": "number",
+            "description": "最低 OCR 置信度",
+            "default": 0.7,
+            "minimum": 0,
+            "maximum": 1
+          },
+          "识别超时": {
+            "type": "integer",
+            "description": "单次识别超时（秒）",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 120
+          },
+          "未通过时报错": {
+            "type": "boolean",
+            "description": "未通过时停止流程",
+            "default": true
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "预期文字": "",
+        "窗口标题": "",
+        "区域": "",
+        "置信度": 0.7,
+        "识别超时": 20,
+        "未通过时报错": true
+      },
+      "required_fields": [
+        "预期文字"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
     {
       "type_id": "绑定选择窗口",
       "name": "绑定选择窗口",
@@ -4356,6 +4726,20 @@
               "错误",
               "询问"
             ]
+          },
+          "变量": {
+            "type": "string",
+            "description": "附加变量（可选）",
+            "default": ""
+          },
+          "显示顺序": {
+            "type": "string",
+            "description": "显示顺序",
+            "default": "提示内容在前",
+            "enum": [
+              "提示内容在前",
+              "变量值在前"
+            ]
           }
         },
         "required": [],
@@ -4364,7 +4748,9 @@
       "defaults": {
         "标题": "提示",
         "内容": "",
-        "图标": "信息"
+        "图标": "信息",
+        "变量": "",
+        "显示顺序": "提示内容在前"
       },
       "required_fields": [],
       "flow_ports": [
@@ -6420,6 +6806,426 @@
         "path": ""
       },
       "required_fields": [],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "Crawl4AI网页抓取",
+      "name": "Crawl4AI 网页抓取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "网址": {
+            "type": "string",
+            "description": "网页地址",
+            "default": ""
+          },
+          "格式": {
+            "type": "string",
+            "description": "提取内容",
+            "default": "Markdown",
+            "enum": [
+              "Markdown",
+              "正文",
+              "链接",
+              "图片",
+              "表格",
+              "标题",
+              "完整结果"
+            ]
+          },
+          "选择器": {
+            "type": "string",
+            "description": "内容 CSS 选择器（可选）",
+            "default": ""
+          },
+          "等待元素": {
+            "type": "string",
+            "description": "等待 CSS 元素（可选）",
+            "default": ""
+          },
+          "超时": {
+            "type": "integer",
+            "description": "页面超时（秒）",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 180
+          },
+          "最大字符数": {
+            "type": "integer",
+            "description": "最大字符数",
+            "default": 20000,
+            "minimum": 500,
+            "maximum": 200000
+          },
+          "变量": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "网页抓取结果"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "网址": "",
+        "格式": "Markdown",
+        "选择器": "",
+        "等待元素": "",
+        "超时": 60,
+        "最大字符数": 20000,
+        "变量": "网页抓取结果"
+      },
+      "required_fields": [
+        "网址",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "网页正文提取",
+      "name": "网页正文提取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "网址": {
+            "type": "string",
+            "description": "网页地址",
+            "default": ""
+          },
+          "格式": {
+            "type": "string",
+            "description": "提取内容",
+            "default": "正文",
+            "enum": [
+              "正文"
+            ]
+          },
+          "选择器": {
+            "type": "string",
+            "description": "内容 CSS 选择器（可选）",
+            "default": ""
+          },
+          "等待元素": {
+            "type": "string",
+            "description": "等待 CSS 元素（可选）",
+            "default": ""
+          },
+          "超时": {
+            "type": "integer",
+            "description": "页面超时（秒）",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 180
+          },
+          "最大字符数": {
+            "type": "integer",
+            "description": "最大字符数",
+            "default": 20000,
+            "minimum": 500,
+            "maximum": 200000
+          },
+          "变量": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "网页正文"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "网址": "",
+        "格式": "正文",
+        "选择器": "",
+        "等待元素": "",
+        "超时": 60,
+        "最大字符数": 20000,
+        "变量": "网页正文"
+      },
+      "required_fields": [
+        "网址",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "网页链接提取",
+      "name": "网页链接提取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "网址": {
+            "type": "string",
+            "description": "网页地址",
+            "default": ""
+          },
+          "格式": {
+            "type": "string",
+            "description": "提取内容",
+            "default": "链接",
+            "enum": [
+              "链接"
+            ]
+          },
+          "选择器": {
+            "type": "string",
+            "description": "内容 CSS 选择器（可选）",
+            "default": ""
+          },
+          "等待元素": {
+            "type": "string",
+            "description": "等待 CSS 元素（可选）",
+            "default": ""
+          },
+          "超时": {
+            "type": "integer",
+            "description": "页面超时（秒）",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 180
+          },
+          "最大字符数": {
+            "type": "integer",
+            "description": "最大字符数",
+            "default": 20000,
+            "minimum": 500,
+            "maximum": 200000
+          },
+          "变量": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "网页链接"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "网址": "",
+        "格式": "链接",
+        "选择器": "",
+        "等待元素": "",
+        "超时": 60,
+        "最大字符数": 20000,
+        "变量": "网页链接"
+      },
+      "required_fields": [
+        "网址",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "网页图片提取",
+      "name": "网页图片提取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "网址": {
+            "type": "string",
+            "description": "网页地址",
+            "default": ""
+          },
+          "格式": {
+            "type": "string",
+            "description": "提取内容",
+            "default": "图片",
+            "enum": [
+              "图片"
+            ]
+          },
+          "选择器": {
+            "type": "string",
+            "description": "内容 CSS 选择器（可选）",
+            "default": ""
+          },
+          "等待元素": {
+            "type": "string",
+            "description": "等待 CSS 元素（可选）",
+            "default": ""
+          },
+          "超时": {
+            "type": "integer",
+            "description": "页面超时（秒）",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 180
+          },
+          "最大字符数": {
+            "type": "integer",
+            "description": "最大字符数",
+            "default": 20000,
+            "minimum": 500,
+            "maximum": 200000
+          },
+          "变量": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "网页图片"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "网址": "",
+        "格式": "图片",
+        "选择器": "",
+        "等待元素": "",
+        "超时": 60,
+        "最大字符数": 20000,
+        "变量": "网页图片"
+      },
+      "required_fields": [
+        "网址",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "网页表格提取",
+      "name": "网页表格提取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "网址": {
+            "type": "string",
+            "description": "网页地址",
+            "default": ""
+          },
+          "格式": {
+            "type": "string",
+            "description": "提取内容",
+            "default": "表格",
+            "enum": [
+              "表格"
+            ]
+          },
+          "选择器": {
+            "type": "string",
+            "description": "内容 CSS 选择器（可选）",
+            "default": ""
+          },
+          "等待元素": {
+            "type": "string",
+            "description": "等待 CSS 元素（可选）",
+            "default": ""
+          },
+          "超时": {
+            "type": "integer",
+            "description": "页面超时（秒）",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 180
+          },
+          "最大字符数": {
+            "type": "integer",
+            "description": "最大字符数",
+            "default": 20000,
+            "minimum": 500,
+            "maximum": 200000
+          },
+          "变量": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "网页表格"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "网址": "",
+        "格式": "表格",
+        "选择器": "",
+        "等待元素": "",
+        "超时": 60,
+        "最大字符数": 20000,
+        "变量": "网页表格"
+      },
+      "required_fields": [
+        "网址",
+        "变量"
+      ],
+      "flow_ports": [
+        "flow"
+      ]
+    },
+    {
+      "type_id": "网页标题提取",
+      "name": "网页标题提取",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "网址": {
+            "type": "string",
+            "description": "网页地址",
+            "default": ""
+          },
+          "格式": {
+            "type": "string",
+            "description": "提取内容",
+            "default": "标题",
+            "enum": [
+              "标题"
+            ]
+          },
+          "选择器": {
+            "type": "string",
+            "description": "内容 CSS 选择器（可选）",
+            "default": ""
+          },
+          "等待元素": {
+            "type": "string",
+            "description": "等待 CSS 元素（可选）",
+            "default": ""
+          },
+          "超时": {
+            "type": "integer",
+            "description": "页面超时（秒）",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 180
+          },
+          "最大字符数": {
+            "type": "integer",
+            "description": "最大字符数",
+            "default": 20000,
+            "minimum": 500,
+            "maximum": 200000
+          },
+          "变量": {
+            "type": "string",
+            "description": "保存到变量",
+            "default": "网页标题"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "defaults": {
+        "网址": "",
+        "格式": "标题",
+        "选择器": "",
+        "等待元素": "",
+        "超时": 60,
+        "最大字符数": 20000,
+        "变量": "网页标题"
+      },
+      "required_fields": [
+        "网址",
+        "变量"
+      ],
       "flow_ports": [
         "flow"
       ]

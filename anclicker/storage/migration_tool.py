@@ -19,9 +19,9 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
-from anclicker.platform.image_paths import normalize_image_parameters
+from anclicker.platform.image_paths import normalize_image_parameters, resolve_image_reference
 from anclicker.storage.graph_repository import GraphRepository, SETTINGS_SHEET_HEADERS, WorkbookValidationError, GraphValidationError
-from anclicker.storage.legacy_workbook import LEGACY_HEADERS, DATABASE_HEADERS, convert_legacy_workbook, is_current_workbook
+from anclicker.storage.legacy_workbook import LEGACY_HEADERS, DATABASE_HEADERS, convert_legacy_workbook, is_current_workbook, is_graph_workbook
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -60,7 +60,7 @@ def _read_settings(source):
     if '设置' not in source.sheetnames:
         return rows, sections, branch_data
     sheet = source['设置']
-    header = list(next(sheet.values))
+    header = list(next(sheet.values, ()))
     if header == SETTINGS_SHEET_HEADERS:
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if all(value is None for value in row):
@@ -116,6 +116,21 @@ def _read_settings(source):
 def inspect_migration(source, base_directory=None):
     """Scan every branch. Do not mutate source, caller DB, or run instructions."""
     plan = MigrationPlan()
+    if is_graph_workbook(source):
+        # These are protocol tables, not separate executable branches.
+        plan.source_commands = sum(any(v is not None for v in row)
+            for row in source['命令'].iter_rows(min_row=2, values_only=True))
+        with tempfile.TemporaryDirectory(prefix='anclicker-graph-check-') as temporary:
+            DatabaseOperation = _module_imports.load('DatabaseOperation')
+            path = str(Path(temporary) / 'check.db')
+            DatabaseOperation(path)
+            try:
+                GraphRepository(path).validate_workbook(source)
+                message = '这是流程图项目，无需旧分支转换，请直接打开。'
+            except (WorkbookValidationError, GraphValidationError) as error:
+                message = '流程图文件结构校验失败：' + str(error)
+        plan.errors.append({'sheet': '流程图项目', 'error': message})
+        return plan
     try:
         settings_rows, sections, plan.branches = _read_settings(source)
     except WorkbookValidationError as error:
@@ -142,7 +157,7 @@ def inspect_migration(source, base_directory=None):
         for sheet in source:
             if sheet.title == '设置':
                 continue
-            header = list(next(sheet.values))
+            header = list(next(sheet.values, ()))
             values = [(index, list(row)) for index, row in enumerate(
                 sheet.iter_rows(min_row=2, values_only=True), 2
             ) if any(value is not None for value in row)]
@@ -189,12 +204,13 @@ def inspect_migration(source, base_directory=None):
                         paths = str(parameters['图像路径']).splitlines()
                         resolved = []
                         for old_path in paths:
-                            candidate = Path(old_path)
-                            alternatives = [candidate]
-                            if base_directory:
-                                alternatives.append(Path(base_directory) / ntpath.basename(old_path))
-                            alternatives.extend(Path(folder) / ntpath.basename(old_path) for folder in resources)
-                            found = next((path for path in alternatives if path.is_file()), None)
+                            # Use the same absolute-path/Data fallback policy as execution.
+                            # Old exported paths commonly refer to an installation that is gone.
+                            candidate = Path(resolve_image_reference(
+                                old_path,
+                                project_path=str(Path(base_directory) / 'legacy.xlsx') if base_directory else None,
+                                resource_folders=resources))
+                            found = candidate if candidate.is_file() else None
                             resolved.append(str(found.resolve()) if found else old_path)
                             if found is None:
                                 plan.missing_resources.append({'branch': sheet.title, 'id': row[0].value, 'path': old_path})
@@ -257,7 +273,7 @@ def write_migration_bundle(plan, source_path, output_parent=None):
         'status': 'blocked' if plan.errors else 'converted_with_warnings' if plan.warnings or plan.missing_resources else 'converted',
     }
     (folder / '迁移报告.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
-    lines = ['An Clicker 旧版迁移报告', f'原指令：{plan.source_commands}；已转换：{plan.converted_commands}',
+    lines = ['AnClicker 旧版迁移报告', f'原指令：{plan.source_commands}；已转换：{plan.converted_commands}',
              f'原当前分支：{plan.default_branch}', '各分支独立；仅原有异常跳转会转到关联分支，不会顺序串联运行。',
              '请整体保留迁移目录：关联项目与 images 图片目录使用相对路径，不能只移动一个 Excel。',
              '使用：在 v1.1.5 或更新版本中导入对应的“新版.xlsx”。',
@@ -271,8 +287,29 @@ def write_migration_bundle(plan, source_path, output_parent=None):
     return folder, outputs
 
 
+def migrate_automatically(source, source_path):
+    """Convert all supported branches before choosing the original active branch.
+
+    No dialogs or execution. Never import a partial conversion or overwrite source.
+    """
+    plan = inspect_migration(source, Path(source_path).resolve().parent)
+    try:
+        if plan.errors:
+            details = '\n'.join(f"{item['sheet']}：{item['error']}" for item in plan.errors)
+            raise WorkbookValidationError('旧版内容尚不能完整迁移，原文件和当前任务未修改：\n' + details)
+        if plan.missing_resources:
+            paths = '\n'.join(str(item['path']) for item in plan.missing_resources[:5])
+            raise WorkbookValidationError('已搜索新版 Data，仍缺少以下图片；原文件和当前任务未修改：\n' + paths)
+        if not plan.workbooks:
+            raise WorkbookValidationError('旧文件没有可迁移的指令，原文件和当前任务未修改。')
+        folder, outputs = write_migration_bundle(plan, source_path)
+        return str(folder), outputs, outputs[plan.default_branch]
+    finally:
+        plan.close()
+
+
 def needs_batch_migration(source):
-    if is_current_workbook(source):
+    if is_graph_workbook(source):
         return False
     sheets = [sheet for sheet in source if sheet.title != '设置']
     return (len(sheets) > 1 or

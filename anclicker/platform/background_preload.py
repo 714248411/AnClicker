@@ -98,6 +98,25 @@ def start_preload():
             _pending.cancel()
         _pending = Preparation(DmTransport, key)
 
+def offer_preloaded(transport):
+    """Recycle only a clean, unbound helper, never a live window binding."""
+    global _pending
+    key = _configuration_key()
+    with _lock:
+        if _pending is not None:
+            transport.close()
+            return
+        ready = Preparation.__new__(Preparation)
+        ready.key = key
+        ready.context = ExecutionContext()
+        transport.context = ready.context
+        ready.done = threading.Event();ready.done.set()
+        ready.lock = threading.Lock()
+        ready.transport = transport
+        ready.error = None;ready.cancelled = False
+        ready.cleanup_thread = None;ready.thread = None
+        _pending = ready
+
 def preload_status():
     with _lock:
         pending = _pending
@@ -130,7 +149,7 @@ def close_preload():
         pending, _pending = _pending, None
     if pending is not None:
         pending.cancel()
-        pending.thread.join(timeout=3)
+        if pending.thread is not None:pending.thread.join(timeout=3)
         if pending.cleanup_thread is not None:
             pending.cleanup_thread.join(timeout=3)
 

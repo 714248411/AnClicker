@@ -1,8 +1,10 @@
 """Graphics items used by the embeddable instruction editor."""
 
 from __future__ import annotations
+from anclicker.platform.qt_compat.QtGui import QFontMetrics
 
 import weakref
+from html import escape
 
 import math
 
@@ -129,19 +131,26 @@ class NodeItem(QGraphicsObject):
         self.command_id = command_id_
         self.type_id = type_id_
         self.title = title_
+        self.thumbnail_key = None
         self.terminal_role = terminal_role_
         self.control_kind = control_kind_
         self.subtitle = str(subtitle_ or "")
         self.note = str(note_ or "")
-        self.header_color = QColor(color_)
+        self.header_color = QColor('#3789dc' if type_id_ in {'多线程启动', '多线程关闭'} else color_)
         self.title_font = QFont("Microsoft YaHei UI", 10, QFont.Weight.DemiBold)
         self.detail_font = QFont("Microsoft YaHei UI", 8)
+        detail_metrics=QFontMetricsF(self.detail_font)
         text_width_ = max(
-            QFontMetricsF(self.title_font).horizontalAdvance(title_),
-            QFontMetricsF(self.detail_font).horizontalAdvance(self.subtitle),
+            QFontMetricsF(self.title_font).horizontalAdvance(title_[:500]),
+            max((detail_metrics.horizontalAdvance(line[:500]) for line in self.subtitle.splitlines()[:3]),default=0),
         )
-        self.width = max(NODE_MIN_WIDTH, text_width_ + 34.0, float(width_ or 0.0))
-        self.height = max(NODE_HEIGHT, float(height_ or 0.0))
+        # Long parameters must not dominate the canvas or zoom-to-fit bounds.
+        self.width = max(NODE_MIN_WIDTH, min(360.0,text_width_ + 34.0), float(width_ or 0.0))
+        tooltip='\n'.join(part for part in (self.title,self.subtitle[:1200],self.note[:400],
+                            '双击编辑完整参数' if terminal_role_ is None else '') if part)
+        self.setToolTip('<qt>'+escape(tooltip).replace('\n','<br>')+'</qt>')
+        detail_height=42.0+detail_metrics.height()*min(2,max(1,len(self.subtitle.splitlines())))
+        self.height = max(NODE_HEIGHT,detail_height,float(height_ or 0.0))
 
         self.input_port: PortItem | None = None
         self.output_port: PortItem | None = None
@@ -208,8 +217,9 @@ class NodeItem(QGraphicsObject):
         del option_, widget_
         painter_.setRenderHint(QPainter.RenderHint.Antialiasing)
         body_ = self.shape()
-        control_color = QColor("#9b7bea" if self.type_id in {"循环", "条件循环"} else "#25aa85")
-        control = self.type_id in {"循环", "条件循环", "条件判断", "颜色判断", "变量比较"}
+        threaded = self.type_id in {"多线程启动", "多线程关闭"}
+        control_color = QColor("#3789dc" if threaded else "#9b7bea" if self.type_id in {"循环", "条件循环"} else "#25aa85")
+        control = threaded or self.type_id in {"循环", "条件循环", "条件判断", "颜色判断", "变量比较"}
         if self._hovered or (control and self.isSelected()):
             # Paint the halo first: the opaque body and text stay crisp above it.
             painter_.setBrush(Qt.BrushStyle.NoBrush)
@@ -254,20 +264,47 @@ class NodeItem(QGraphicsObject):
             painter_.drawText(QRectF(7.0, 3.0, 28.0, 14.0), f"#{self.command_id}")
             painter_.setPen(TEXT_COLOR)
             painter_.setFont(self.title_font)
-            painter_.drawText(
-                QRectF(12.0, 14.0, self.width - 24.0, 23.0),
-                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
-                self.title,
-            )
+            title_rect = QRectF(12.0, 14.0, self.width - 24.0, 23.0)
+            if self.control_kind == 'condition' and self.thumbnail_key:
+                title_rect = QRectF(self.width*.25, 18.0, self.width*.5, 19.0)
+            cache = getattr(self.scene(), 'thumbnail_cache', None)
+            image = cache.image(self.thumbnail_key) if cache is not None and self.thumbnail_key else None
+            if image is not None and not image.isNull():
+                from anclicker.ui.instruction_thumbnails import thumbnail_layout
+                label, preview, _ = thumbnail_layout(title_rect.toRect(),
+                    QFontMetrics(self.title_font),
+                    self.title, image)
+                # Centre the complete title + image inside the original node.
+                used = preview.right() - title_rect.left() + 1
+                offset = max(0.0, (title_rect.width()-used)/2.0)
+                painter_.save()
+                painter_.setClipPath(body_)
+                painter_.setClipRect(title_rect, Qt.IntersectClip)
+                painter_.drawText(QRectF(title_rect.x()+5+offset,title_rect.y(),
+                    max(0,preview.x()-title_rect.x()-10),title_rect.height()),
+                    Qt.AlignLeft | Qt.AlignVCenter,label)
+                if preview.width()>0 and preview.height()>0:
+                    painter_.setRenderHint(QPainter.SmoothPixmapTransform)
+                    painter_.drawImage(QRectF(preview).translated(offset,0),image)
+                painter_.restore()
+            else:
+                painter_.drawText(title_rect, Qt.AlignCenter,
+                    QFontMetricsF(self.title_font).elidedText(self.title,Qt.ElideRight,title_rect.width()))
             painter_.setFont(self.detail_font)
             detail_color = QColor(TEXT_COLOR)
             detail_color.setAlpha(200)
             painter_.setPen(detail_color)
-            painter_.drawText(
-                QRectF(10.0, 37.0, self.width - 20.0, self.height - 42.0),
-                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
-                self.subtitle,
-            )
+            metrics=QFontMetricsF(self.detail_font)
+            line_height=metrics.height()
+            lines=self.subtitle.splitlines() or ['']
+            count=max(1,int((self.height-40.0)//line_height))
+            for index,line in enumerate(lines[:count]):
+                if index==count-1 and len(lines)>count:line+='…'
+                painter_.drawText(
+                    QRectF(10.0,37.0+index*line_height,self.width-20.0,line_height),
+                    Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+                    metrics.elidedText(line,Qt.ElideRight,self.width-20.0),
+                )
             painter_.setPen(QPen(QColor("#8b91a3"), 1.0))
             painter_.drawLine(
                 QPointF(self.width - 12.0, self.height - 4.0),
@@ -282,7 +319,7 @@ class NodeItem(QGraphicsObject):
                 painter_.drawText(
                     QRectF(0.0, self.height + 2.0, self.width, 18.0),
                     Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-                    self.note,
+                    QFontMetricsF(self.detail_font).elidedText(self.note,Qt.ElideRight,self.width),
                 )
 
     def itemChange(self, change_, value_):

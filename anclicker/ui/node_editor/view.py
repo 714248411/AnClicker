@@ -8,11 +8,14 @@ from anclicker.platform.qt_compat.QtGui import QContextMenuEvent, QKeySequence, 
 from time import monotonic
 from anclicker.platform.qt_compat.QtWidgets import QGraphicsView, QInputDialog, QMenu
 
-from anclicker.ui.node_editor.items import NodeItem, EdgeItem
+from anclicker.ui.node_editor.items import NodeItem, EdgeItem, PortItem
 from anclicker.ui.node_editor.palette import INSTRUCTION_MIME_TYPE
 from anclicker.ui.node_editor.style import MAX_ZOOM, MIN_ZOOM, NODE_COLOR, EDGE_SELECTED_COLOR
 from anclicker.ui.node_editor.flow_arrows import arrow_segments, moving_arrows, arrow_repaint_region
 from anclicker.ui.node_editor.cutting import ConnectionCutter
+from anclicker.ui.instruction_menu import add_instruction_categories
+from anclicker.ui.two_column_menu import MenuColumn, exec_two_column_menu
+from anclicker.ui.drag_feedback import FeedbackOverlay, HoverExpandController, animation_menu, visual_only
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -28,8 +31,11 @@ class NodeView(QGraphicsView):
     continuousAnimationChanged = Signal(bool)
     arrowsVisibilityChanged = Signal(bool)
     instructionDropped = Signal(str, float, float)
+    hoverExpandRequested = Signal(object)
     instructionCreateRequested = Signal(str, float, float)
     copyRequested = Signal(object)
+    cutRequested = Signal(object)
+    dissolveThreadRequested = Signal(object)
     deleteRequested = Signal(object)
     runSingleRequested = Signal(object)
     runFromRequested = Signal(object)
@@ -68,9 +74,10 @@ class NodeView(QGraphicsView):
         self._pan_moved = False
         self._pan_button = Qt.MouseButton.NoButton
         self._pan_origin = QPointF()
-        self._pan_scroll_origin = QPoint()
+        self._pan_scene_center = QPointF()
         self._instruction_types: set[str] = set()
         self._instruction_specs = {}
+        self.arrangement_menu = lambda menu: None
         self.template_names_provider = lambda: ()
         self.connection_undo_count = lambda: 0
         self.connection_redo_count = lambda: 0
@@ -79,6 +86,13 @@ class NodeView(QGraphicsView):
         self._suppress_context_until = 0.0
         self._copied_groups = []
         self._group_drag = None
+        self.feedback = FeedbackOverlay(self, reduced_motion=True)
+        self.hover_expand = HoverExpandController(self, self._expand_hovered)
+        self._hover_point = None
+        self._drag_feedback_started = False
+        self.horizontalScrollBar().valueChanged.connect(self.hover_expand.cancel)
+        self.verticalScrollBar().valueChanged.connect(self.hover_expand.cancel)
+        self.installEventFilter(self.hover_expand)
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing
             | QPainter.RenderHint.TextAntialiasing
@@ -213,7 +227,7 @@ class NodeView(QGraphicsView):
         active_cache = {}
         repaint_region = QRegion()
         for edge in edges:
-            if not edge.sceneBoundingRect().intersects(visible_scene):
+            if not edge.isVisible() or not edge.sceneBoundingRect().intersects(visible_scene):
                 continue
             path = edge.path()
             cached = self._arrow_cache.get(edge)
@@ -222,7 +236,7 @@ class NodeView(QGraphicsView):
                 cached = (path, transform, segments, total, viewport, arrow_repaint_region(segments, viewport))
             active_cache[edge] = cached
             repaint_region |= cached[5]
-            arrows = moving_arrows(cached[2], cached[3], viewport, elapsed)
+            arrows = moving_arrows(cached[2], cached[3], viewport, elapsed * .5)
             color, _ = edge._branch_style()
             error_link = edge.link_kind in (5, 6)
             color = color.darker(155) if NODE_COLOR.lightness() > 128 else color.lighter(115 if error_link else 140)
@@ -257,6 +271,66 @@ class NodeView(QGraphicsView):
             painter.drawPath(path)
         painter.restore()
 
+    def feedback_rects(self, ids):
+        return [QRectF(self.mapFromScene(node.sceneBoundingRect()).boundingRect())
+                for cid in ids if (node := self.scene().nodes_by_command_id.get(cid)) is not None and node.isVisible()]
+
+    def _hover_target(self, point):
+        scene = self.scene()
+        excluded = set(self._group_drag[1]) if self._group_drag else set()
+        if scene._drag_node is not None:
+            excluded.add(scene._drag_node.node_id)
+        if scene._connection_port is not None:
+            excluded.add(scene._connection_port.node.node_id)
+        position = self.mapToScene(point)
+        for node in sorted(scene.nodes_by_command_id.values(), key=lambda item: item.zValue(), reverse=True):
+            group = getattr(scene, 'step_groups', {}).get(node.command_id)
+            if group and group['collapsed'] and node.node_id not in excluded and node.isVisible() and node.sceneBoundingRect().contains(position):
+                return node.command_id
+        return None
+
+    def _track_hover(self, point):
+        self._hover_point = QPoint(point)
+        self.hover_expand.track(self._hover_target(point))
+
+    def _expand_hovered(self, cid):
+        if self._hover_point is None or self._hover_target(self._hover_point) != cid or not self.isVisible():
+            return
+        self.hoverExpandRequested.emit(cid)
+        group = getattr(self.scene(), 'step_groups', {}).get(cid)
+        if group and not group['collapsed']:
+            self.pulse_group({cid} | group['members'], 'hover')
+
+    @visual_only
+    def pulse_group(self, ids, kind='expand'):
+        if self._drag_feedback_started:
+            return
+        if not self.feedback.allowed(len(ids), preview=kind == 'hover', committed=kind != 'hover'):
+            return
+        rects = self.feedback_rects(ids)
+        if rects:
+            bounds = rects[0]
+            for rect in rects[1:]:
+                bounds = bounds.united(rect)
+            self.feedback.play(kind, [bounds], count=len(ids), committed=kind != 'hover', preview=kind == 'hover')
+
+    @visual_only
+    def show_edit_feedback(self, kind, ids):
+        if not self.feedback.allowed(len(ids), committed=True):
+            return
+        self.feedback.play(kind, self.feedback_rects(ids), count=len(ids), committed=True)
+
+    @visual_only
+    def _show_drag_preview(self):
+        if self._drag_feedback_started:
+            return
+        scene = self.scene()
+        ids = ([scene.nodes_by_id[key].command_id for key in self._group_drag[1] if key in scene.nodes_by_id]
+               if self._group_drag else [scene._drag_node.command_id] if scene._drag_node else [])
+        if ids:
+            self._drag_feedback_started = True
+            self.feedback.play('move', self.feedback_rects(ids), count=len(ids), preview=True)
+
     def set_instruction_types(self, type_ids_) -> None:
         self._instruction_types = {str(type_id_) for type_id_ in type_ids_}
         self._instruction_specs = dict(type_ids_) if hasattr(type_ids_, "items") else {}
@@ -281,15 +355,25 @@ class NodeView(QGraphicsView):
             if key in scene.nodes_by_command_id))
 
     def _begin_copy_drag(self, event_):
-        if event_.button() != Qt.LeftButton or not event_.modifiers() & Qt.ControlModifier:
+        if event_.button() != Qt.LeftButton:
             return False
         item = self.itemAt(event_.position().toPoint())
+        if isinstance(item, PortItem):
+            return False
         while item is not None and not isinstance(item, NodeItem):
             item = item.parentItem()
         if item is None or item.is_terminal:
             return False
-        group = next((g for g in reversed(self._copied_groups) if item.node_id in g), None)
+        group = getattr(self.scene(), 'locked_groups', {}).get(item.node_id)
+        if group is None and event_.modifiers() & Qt.ControlModifier:
+            group = next((g for g in reversed(self._copied_groups) if item.node_id in g), None)
         if group is None:
+            return False
+        local = item.mapFromScene(self.mapToScene(event_.position().toPoint()))
+        # Leave connection hotspots to NodeItem; the exposed resize corner
+        # remains a group drag handle for stacked, locked cards.
+        resize_corner = local.x() >= item.width - 16.0 and local.y() >= item.height - 16.0
+        if not resize_corner and item.connection_port_at(local) is not None:
             return False
         nodes = [self.scene().nodes_by_id[key] for key in group if key in self.scene().nodes_by_id]
         self.scene().clearSelection()
@@ -332,7 +416,13 @@ class NodeView(QGraphicsView):
                     if cancel:
                         node.setPos(start)
                     elif node.pos() != start:
-                        changed[node_id] = (node.pos().x(), node.pos().y())
+                        if node_id in getattr(scene, 'locked_groups', {}):
+                            base = scene.locked_source_positions.get(node_id, start)
+                            persisted = base + node.pos() - start
+                            changed[node_id] = (persisted.x(), persisted.y())
+                            scene.locked_source_positions[node_id] = QPointF(persisted)
+                        else:
+                            changed[node_id] = (node.pos().x(), node.pos().y())
         finally:
             scene._updating_graph = was_updating
         if cancel:
@@ -341,6 +431,7 @@ class NodeView(QGraphicsView):
             scene.positionsCommitted.emit(changed)
 
     def mousePressEvent(self, event_):
+        self._drag_feedback_started = False
         self._suppress_context_until = 0.0
         if self.cutter.active:
             event_.accept()
@@ -360,8 +451,7 @@ class NodeView(QGraphicsView):
             and bool(event_.modifiers() & Qt.KeyboardModifier.ControlModifier)
             and self.itemAt(event_.position().toPoint()) is None
         )
-        middle_pan_ = (event_.button() == Qt.MouseButton.MiddleButton
-                       and self.itemAt(event_.position().toPoint()) is None)
+        middle_pan_ = event_.button() == Qt.MouseButton.MiddleButton
         if self._panning:
             event_.accept()
             return
@@ -369,8 +459,8 @@ class NodeView(QGraphicsView):
             self._panning = True
             self._pan_moved = False
             self._pan_start = event_.position().toPoint()
-            self._pan_origin = event_.position()
-            self._pan_scroll_origin = QPoint(self.horizontalScrollBar().value(), self.verticalScrollBar().value())
+            self._pan_origin = QPointF(event_.position())
+            self._pan_scene_center = self.mapToScene(self.viewport().rect().center())
             self._pan_button = event_.button()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event_.accept()
@@ -378,6 +468,11 @@ class NodeView(QGraphicsView):
         super().mousePressEvent(event_)
 
     def mouseMoveEvent(self, event_):
+        if event_.buttons() & Qt.LeftButton and (self._group_drag or self.scene()._drag_node or self.scene()._connection_port):
+            self._track_hover(event_.position().toPoint())
+            self._show_drag_preview()
+        else:
+            self.hover_expand.cancel()
         if self._group_drag is not None:
             if event_.buttons() & Qt.LeftButton:
                 self._move_copy_drag(event_.position())
@@ -394,21 +489,20 @@ class NodeView(QGraphicsView):
             return
         if self._panning:
             delta_ = event_.position() - self._pan_origin
-            center = self.mapToScene(self.viewport().rect().center())
-            self._expand_canvas(center - delta_ / self._zoom, self._zoom)
+            # Qt 5 can change scrollbar ranges while the scene expands. Keep
+            # the press-time scene center instead of stale scrollbar values.
+            target = self._pan_scene_center - delta_ / self._zoom
+            self._expand_canvas(target, self._zoom)
             if abs(delta_.x()) + abs(delta_.y()) > 2:
                 self._pan_moved = True
-            self.horizontalScrollBar().setValue(
-                self._pan_scroll_origin.x() - round(delta_.x())
-            )
-            self.verticalScrollBar().setValue(
-                self._pan_scroll_origin.y() - round(delta_.y())
-            )
+            self.centerOn(target)
             event_.accept()
             return
         super().mouseMoveEvent(event_)
 
     def mouseReleaseEvent(self, event_):
+        self._drag_feedback_started = False
+        self.hover_expand.cancel()
         if self._group_drag is not None:
             if event_.button() == Qt.LeftButton:
                 self._move_copy_drag(event_.position())
@@ -450,6 +544,8 @@ class NodeView(QGraphicsView):
         super().mouseReleaseEvent(event_)
 
     def focusOutEvent(self, event_):
+        self._drag_feedback_started = False
+        self.hover_expand.cancel()
         self._finish_copy_drag(cancel=True)
         self.cutter.cancel()
         self._panning = False
@@ -466,11 +562,17 @@ class NodeView(QGraphicsView):
 
     def dragMoveEvent(self, event_):
         if self._drop_type(event_) is not None:
+            self._track_hover(event_.position().toPoint())
             event_.acceptProposedAction()
             return
         super().dragMoveEvent(event_)
 
+    def dragLeaveEvent(self, event_):
+        self.hover_expand.cancel()
+        super().dragLeaveEvent(event_)
+
     def dropEvent(self, event_):
+        self.hover_expand.cancel()
         type_id_ = self._drop_type(event_)
         if type_id_ is not None:
             scene_position_ = self.mapToScene(event_.position().toPoint())
@@ -571,30 +673,26 @@ class NodeView(QGraphicsView):
             event_.accept()
             return
         if node_ is None:
-            menu_ = QMenu(self)
+            menu_ = MenuColumn(self)
             style_context_menu(menu_, self)
+            self.arrangement_menu(menu_)
+            menu_.addSeparator()
             self._add_connection_undo(menu_)
             menu_.addSeparator()
             self._add_arrow_actions(menu_)
             menu_.addSeparator()
             self._add_animation_actions(menu_)
+            animation_menu(menu_, self)
             menu_.addSeparator()
             select_all_action_ = menu_.addAction("全选")
             save_template_action_ = menu_.addAction("选中存为模板")
             save_template_action_.setEnabled(bool(self.scene().selected_command_ids()))
-            menu_.addSeparator()
-            action_types_ = {}
-            categories_ = {}
-            for type_id_, spec_ in self._instruction_specs.items():
-                categories_.setdefault(spec_.category, []).append((type_id_, spec_.title))
-            for category_, entries_ in categories_.items():
-                category_menu_ = menu_.addMenu(category_)
-                style_context_menu(category_menu_, self)
-                for type_id_, title_ in entries_:
-                    action_ = category_menu_.addAction(title_)
-                    action_types_[action_] = type_id_
+            insert_menu_ = MenuColumn(self)
+            style_context_menu(insert_menu_, self)
+            action_types_ = add_instruction_categories(insert_menu_, self._instruction_specs, self)
             template_actions_ = {}
-            template_menu_ = menu_.addMenu("插入模板")
+            template_menu_ = insert_menu_.addMenu("插入模板")
+            insert_menu_._template_submenu = template_menu_
             style_context_menu(template_menu_, self)
             for name_ in self.template_names_provider() or ():
                 action_ = template_menu_.addAction(str(name_))
@@ -602,8 +700,9 @@ class NodeView(QGraphicsView):
             if not template_actions_:
                 template_menu_.addAction("暂无模板").setEnabled(False)
             if not action_types_:
-                menu_.addAction("暂无可用指令").setEnabled(False)
-            selected_action_ = menu_.exec(event_.globalPos())
+                insert_menu_.addAction("暂无可用指令").setEnabled(False)
+            selected_action_ = exec_two_column_menu(menu_, insert_menu_, event_.globalPos(), self)
+            insert_menu_.deleteLater()
             menu_.deleteLater()
             if selected_action_ == select_all_action_:
                 for item_ in self.scene().nodes_by_id.values():
@@ -650,17 +749,31 @@ class NodeView(QGraphicsView):
         if not selected_ids_:
             return
 
-        menu_ = QMenu(self)
+        menu_ = MenuColumn(self)
 
         style_context_menu(menu_, self)
         self._add_connection_undo(menu_)
         menu_.addSeparator()
+        fold_action_ = None
+        fold_command_id_ = node_.command_id
+        nested_on_ = nested_off_ = dissolve_thread_ = None
+        if node_.type_id == '多线程启动':
+            nested_on_ = menu_.addAction('打开嵌套多线程')
+            nested_off_ = menu_.addAction('取消嵌套多线程')
+            dissolve_thread_ = menu_.addAction('解散线程(保留步骤)')
+        if node_.type_id in ('折叠步骤', '多线程启动'):
+            fold_action_ = menu_.addAction('展开步骤' if getattr(node_, 'step_collapsed', True) else '折叠步骤')
+        selection_locked_ = any(getattr(self.scene(), 'locked_groups', {}).get(
+            self.scene().nodes_by_command_id[cid].node_id) for cid in selected_ids_)
+        lock_group_action_ = menu_.addAction('解锁' if selection_locked_ else '折叠加锁')
         configure_action_ = menu_.addAction("配置")
         note_action_ = menu_.addAction("备注")
         save_template_action_ = menu_.addAction("存为模板")
         menu_.addSeparator()
         copy_action_ = menu_.addAction("复制")
         copy_action_.setShortcut(QKeySequence.StandardKey.Copy)
+        cut_action_ = menu_.addAction("剪切")
+        cut_action_.setShortcut(QKeySequence.StandardKey.Cut)
         delete_action_ = menu_.addAction("删除")
         delete_action_.setShortcut(QKeySequence.StandardKey.Delete)
         run_single_action_ = None
@@ -669,17 +782,29 @@ class NodeView(QGraphicsView):
             menu_.addSeparator()
             run_single_action_ = menu_.addAction("运行此指令")
             run_from_action_ = menu_.addAction("从此指令运行")
-        menu_.addSeparator()
-        delete_all_edges_ = menu_.addAction("删除流程连接线")
-        delete_incoming_edge_ = menu_.addAction("删除前流程连接线")
-        delete_outgoing_edge_ = menu_.addAction("删除后流程连接线")
+        connections_menu_ = MenuColumn(self)
+        style_context_menu(connections_menu_, self)
+        connections_menu_.addAction("当前指令的流程连接线").setEnabled(False)
+        delete_all_edges_ = connections_menu_.addAction("删除流程连接线")
+        delete_incoming_edge_ = connections_menu_.addAction("删除前流程连接线")
+        delete_outgoing_edge_ = connections_menu_.addAction("删除后流程连接线")
         for action in (delete_all_edges_, delete_incoming_edge_, delete_outgoing_edge_):
             action.setToolTip('仅作用于当前右键点击的流程方块')
-        selected_action_ = menu_.exec(event_.globalPos())
+        selected_action_ = exec_two_column_menu(menu_, connections_menu_, event_.globalPos(), self)
+        menu_.deleteLater()
+        connections_menu_.deleteLater()
         if selected_action_ is None:
             event_.accept()
             return
-        if selected_action_ == configure_action_:
+        if fold_action_ is not None and selected_action_ == fold_action_:
+            self.scene().stepFoldRequested.emit(fold_command_id_)
+        elif nested_on_ is not None and selected_action_ in (nested_on_, nested_off_):
+            self.scene().threadNestedRequested.emit(node_.command_id, selected_action_ == nested_on_)
+        elif dissolve_thread_ is not None and selected_action_ == dissolve_thread_:
+            self.dissolveThreadRequested.emit(fold_command_id_)
+        elif selected_action_ == lock_group_action_:
+            self.scene().stepLocksRequested.emit(selected_ids_, not selection_locked_)
+        elif selected_action_ == configure_action_:
             self.scene().activate_node(node_)
         elif selected_action_ == note_action_:
             note_, accepted_ = QInputDialog.getText(
@@ -693,6 +818,8 @@ class NodeView(QGraphicsView):
             )
             if accepted_ and name_.strip():
                 self.saveTemplateRequested.emit(selected_ids_, name_.strip())
+        elif selected_action_ == cut_action_:
+            self.cutRequested.emit(selected_ids_)
         elif selected_action_ == copy_action_:
             self.copyRequested.emit(selected_ids_)
         elif selected_action_ == delete_action_:
@@ -725,6 +852,10 @@ class NodeView(QGraphicsView):
             for item_ in self.scene().nodes_by_id.values():
                 if not item_.is_terminal:
                     item_.setSelected(True)
+            event_.accept()
+            return
+        if event_.matches(QKeySequence.StandardKey.Cut) and selected_ids_:
+            self.cutRequested.emit(selected_ids_)
             event_.accept()
             return
         if event_.matches(QKeySequence.StandardKey.Copy) and selected_ids_:

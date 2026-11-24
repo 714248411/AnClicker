@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import wraps
+
 from anclicker.platform.qt_compat.QtCore import QMimeData, QPoint, Signal, Qt, QStringListModel, QSize
 from anclicker.platform.qt_compat.QtGui import QDrag, QTextDocument, QAbstractTextDocumentLayout, QPalette
 from anclicker.platform.qt_compat.QtWidgets import (
@@ -18,6 +20,7 @@ from anclicker.platform.qt_compat.QtWidgets import (
 )
 
 from anclicker.ui.node_editor.specs import NodeDisplaySpec, normalize_specs
+from anclicker.ui.drag_feedback import FeedbackOverlay, animation_policy, visual_only
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -137,24 +140,45 @@ class _InstructionTree(QTreeWidget):
             self._drag_start = event_.position().toPoint()
         super().mousePressEvent(event_)
 
-    def mouseMoveEvent(self, event_):
-        if not event_.buttons() & Qt.MouseButton.LeftButton:
-            super().mouseMoveEvent(event_)
-            return
-        if (event_.position().toPoint() - self._drag_start).manhattanLength() < 8:
-            super().mouseMoveEvent(event_)
-            return
-
+    def startDrag(self, supported_actions):
+        # Always use instruction MIME, including Qt's native drag threshold path.
         type_id_ = self.instruction_type(self.currentItem())
         if type_id_ is None:
-            super().mouseMoveEvent(event_)
             return
-
         mime_data_ = QMimeData()
         mime_data_.setData(INSTRUCTION_MIME_TYPE, type_id_.encode("utf-8"))
         drag_ = QDrag(self)
         drag_.setMimeData(mime_data_)
-        drag_.exec(Qt.DropAction.CopyAction)
+        self._set_drag_ghost(drag_)
+        result = drag_.exec(Qt.DropAction.CopyAction)
+        if result == Qt.IgnoreAction:
+            self._drag_rebound()
+
+    @visual_only
+    def _set_drag_ghost(self, drag):
+        if animation_policy(self).allows(preview=True):
+            rect = self.visualItemRect(self.currentItem()).intersected(self.viewport().rect())
+            if not rect.isEmpty():
+                drag.setPixmap(self.viewport().grab(rect))
+                drag.setHotSpot(QPoint(min(24, rect.width()//2), rect.height()//2))
+
+    @visual_only
+    def _drag_rebound(self):
+        if not hasattr(self, '_drag_feedback'):
+            self._drag_feedback = FeedbackOverlay(self)
+        self._drag_feedback.play('rebound', [self.visualItemRect(self.currentItem())], preview=True)
+
+
+def _temporary_expansion(method):
+    @wraps(method)
+    def guarded(self, *args, **kwargs):
+        previous = self._changing_expansion
+        self._changing_expansion = True
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            self._changing_expansion = previous
+    return guarded
 
 
 class InstructionPalette(QWidget):
@@ -165,8 +189,10 @@ class InstructionPalette(QWidget):
     scheduleRequested = Signal()
     quickCaptureRequested = Signal()
     quickOcrCaptureRequested = Signal()
+    glyphToolRequested = Signal()
     guidanceEnabledChanged = Signal(bool)
     orderChanged = Signal(object)
+    expandedGroupsChanged = Signal(object)
 
     def __init__(self, specs_=None, parent_=None):
         super().__init__(parent_)
@@ -178,10 +204,10 @@ class InstructionPalette(QWidget):
 
         layout_ = QVBoxLayout(self)
         layout_.setContentsMargins(0, 0, 0, 0)
-        layout_.setSpacing(4)
+        layout_.setSpacing(0)
         self.search_row = QWidget(self)
         search_layout = QHBoxLayout(self.search_row)
-        search_layout.setContentsMargins(0, 0, 0, 2)
+        search_layout.setContentsMargins(0, 0, 0, 0)
         search_layout.addWidget(self.search_edit, 1, Qt.AlignmentFlag.AlignBottom)
         layout_.addWidget(self.search_row)
         self.tree_surface = QWidget(self)
@@ -192,26 +218,14 @@ class InstructionPalette(QWidget):
         tree_layout.setSpacing(0)
         tree_layout.addWidget(self.tree, 1)
         layout_.addWidget(self.tree_surface, 1)
-        QToolButton = _module_imports.load('QToolButton')
-        self.schedule_button = QToolButton(self.tree_surface)
-        self.schedule_button.setText('⏰')
-        self.schedule_button.setObjectName('scheduleTasksButton')
-        self.schedule_button.setToolTip('定时运行项目任务')
-        self.schedule_button.setAccessibleName('定时任务')
-        self.schedule_button.setAutoRaise(True)
-        self.schedule_button.setFixedSize(30, 28)
-        self.schedule_button.clicked.connect(self.scheduleRequested.emit)
-        self.schedule_button.setStyleSheet(
-            'QToolButton#scheduleTasksButton {background:transparent; border:none; padding:0;}'
-            'QToolButton#scheduleTasksButton:hover {background:rgba(100,120,160,30); border-radius:6px;}')
-        # Share the tree's rounded background without covering scrollable entries.
-        footer = QHBoxLayout()
-        footer.setContentsMargins(4, 0, 4, 4)
-        footer.addWidget(self.schedule_button)
-        footer.addStretch()
-        tree_layout.addLayout(footer)
-
+        self._expanded_groups = set()
+        self._changing_expansion = False
+        self._filter_active = False
+        self.tree.itemExpanded.connect(self._remember_expanded_group)
+        self.tree.itemCollapsed.connect(self._remember_expanded_group)
         self._specs: dict[str, NodeDisplaySpec] = {}
+        self._quick_types = []
+        self._custom_quick_items = {}
         self.guidance_enabled = True
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_settings_menu)
@@ -233,6 +247,23 @@ class InstructionPalette(QWidget):
         self.tree.itemDoubleClicked.connect(self._quick_action_clicked)
         self.set_specs(specs_ or {})
 
+    def _remember_expanded_group(self, item):
+        if self._changing_expansion or self._filter_active or item.parent() is not None:
+            return
+        name = item.text(0)
+        if item.isExpanded():
+            self._expanded_groups.add(name)
+        else:
+            self._expanded_groups.discard(name)
+        self.expandedGroupsChanged.emit(sorted(self._expanded_groups))
+
+    @_temporary_expansion
+    def restore_expanded_groups(self, groups):
+        self._expanded_groups = {name for name in groups if isinstance(name, str)} if isinstance(groups, list) else set()
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            item.setExpanded(item.text(0) in self._expanded_groups)
+
     def _show_settings_menu(self, position):
         item = self.tree.itemAt(position)
         if item is not None:
@@ -247,6 +278,16 @@ class InstructionPalette(QWidget):
         menu.setObjectName('instructionContextMenu')
         style_context_menu = _module_imports.load('style_context_menu')
         style_context_menu(menu, self)
+        kind = self.tree.instruction_type(item)
+        if kind in self._specs and item is not None and item.parent() is group:
+            if item in self._custom_quick_items.values():
+                menu.addAction('从快捷功能栏移除', lambda: self.remove_quick_instruction(kind))
+            else:
+                add_quick = menu.addAction('添加到快捷功能栏')
+                add_quick.setEnabled(not any(self.tree.instruction_type(self._quick_group.child(i)) == kind
+                                            for i in range(self._quick_group.childCount())))
+                add_quick.triggered.connect(lambda: self.add_quick_instruction(kind))
+            menu.addSeparator()
         settings = menu.addMenu('设置')
         style_context_menu(settings, self)
         guidance = settings.addAction('中文编程提示')
@@ -388,15 +429,20 @@ class InstructionPalette(QWidget):
     def instruction_order(self):
         groups = [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())]
         return {
+            'quick_commands': list(self._quick_types),
             'groups': [group.text(0) for group in groups],
             'commands': {group.text(0): [self._order_key(group.child(i))
                          for i in range(group.childCount()) if group.child(i) is not self._guide_item]
                          for group in groups},
         }
 
+    @_temporary_expansion
     def restore_instruction_order(self, order):
         if not isinstance(order, dict):
             return
+        quick = order.get('quick_commands', [])
+        self._quick_types = list(dict.fromkeys(kind for kind in quick if isinstance(kind, str))) if isinstance(quick, list) else []
+        self._sync_quick_instructions()
         groups = order.get('groups', [])
         if isinstance(groups, list):
             position = 0
@@ -426,6 +472,42 @@ class InstructionPalette(QWidget):
                         position += 1
                         break
 
+    def _sync_quick_instructions(self):
+        for kind, item in list(self._custom_quick_items.items()):
+            if kind not in self._quick_types or kind not in self._specs:
+                self._quick_group.takeChild(self._quick_group.indexOfChild(item))
+                del self._custom_quick_items[kind]
+        existing = {self.tree.instruction_type(self._quick_group.child(i))
+                    for i in range(self._quick_group.childCount())}
+        for kind in self._quick_types:
+            if kind not in self._specs or kind in existing:
+                continue
+            item = QTreeWidgetItem([self._specs[kind].title])
+            item.setData(0, TYPE_ID_ROLE, kind)
+            self._quick_group.insertChild(self._quick_group.indexOfChild(self._guide_item), item)
+            self._custom_quick_items[kind] = item
+            existing.add(kind)
+
+    def add_quick_instruction(self, kind):
+        if kind not in self._specs or any(self.tree.instruction_type(self._quick_group.child(i)) == kind
+                                         for i in range(self._quick_group.childCount())):
+            return
+        self._quick_types.append(kind)
+        self._sync_quick_instructions()
+        self._apply_filter(self.search_edit.text())
+        self._quick_group.setExpanded(True)
+        self.tree.setCurrentItem(self._custom_quick_items[kind])
+        self.tree.scrollToItem(self._custom_quick_items[kind])
+        self.orderChanged.emit(self.instruction_order())
+
+    def remove_quick_instruction(self, kind):
+        if kind not in self._custom_quick_items:
+            return
+        self._quick_types = [value for value in self._quick_types if value != kind]
+        self._sync_quick_instructions()
+        self._apply_filter(self.search_edit.text())
+        self.orderChanged.emit(self.instruction_order())
+
     def set_guidance_enabled(self, enabled):
         enabled = bool(enabled)
         changed = self.guidance_enabled != enabled
@@ -444,7 +526,9 @@ class InstructionPalette(QWidget):
             self.guidanceEnabledChanged.emit(enabled)
 
     def _quick_action_clicked(self, item, column):
-        if item is self._quick_capture_item:
+        if item is getattr(self, "_glyph_tool_item", None):
+            self.glyphToolRequested.emit()
+        elif item is self._quick_capture_item:
             self._collapse_previous_actions()
             self.quickCaptureRequested.emit()
         elif item is self._quick_ocr_item:
@@ -455,12 +539,15 @@ class InstructionPalette(QWidget):
         self.instructionActivated.emit(type_id_)
         self.instructionDoubleClicked.emit(type_id_)
 
+    @_temporary_expansion
     def set_specs(self, specs_) -> None:
         self._specs = normalize_specs(specs_)
         self._capture_item = None
+        self._glyph_tool_item = None
         self._last_used_branch = None
         self._web_open_item = None
         self._web_category_item = None
+        self._custom_quick_items = {}
         self.tree.clear()
         self._quick_group = QTreeWidgetItem(['快捷功能栏'])
         self._quick_group.setFlags(self._quick_group.flags() & ~Qt.ItemFlag.ItemIsDragEnabled)
@@ -483,6 +570,8 @@ class InstructionPalette(QWidget):
         categories_: dict[str, QTreeWidgetItem] = {}
         ocr_shortcuts = ('OCR文字提取', 'OCR复制', 'OCR粘贴', 'OCR点击识别区域')
         for spec_ in self._specs.values():
+            if spec_.type_id == '窗口键鼠':
+                continue  # Superseded by separate mouse/keyboard entries.
             # Display groups do not change persisted type IDs or import paths.
             category = ('离线识字OCR' if spec_.category == '本地OCR' else
                         '在线识字OCR' if spec_.type_id == 'OCR识别' else spec_.category)
@@ -505,6 +594,10 @@ class InstructionPalette(QWidget):
         # lead the list once, followed by the more specialized OCR commands.
         offline_group = categories_.get('离线识字OCR')
         if offline_group is not None:
+            self._glyph_tool_item = QTreeWidgetItem(['制作字库（工具）'])
+            self._glyph_tool_item.setFlags(self._glyph_tool_item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled)
+            self._glyph_tool_item.setToolTip(0, '双击制作找字字库；独立工具，不加入表格或流程图。')
+            offline_group.addChild(self._glyph_tool_item)
             for position, kind in enumerate(ocr_shortcuts):
                 item = next((offline_group.child(i) for i in range(offline_group.childCount())
                              if offline_group.child(i).data(0, TYPE_ID_ROLE) == kind), None)
@@ -515,9 +608,11 @@ class InstructionPalette(QWidget):
                 if kind == 'OCR点击识别区域':
                     item.setText(0, 'OCR点击')
                     item.setToolTip(0, '识别并点击文字区域；可设置目标文字、范围及第几个结果。')
-        self.tree.expandAll()
+        self._sync_quick_instructions()
+        self.restore_expanded_groups(sorted(self._expanded_groups))
         self._apply_filter(self.search_edit.text())
 
+    @_temporary_expansion
     def _collapse_previous_actions(self):
         # Keep children and their parameters for the next use.
         for item in (self._quick_capture_item, self._quick_ocr_item, self._guide_item,
@@ -529,8 +624,6 @@ class InstructionPalette(QWidget):
         while branch is not None and branch.parent() is not None:
             branch = branch.parent()
         previous = self._last_used_branch
-        if previous is not None and previous is not branch:
-            previous.setExpanded(False)
         self._last_used_branch = branch
 
     def clear_quick_actions(self):
@@ -542,6 +635,7 @@ class InstructionPalette(QWidget):
         self._quick_payload = {}
         self._clipboard_ready = False
 
+    @_temporary_expansion
     def _show_quick_children(self, parent, actions, payload):
         self._collapse_previous_actions()
         parent.takeChildren()
@@ -595,6 +689,7 @@ class InstructionPalette(QWidget):
         try: self._emit_activation(chosen.kind)
         finally: self._chosen_suggestion = None
 
+    @_temporary_expansion
     def command_added(self, kind, parameters=None):
         if not self.guidance_enabled:
             self._collapse_previous_actions()
@@ -630,8 +725,11 @@ class InstructionPalette(QWidget):
 
         return self.tree.instruction_type(self.tree.currentItem())
 
+    @_temporary_expansion
     def _apply_filter(self, filter_text_) -> None:
         needle = filter_text_.strip().casefold()
+        restore = self._filter_active and not needle
+        self._filter_active = bool(needle)
         def visit(item, inherited=False):
             if item is self._guide_item and not self.guidance_enabled:
                 item.setHidden(True)
@@ -647,3 +745,5 @@ class InstructionPalette(QWidget):
             return visible
         for i in range(self.tree.topLevelItemCount()):
             visit(self.tree.topLevelItem(i))
+        if restore:
+            self.restore_expanded_groups(sorted(self._expanded_groups))

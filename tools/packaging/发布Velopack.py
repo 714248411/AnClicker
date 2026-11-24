@@ -143,15 +143,8 @@ def assert_newer(version, feed):
 
 
 def verify_public(config, name, size, sha256):
-    with requests.get(config.url(name), params={'verify': time.time_ns()}, stream=True, timeout=(15, 120)) as response:
-        response.raise_for_status()
-        total = 0
-        checksum = hashlib.sha256()
-        for chunk in response.iter_content(1024 * 1024):
-            total += len(chunk)
-            checksum.update(chunk)
-        if total != size or checksum.hexdigest().upper() != sha256.upper():
-            raise RuntimeError('公网更新包大小或 SHA-256 不匹配')
+    from tools.packaging.public_package_verify import verify_public_package
+    verify_public_package(config.url(name), size, sha256)
 
 
 def check_source(config, path=None):

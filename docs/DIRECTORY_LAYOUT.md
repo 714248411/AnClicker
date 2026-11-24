@@ -4,6 +4,7 @@
 
 ```text
 anclicker/        应用实现：app、ui、domain、execution、storage、platform、instructions
+models/          Agent API、草稿规划、模型加载与进程管理、training 微调工具、GGUF 权重和 CPU/GPU 运行器
 resources/       随应用分发的 UI 源、样式、图标、动画、后台协议与许可
 integrations/    独立 Electron/JavaScript 自动化引擎
 legacy/          旧 Python 模块名的薄转发
@@ -16,7 +17,7 @@ artifacts/       构建中间物、成品、历史交付物、验证记录
 .local/          本机工具链、运行库、模型、缓存及环境备份
 ```
 
-根目录 Python 文件仍只有 `main.py` 和构建元数据 `info.py`。`.github/`、`.gitee/`、`.config/` 保留平台与工具发现入口；`.venv/`、`.venv-build/` 分别保留开发与锁定构建环境；`.agent-runtime/` 保留既有 Agent 运行包与进程锁规则。IDE 配置与 Python 自动缓存不属于应用模块。
+根目录 Python 文件仍只有 `main.py` 和构建元数据 `info.py`。`.github/`、`.gitee/`、`.config/` 保留平台与工具发现入口；`.venv/`、`.venv-build/` 分别保留开发与锁定构建环境；Agent 默认从 `models/` 加载模型；`ANCLICKER_AGENT_HOME` 可覆盖路径，未准备新目录权重时兼容既有 `.agent-runtime/` 运行包。模型进程状态和日志保存在实际运行目录。IDE 配置与 Python 自动缓存不属于应用模块。
 
 ## 原目录去向
 
@@ -39,7 +40,7 @@ artifacts/       构建中间物、成品、历史交付物、验证记录
 
 ## 导入、脚本和资源兼容
 
-应用内代码使用 `anclicker.*`。外部源码脚本如继续使用旧顶层模块名，先 `import anclicker`，或将仓库根目录及 `legacy/` 同时加入 `PYTHONPATH`。兼容文件共享实现类和函数，旧包的子模块转发不会再次定义业务类。
+应用内代码使用 `anclicker.*`，Agent 模型与 API 实现使用 `models.*`。`anclicker/execution/agent_*.py` 中对应模型模块和 `tools/` 下的模型工具保留兼容入口。外部源码脚本如继续使用旧顶层模块名，先 `import anclicker`，或将仓库根目录及 `legacy/` 同时加入 `PYTHONPATH`。兼容文件共享实现类和函数，旧包的子模块转发不会再次定义业务类。
 
 ```python
 import anclicker

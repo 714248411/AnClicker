@@ -290,7 +290,7 @@ class Ui_About(object):
     def retranslateUi(self, About):
         About.setWindowTitle(QCoreApplication.translate("About", u"\u5173\u4e8e", None))
         self.label.setText("")
-        self.label_5.setText(QCoreApplication.translate("About", u"An Clicker", None))
+        self.label_5.setText(QCoreApplication.translate("About", u"AnClicker", None))
         self.label_2.setText(QCoreApplication.translate("About", u"\u7248\u672c\uff1av1.0.0 Beat", None))
         self.pushButton_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae 1", None))
         self.pushButton_feedback_2.setText(QCoreApplication.translate("About", u"\u53cd\u9988\u53ca\u5efa\u8bae 2", None))

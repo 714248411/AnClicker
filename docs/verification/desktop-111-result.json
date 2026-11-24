@@ -1,0 +1,26 @@
+{
+  "request": "打开桌面文件夹111",
+  "target_path": "C:\\Users\\Administrator\\Desktop\\111",
+  "directory_confirmed": true,
+  "ocr_matched": true,
+  "expected_text": [
+    "111"
+  ],
+  "drafts": [
+    {
+      "type_id": "快速文件操作",
+      "parameters": {
+        "操作": "打开",
+        "源路径": "C:\\Users\\Administrator\\Desktop\\111",
+        "目标路径": "",
+        "覆盖": false,
+        "预期文字": "",
+        "窗口标题": "",
+        "区域": ""
+      },
+      "repeat_count": 1,
+      "error_policy": "提示异常并暂停",
+      "note": ""
+    }
+  ]
+}

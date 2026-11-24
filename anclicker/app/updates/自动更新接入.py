@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from anclicker.platform.qt_compat.QtCore import QObject, QTimer, Signal, Slot
@@ -27,6 +28,35 @@ _module_imports = _DeferredImports(globals(), {
 LOGGER = logging.getLogger(__name__)
 
 
+class _CheckRelay(QObject):
+    """Deliver worker signals on the UI thread, ignoring superseded checks."""
+    def __init__(self, manager, worker):
+        super().__init__(manager)
+        self.manager, self.worker = manager, worker
+
+    def deliver(self, method, *args):
+        if self.manager.check_thread is self.worker:
+            getattr(self.manager, method)(*args)
+
+    @Slot(str)
+    def progress(self, text): self.deliver('handle_check_progress', text)
+    @Slot(object)
+    def pending(self, value): self.deliver('handle_pending_update', value)
+    @Slot(object)
+    def found(self, value): self.deliver('handle_update_info', value)
+    @Slot()
+    def none(self): self.deliver('handle_no_update')
+    @Slot(str)
+    def skipped(self, text): self.deliver('handle_check_skipped', text)
+    @Slot(str)
+    def failed(self, text): self.deliver('handle_check_failure', text)
+    @Slot()
+    def finished(self):
+        self.deliver('on_check_finished')
+        self.worker.deleteLater()
+        self.deleteLater()
+
+
 class AutoUpdateManager(QObject):
     """协调手动及启动检查、下载和应用更新。"""
 
@@ -47,6 +77,16 @@ class AutoUpdateManager(QObject):
         self.download_thread_factory = download_thread_factory
         self.apply_update = apply_update
         self._stopping = False
+        self._startup_checked = False
+        self._successful_check_at = None
+        self._successful_check_info = None
+        self._check_result_handled = False
+        self._check_expired = False
+        self._manual_check_pending = False
+        self._startup_deadline = None
+        self._startup_timer = QTimer(self)
+        self._startup_timer.setSingleShot(True)
+        self._startup_timer.timeout.connect(self._expire_startup_check)
         self.check_thread = None
         self.download_thread = None
         self.show_check_message = False
@@ -74,6 +114,7 @@ class AutoUpdateManager(QObject):
         UpdateCheckDialog = _module_imports.load('UpdateCheckDialog')
         if self._progress_dialog is None:
             self._progress_dialog = UpdateCheckDialog(self.main_window, CURRENT_VERSION)
+            self._progress_dialog.retry_requested.connect(lambda: self.check_for_updates(True))
         dialog = self._progress_dialog
         dialog.apply_theme(self.main_window)
         version, _ = update_target_details(self._available_update_info)
@@ -92,9 +133,12 @@ class AutoUpdateManager(QObject):
             )
             dialog.dismiss_button.setText('后台下载')
         else:
-            dialog.hint_label.setText('检查结果会在完成后提示。')
+            dialog.hint_label.setText('优先七牛，失败后检查 GitHub；最多等待 20 秒。')
             dialog.dismiss_button.setText('关闭')
-        dialog.set_progress(*self._last_progress)
+        if self._last_progress[1] == -2:
+            dialog.set_error(self._last_progress[0])
+        else:
+            dialog.set_progress(*self._last_progress)
         if not dialog.isVisible():
             rect = dialog.frameGeometry()
             rect.moveCenter(self.main_window.frameGeometry().center())
@@ -108,6 +152,7 @@ class AutoUpdateManager(QObject):
             self._progress_dialog.hide()
 
     def _progress_failed(self, message: str) -> None:
+        self._last_progress = (message, -2)
         self.update_progress.emit('', -2)
         if self._progress_dialog is not None:
             self._progress_dialog.set_error(message)
@@ -117,8 +162,9 @@ class AutoUpdateManager(QObject):
         return self._ready_update_info
 
     def check_on_startup(self) -> None:
-        if getattr(self.main_window, '_closing', False):
+        if self._startup_checked or getattr(self.main_window, '_closing', False):
             return
+        self._startup_checked = True
         self.check_for_updates(show_message=False)
 
     def check_for_updates(self, show_message: bool = False) -> None:
@@ -130,6 +176,7 @@ class AutoUpdateManager(QObject):
             return
         if self._ready_update_info is not None:
             if show_message:
+                self.show_check_message = True
                 self.show_manual_update_message(self._ready_update_info, ready=True)
             return
         if self.download_thread is not None and self.download_thread.isRunning():
@@ -138,10 +185,30 @@ class AutoUpdateManager(QObject):
                 self._show_progress_dialog()
             return
         if self.check_thread is not None and self.check_thread.isRunning():
+            if show_message and self._ignore_check_result():
+                self._manual_check_pending = True
+                self.show_check_message = True
+                self._show_progress_dialog()
+                return
             if show_message:
                 self.show_check_message = True
                 self._show_progress_dialog()
             return
+        # Reuse only a recent successful result; errors always retry the network.
+        if (self._successful_check_at is not None
+                and time.monotonic() - self._successful_check_at < 30.0):
+            if show_message:
+                self.show_check_message = True
+                if self._successful_check_info is not None:
+                    self.show_manual_update_message(self._successful_check_info, ready=False)
+                else:
+                    self._hide_progress_dialog()
+                    QMessageBox.information(self.main_window, '检查更新',
+                        f'当前已是最新版本：{CURRENT_VERSION}（30 秒内已检查）')
+            return
+        self._startup_checked = True
+        self._check_result_handled = False
+        self._check_expired = False
         self.show_check_message = bool(show_message)
         self._last_progress = ('正在检查更新…', -1)
         if show_message:
@@ -151,26 +218,71 @@ class AutoUpdateManager(QObject):
         except Exception as error:
             self.handle_check_failure(f'更新配置读取失败：{error}')
             return
-        check_thread_.pending_update_found.connect(self.handle_pending_update)
-        check_thread_.update_found.connect(self.handle_update_info)
-        check_thread_.no_update.connect(self.handle_no_update)
-        check_thread_.check_skipped.connect(self.handle_check_skipped)
-        check_thread_.check_failed.connect(self.handle_check_failure)
-        check_thread_.finished.connect(self.on_check_finished)
+        relay = _CheckRelay(self, check_thread_)
+        if hasattr(check_thread_, 'check_progress'):
+            check_thread_.check_progress.connect(relay.progress)
+        check_thread_.pending_update_found.connect(relay.pending)
+        check_thread_.update_found.connect(relay.found)
+        check_thread_.no_update.connect(relay.none)
+        check_thread_.check_skipped.connect(relay.skipped)
+        check_thread_.check_failed.connect(relay.failed)
+        check_thread_.finished.connect(relay.finished)
         self.check_thread = check_thread_
-        check_thread_.start()
+        self._startup_deadline = time.monotonic() + 20.0
+        self._startup_timer.start(20000)
+        try:
+            check_thread_.start()
+        except Exception as error:
+            self.handle_check_failure(f'无法开始检查更新：{error}')
+            self.on_check_finished()
+
+    def _expire_startup_check(self):
+        if self._check_expired or self._check_result_handled or self.check_thread is None:
+            return
+        self._check_expired = True
+        self._startup_timer.stop()
+        self.check_thread.requestInterruption()
+        LOGGER.warning('更新检查超过 20 秒，已取消')
+        if self.show_check_message:
+            self._progress_failed('检查更新超时（20 秒），请检查网络后重试。')
+
+    @Slot(str)
+    def handle_check_progress(self, text):
+        if not self._ignore_check_result() and self.show_check_message:
+            self._report_progress(text, -1)
+
+    def _complete_check(self):
+        self._check_result_handled = True
+        self._startup_timer.stop()
+        self._startup_deadline = None
+        self.update_progress.emit('', -2)
+
+    def _ignore_check_result(self):
+        if self._startup_deadline is not None and time.monotonic() >= self._startup_deadline:
+            self._expire_startup_check()
+        return self._stopping or self._check_expired or self._check_result_handled
 
     @Slot()
     def on_check_finished(self) -> None:
+        if not self._check_result_handled and not self._check_expired and not self._stopping:
+            self.handle_check_failure('更新检查已中断，未返回结果，请重试。')
+        self._startup_timer.stop()
+        self._startup_deadline = None
         thread_, self.check_thread = self.check_thread, None
         if thread_ is not None:
             thread_.deleteLater()
+        if self._manual_check_pending and not self._stopping:
+            self._manual_check_pending = False
+            self.check_for_updates(show_message=True)
 
     @Slot()
     def handle_no_update(self) -> None:
-        if self._stopping:
+        if self._ignore_check_result():
             return
+        self._complete_check()
         self._available_update_info = None
+        self._successful_check_info = None
+        self._successful_check_at = time.monotonic()
         self._hide_progress_dialog()
         if self.show_check_message:
             QMessageBox.information(
@@ -181,6 +293,9 @@ class AutoUpdateManager(QObject):
 
     @Slot(str)
     def handle_check_skipped(self, message_: str) -> None:
+        if self._ignore_check_result():
+            return
+        self._complete_check()
         LOGGER.info(message_)
         self._hide_progress_dialog()
         if self.show_check_message:
@@ -188,23 +303,31 @@ class AutoUpdateManager(QObject):
 
     @Slot(str)
     def handle_check_failure(self, message_: str) -> None:
+        if self._ignore_check_result():
+            return
+        self._complete_check()
         LOGGER.warning("Velopack 更新检查失败: %s", message_)
-        self._hide_progress_dialog()
         if self.show_check_message:
-            QMessageBox.warning(self.main_window, "检查更新失败", message_)
+            self._progress_failed(message_)
+        else:
+            self._hide_progress_dialog()
 
     @Slot(object)
     def handle_pending_update(self, update_info_: Any) -> None:
-        if self._stopping:
+        if self._ignore_check_result():
             return
+        self._complete_check()
         self.mark_update_ready(update_info_)
         self.show_manual_update_message(update_info_, ready=True)
 
     @Slot(object)
     def handle_update_info(self, update_info_: Any) -> None:
-        if self._stopping:
+        if self._ignore_check_result():
             return
+        self._complete_check()
         self._available_update_info = update_info_
+        self._successful_check_info = update_info_
+        self._successful_check_at = time.monotonic()
         bar = getattr(getattr(self.main_window, 'view_workspace', None), 'title_bar', None)
         if bar is not None:
             version, notes = update_target_details(update_info_)
@@ -327,7 +450,11 @@ class AutoUpdateManager(QObject):
             self._update_prompt.raise_(); return
         UpdatePrompt, animate_to_entry = _module_imports.load('UpdatePrompt_animate_to_entry')
         version, notes = update_target_details(update_info_)
-        prompt = UpdatePrompt(self.main_window, version, notes, ready)
+        startup_notice = not self.show_check_message
+        prompt = UpdatePrompt(self.main_window, version, notes, ready, notice_only=startup_notice, external_release=bool(getattr(update_info_, 'ReleaseUrl', '')))
+        release_url = getattr(update_info_, 'ReleaseUrl', '')
+        if release_url and not startup_notice:
+            prompt.update_button.setText('前往下载')
         self._update_prompt = prompt
         def defer(pixmap, rect):
             bar = getattr(getattr(self.main_window, 'view_workspace', None), 'title_bar', None)
@@ -335,7 +462,13 @@ class AutoUpdateManager(QObject):
                 bar.show_update(version, notes, ready=ready)
                 self._defer_animation = animate_to_entry(self.main_window, bar.updateButton, pixmap, rect)
         def choose():
-            if ready:
+            if startup_notice:
+                self.check_for_updates(show_message=True)
+            elif release_url:
+                from anclicker.platform.qt_compat.QtCore import QUrl
+                from anclicker.platform.qt_compat.QtGui import QDesktopServices
+                QDesktopServices.openUrl(QUrl(release_url))
+            elif ready:
                 self.apply_ready_update()
             else:
                 self._install_after_download = True
@@ -355,12 +488,7 @@ class AutoUpdateManager(QObject):
             self.download_was_manual = True
             self._show_progress_dialog()
             return False
-        if self._ready_update_info is not None:
-            return self.apply_ready_update()
-        if self._available_update_info is not None:
-            self.show_manual_update_message(self._available_update_info, ready=False)
-        else:
-            self.check_for_updates(show_message=True)
+        self.check_for_updates(show_message=True)
         return False
 
     def apply_ready_update(self) -> bool:
@@ -418,6 +546,7 @@ class AutoUpdateManager(QObject):
 
     def cancel_for_exit(self) -> bool:
         self._stopping = True
+        self._startup_timer.stop()
         self._install_after_download = False
         if self._update_prompt is not None: self._update_prompt.accept()
         self._hide_progress_dialog()

@@ -1,24 +1,12 @@
-"""Lightweight application paths; importing this module performs no I/O."""
+"""Application paths; probes for a copied Data folder without writing files."""
 import os
 import sys
 import shutil
 from pathlib import Path
 from info import APP_ID, DATA_DIR_ENV
-
-from anclicker._imports import DeferredImports as _DeferredImports
-
-# Dependencies declared here retain their existing on-demand loading boundaries.
-_module_imports = _DeferredImports(globals(), {
-    'storage_install_folder': ('from', 'anclicker.app.startup_environment', ('storage_install_folder',), 0),
-    'Path': ('from', 'pathlib', ('Path',), 0),
-})
+from anclicker.app.installation_paths import get_install_folder, storage_install_folder
 
 
-def get_install_folder() -> str:
-    """获取程序安装目录。"""
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    return str(Path(__file__).resolve().parents[2])
 
 
 def get_resource_folder() -> str:
@@ -38,12 +26,10 @@ def get_platform_data_folder() -> str:
     if override_:
         return os.path.abspath(os.path.expanduser(override_))
     if not getattr(sys, "frozen", False):
-        return os.path.join(INSTALL_FOLDER, "data")
+        return os.path.join(INSTALL_FOLDER, "Data")
     if sys.platform == "win32":
         # Keep compatibility with existing portable Windows releases.
-        storage_install_folder = _module_imports.load('storage_install_folder')
-        Path = _module_imports.load('Path')
-        return str(storage_install_folder(Path(INSTALL_FOLDER)) / "data")
+        return str(storage_install_folder(Path(INSTALL_FOLDER)) / "Data")
     if sys.platform == "darwin":
         return os.path.join(
             os.path.expanduser("~/Library/Application Support"), APP_ID
@@ -54,9 +40,12 @@ def get_platform_data_folder() -> str:
     return os.path.join(xdg_data_home_, APP_ID)
 
 
-DATA_FOLDER = get_platform_data_folder()
+from anclicker.storage.portable_migration import copied_data_folder
+
+DATA_FOLDER = copied_data_folder(get_platform_data_folder())
 DATABASE_PATH = os.path.join(DATA_FOLDER, "命令集.db")
 IMAGES_FOLDER = os.path.join(DATA_FOLDER, "images")
+PORTABLE_DATA_FOLDER = str(storage_install_folder(Path(INSTALL_FOLDER)) / "Data")
 EXPORTS_FOLDER = os.path.join(DATA_FOLDER, "exports")
 LOGS_FOLDER = os.path.join(DATA_FOLDER, "logs")
 TEMP_FOLDER = os.path.join(DATA_FOLDER, "temp")
@@ -72,6 +61,12 @@ def ensure_data_directories() -> None:
         TEMP_FOLDER,
     ):
         os.makedirs(folder, exist_ok=True)
+    # Public packages include this empty portable image folder. Repair it on
+    # writable installs without preventing startup from read-only locations.
+    try:
+        os.makedirs(PORTABLE_DATA_FOLDER, exist_ok=True)
+    except PermissionError:
+        pass
     seed_database_ = os.path.join(RESOURCE_FOLDER, "defaults", "命令集.db")
     if not os.path.exists(DATABASE_PATH) and os.path.isfile(seed_database_):
         shutil.copy2(seed_database_, DATABASE_PATH)

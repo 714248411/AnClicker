@@ -10,6 +10,7 @@ import re
 import shutil
 
 from anclicker.app.paths import DATA_FOLDER
+from anclicker.app.installation_paths import get_install_folder, storage_install_folder
 
 _VARIABLE = re.compile(r'\{\{.*?\}\}|☾.*?☽')
 _IMPORTS = ContextVar('image_imports', default=None)
@@ -25,12 +26,11 @@ def _parts(value):
 
 
 def resolve_image_reference(value, *, project_path=None, resource_folders=(),
-                            data_folder=None, legacy_search=True):
-    """Resolve data-relative paths first; read legacy files without modifying them.
+                            data_folder=None, legacy_search=True, install_folder=None, allow_adaptation=True):
+    """Prefer valid explicit absolute paths, then the portable Data directory.
 
-    Structured relative references never fall back to a different basename.
-    Old absolute paths may be relocated by their suffix below ``data``. Only
-    legacy bare names/absolute references use catalog search, requiring uniqueness.
+    Missing references may be recovered by a unique filename anywhere in Data.
+    Valid explicit paths always win; ambiguous filenames are never guessed.
     """
     text = str(value or '')
     if not text or _VARIABLE.search(text):
@@ -40,15 +40,57 @@ def resolve_image_reference(value, *, project_path=None, resource_folders=(),
     absolute = path.is_absolute() or ntpath.isabs(text)
     if absolute and path.is_file():
         return str(path.resolve())
+    if project_path:
+        from anclicker.storage.data_partitions import original_reference, project_partition
+        # Explicit project opens have already requested consent for missing paths.
+        # Do not silently select a different partition during execution.
+        preferred = project_partition(project_path, root.parent) or root
+        original = original_reference(text, project_path, preferred)
+        if original is not None and original.is_file():
+            return str(original)
+        if not allow_adaptation:
+            return str(path if absolute else preferred / path)
     parts = _parts(text)
-    if absolute:
+    install = storage_install_folder(Path(install_folder or get_install_folder()).resolve())
+    relative = path if not absolute else None
+    for index in reversed(range(len(parts))):
+        if parts[index].casefold() in ('data',):
+            relative = Path(*parts[index+1:])
+            break
+        if parts[index].casefold() == 'images':
+            relative = Path(*parts[index:])
+            break
+    if relative is not None:
+        for base in (install / 'Data',):
+            candidate = (base / relative).resolve()
+            if candidate.is_relative_to(base.resolve()) and candidate.is_file():
+                return str(candidate)
+    exact = (root / path).resolve() if not absolute else path
+    if not absolute and exact.is_relative_to(root) and exact.is_file():
+        return str(exact)
+    if legacy_search:
+        name = ntpath.basename(text)
+        matches = set()
+        for base in {install / 'Data', root}:
+            if base.is_dir():
+                matches.update(p.resolve() for p in base.rglob('*')
+                               if p.is_file() and p.name.casefold() == name.casefold()
+                               and p.resolve().is_relative_to(base.resolve()))
+        if len(matches) > 1:
+            raise ValueError(f'启动目录中图片名称重复，请选择明确的图片路径：{name}')
+        if matches:
+            return str(matches.pop())
+    if absolute and path.is_file():
+        return str(path.resolve())
+    # Relocate both absolute and data-prefixed portable references.
+    if absolute or (parts and parts[0].casefold() in ('data', '..', '.')):
         for index in reversed(range(len(parts))):
-            if parts[index].casefold() == 'data':
+            if parts[index].casefold() in ('data',):
                 candidate = root.joinpath(*parts[index + 1:]).resolve()
                 if candidate.is_relative_to(root) and candidate.is_file():
                     return str(candidate)
                 break
-    else:
+    if not absolute:
         candidate = (root / path).resolve()
         if candidate.is_relative_to(root) and candidate.is_file():
             return str(candidate)
@@ -62,6 +104,9 @@ def resolve_image_reference(value, *, project_path=None, resource_folders=(),
             return str(candidate if candidate.is_relative_to(root) else root / '__invalid_image_path__')
     if legacy_search:
         name = ntpath.basename(text)
+        direct = root / name
+        if direct.is_file():
+            return str(direct.resolve())
         matches = set()
         for folder in (root / 'images', *map(Path, resource_folders)):
             if folder.is_dir():
@@ -193,3 +238,44 @@ def normalize_image_parameters(parameters, *, type_id='', project_path=None,
             method = str(result.get('接口', '')).strip().rsplit(' · ', 1)[-1]
             result['参数'] = json.dumps(map_background_images(method, values, store), ensure_ascii=False)
     return result
+
+
+def repair_command_image_paths(command, context):
+    """Repair static missing image inputs, persisting only this command's changes."""
+    original = command.parameters
+    repaired = dict(original)
+    metadata = getattr(context, 'metadata', {})
+    database = getattr(getattr(context, 'runtime', None), 'database', None) or metadata.get('database')
+    project = metadata.get('project_path')
+    for key in IMAGE_KEYS:
+        value = original.get(key)
+        if not isinstance(value, str) or not value or _VARIABLE.search(value):
+            continue
+        values = value.replace(';', '\n').replace('、', '\n') if command.type_id == '多图点击' else value
+        resolved = []
+        for item in values.split('\n'):
+            direct = Path(item.replace('\\', '/'))
+            if not direct.is_absolute() and not ntpath.isabs(item):
+                direct = _root() / direct
+            if direct.is_file():
+                resolved.append(item)
+                continue
+            found = resolve_image_reference(item, project_path=project, allow_adaptation=False)
+            if item and Path(found).is_file():
+                resolved.append(found)
+            else:
+                resolved.append(item)
+        repaired[key] = '\n'.join(resolved)
+    if repaired == original:
+        return False
+    if database is not None and command.id is not None:
+        from anclicker.storage.graph_repository import GraphRepository
+        from anclicker.domain.instructions import InstructionDraft
+        repository = GraphRepository(database.db_path, data_folder=_root())
+        current = repository.get_command(command.id)
+        if current is not None and current.parameters == original:
+            saved = repository.update_command(command.id, InstructionDraft(command.type_id, repaired,
+                command.repeat_count, command.error_policy, command.note))
+            repaired = saved.parameters
+    command.parameters = repaired
+    return True

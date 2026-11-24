@@ -5,7 +5,7 @@ from anclicker.platform.qt_compat.QtWidgets import QTabBar, QStyle, QStyleOption
 
 
 class WorkspaceTabBar(QTabBar):
-    EMBEDDED = {'主界面', '表格图', '流程图', '多功能', '录制', '网页录制', '对话 Agent'}
+    EMBEDDED = {'主界面', '表格图', '流程图', '多功能', '录制', '网页录制', '对话Ai编程'}
     GROUPS = (('主界面',), ('表格图', '流程图', '多功能'), ('录制', '网页录制'))
     SURFACE_PAGES = {'表格图', '流程图', '多功能'}
 
@@ -76,6 +76,9 @@ class WorkspaceTabBar(QTabBar):
 
     def _embedded_rect(self, index):
         rect = self._label_rect(index)
+        rect.adjust(.5, .5, -.5, 0)
+        if index == 0:
+            rect.setLeft(self._button_rect(index).left() + .5)
         rect.setBottom(self.height())
         return rect
 
@@ -95,16 +98,7 @@ class WorkspaceTabBar(QTabBar):
         hovered = index == self.hovered and self.isTabEnabled(index)
         rect = self._label_rect(index)
         edge = self._embedded_rect(index)
-        radius, shoulder = 7, 4
-        outline = QPainterPath()
-        outline.moveTo(edge.left() - shoulder, edge.bottom())
-        outline.quadTo(edge.left() + .5, edge.bottom(), edge.left() + .5, edge.bottom() - shoulder)
-        outline.lineTo(edge.left() + .5, edge.top() + radius)
-        outline.quadTo(edge.left() + .5, edge.top() + .5, edge.left() + radius, edge.top() + .5)
-        outline.lineTo(edge.right() - radius, edge.top() + .5)
-        outline.quadTo(edge.right() - .5, edge.top() + .5, edge.right() - .5, edge.top() + radius)
-        outline.lineTo(edge.right() - .5, edge.bottom() - shoulder)
-        outline.quadTo(edge.right() - .5, edge.bottom(), edge.right() + shoulder, edge.bottom())
+        outline = self._surface_path(edge, straight_left=index == 0)
         painter.save()
         background = c['surface'] if self.tabText(index) in self.SURFACE_PAGES else c['bg']
         if selected or hovered:
@@ -130,31 +124,36 @@ class WorkspaceTabBar(QTabBar):
             painter.drawRoundedRect(edge.adjusted(3, 3, -3, -1), 4, 4)
         painter.restore()
 
+    @staticmethod
+    def _surface_path(rect, straight_left=False):
+        # Tangent cubic arcs join upright sides to the page without a kink.
+        radius = min(7, rect.width() / 2, rect.height() / 2)
+        shoulder = 4
+        k = .55228475
+        l,t,r,b = rect.left(),rect.top(),rect.right(),rect.bottom()
+        path = QPainterPath()
+        if straight_left:
+            path.moveTo(l,b)
+        else:
+            path.moveTo(l-shoulder,b)
+            path.cubicTo(l-shoulder+k*shoulder,b,l,b-shoulder+k*shoulder,l,b-shoulder)
+        path.lineTo(l,t+radius)
+        path.cubicTo(l,t+radius-k*radius,l+radius-k*radius,t,l+radius,t)
+        path.lineTo(r-radius,t)
+        path.cubicTo(r-radius+k*radius,t,r,t+radius-k*radius,r,t+radius)
+        path.lineTo(r,b-shoulder)
+        path.cubicTo(r,b-shoulder+k*shoulder,r+shoulder-k*shoulder,b,r+shoulder,b)
+        return path
+
     def _paint_groups(self, painter):
-        # One continuous silhouette per group; the individual items have no
-        # idle box, border or horizontal inset between them.
         painter.setPen(Qt.NoPen)
         for labels in self.GROUPS:
             group = QRectF()
             for index in range(self.count()):
                 if self.isTabVisible(index) and self.tabText(index) in labels:
-                    group = group.united(QRectF(self._button_rect(index)))
-            if group.isEmpty():
-                continue
-            group.adjust(2.5, 1.5, -2.5, 0)
-            group.setBottom(self.height())
-            radius, shoulder = 7, 4
-            path = QPainterPath()
-            path.moveTo(group.left() - shoulder, group.bottom())
-            path.quadTo(group.left(), group.bottom(), group.left(), group.bottom() - shoulder)
-            path.lineTo(group.left(), group.top() + radius)
-            path.quadTo(group.left(), group.top(), group.left() + radius, group.top())
-            path.lineTo(group.right() - radius, group.top())
-            path.quadTo(group.right(), group.top(), group.right(), group.top() + radius)
-            path.lineTo(group.right(), group.bottom() - shoulder)
-            path.quadTo(group.right(), group.bottom(), group.right() + shoulder, group.bottom())
-            path.closeSubpath()
-            painter.fillPath(path, QColor(self.colors['surface2']))
+                    group = group.united(self._embedded_rect(index))
+            if not group.isEmpty():
+                painter.fillPath(self._surface_path(group, straight_left=group.left() < 1), QColor(self.colors['surface2']))
 
     def paintEvent(self, event):
         painter = QStylePainter(self)

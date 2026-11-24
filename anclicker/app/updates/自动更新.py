@@ -54,6 +54,7 @@ class CheckUpdateThread(QThread):
     no_update = Signal()
     check_skipped = Signal(str)
     check_failed = Signal(str)
+    check_progress = Signal(str)
 
     def __init__(
         self,
@@ -77,7 +78,22 @@ class CheckUpdateThread(QThread):
             return
         try:
             if self.manager_factory is velopack.UpdateManager:
-                event, value = run_isolated(self, 'check', self.source_url)
+                self.check_progress.emit('正在检查七牛更新源…')
+                try:
+                    event, value = run_isolated(self, 'check', self.source_url, timeout=6)
+                except UpdateCancelled:
+                    raise
+                except Exception as primary_error:
+                    if self.isInterruptionRequested():
+                        raise UpdateCancelled()
+                    LOGGER.warning('七牛检查失败，转为 GitHub：%s', primary_error)
+                    self.check_progress.emit('七牛暂不可用，正在检查 GitHub…')
+                    try:
+                        event, value = run_isolated(self, 'github-check', self.source_url, timeout=6)
+                    except UpdateCancelled:
+                        raise
+                    except Exception as fallback_error:
+                        raise RuntimeError('七牛和 GitHub 均暂时无法连接，请检查网络后重试。') from fallback_error
                 if event == 'pending':
                     self.pending_update_found.emit(value)
                 elif event == 'found':

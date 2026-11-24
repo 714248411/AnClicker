@@ -14,6 +14,7 @@ import sys as _import_sys
 from pathlib import Path as _ImportPath
 if __package__ in (None, ""):
     _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[2]))
+from tools.packaging.resource_archive import require_expanded_resources
 from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
@@ -91,9 +92,10 @@ def main():
         '--distpath', str(dist), '--workpath', str(ROOT / 'artifacts/build/velopack'),
         str(ROOT / 'tools/packaging/main.spec')], cwd=ROOT, env=build_environment(), check=True)
     app = dist / APP_ID
+    require_expanded_resources(app)
     run_stage('Velopack 打包', subprocess.run, ['dotnet', 'tool', 'run', 'vpk', 'pack', '--packId', UPDATE_CONFIG['pack_id'],
         '--packVersion', version, '--packDir', str(app), '--mainExe', EXECUTABLE_NAME,
-        '--channel', UPDATE_CONFIG['runtime'], '--runtime', UPDATE_CONFIG['runtime'], '--packTitle', APP_NAME, '--noInst',
+        '--channel', UPDATE_CONFIG['runtime'], '--runtime', UPDATE_CONFIG['runtime'], '--packTitle', Path(UPDATE_CONFIG['launcher_name']).stem, '--noInst',
         '--icon', str(ROOT / 'resources/clicker.ico'), '--releaseNotes', str(ROOT / 'tools/packaging/RELEASE_NOTES.md'),
         '--outputDir', str(output)], cwd=ROOT, check=True)
     context = ReleaseContext(ROOT, app, output, output / UPDATE_CONFIG['portable_name'],

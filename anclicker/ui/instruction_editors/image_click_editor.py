@@ -1,5 +1,10 @@
 """旧版图像点击工作区，复用当前参数契约和应用主题。"""
 from pathlib import Path
+from anclicker.ui.region_preview import RegionPreview
+from anclicker.domain.instructions import InstructionDraft
+from anclicker.ui.background_window_picker import pick_background_window
+from anclicker.ui.image_region_picker import pick_fixed_region
+from anclicker.platform.image_region import window_region, region_in_bound_window
 from anclicker.platform.image_paths import resolve_image_reference, store_image_reference
 from anclicker.app.paths import IMAGES_FOLDER
 from datetime import datetime
@@ -7,7 +12,7 @@ from datetime import datetime
 from anclicker.platform.qt_compat.QtCore import Qt, QRectF, Signal, QTimer, QUrl, QSignalBlocker
 from anclicker.platform.qt_compat.QtGui import QPixmap, QPainter, QPen, QDesktopServices
 from anclicker.platform.qt_compat.QtWidgets import (
-    QWidget, QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
     QDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QGridLayout,
     QGroupBox, QFileDialog, QMessageBox, QTabWidget, QSizePolicy,
 )
@@ -185,20 +190,56 @@ class ImageClickEditorMixin:
         columns = QHBoxLayout()
         click = QGroupBox('图像点击位置和精度'); left = QGridLayout(click)
         ui.auxiliary_6.setText('调整点击位置')
-        left.addWidget(ui.parameter_6, 0, 0); left.addWidget(ui.auxiliary_6, 0, 1)
+        left.addWidget(ui.parameter_6, 0, 0, 1, 2)
+        left.addWidget(ui.auxiliary_6, 4, 0, 1, 2)
+        left.setColumnStretch(0, 1)
+        ui.parameter_6.setMinimumWidth(0)
         self.confidence_slider = QSlider(Qt.Orientation.Horizontal)
         self.confidence_slider.setObjectName('imageConfidenceSlider')
         self.confidence_slider.setRange(1, 100); self.confidence_slider.setValue(80)
         self.confidence_label = QLabel('80%')
-        left.addWidget(QLabel('识别精度：'), 1, 0)
-        left.addWidget(self.confidence_slider, 1, 1); left.addWidget(self.confidence_label, 1, 2)
-        self.region_group = QGroupBox('启用指定区域识别')
-        self.region_group.setCheckable(True); self.region_group.setChecked(False)
+        left.addWidget(QLabel('识别精度:'), 1, 0)
+        left.addWidget(self.confidence_label, 1, 1)
+        self.confidence_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.confidence_slider.setMinimumWidth(0)
+        self.confidence_slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        left.addWidget(self.confidence_slider, 2, 0, 1, 2)
+        left.setRowStretch(3, 1)
+        self.region_group = QGroupBox('启动区域识别1')
+        self.follow_region_group = QGroupBox('启动区域识别2')
+        for group in (self.region_group, self.follow_region_group):
+            group.setCheckable(True); group.setChecked(False)
         right = QVBoxLayout(self.region_group)
+        follow_layout = QVBoxLayout(self.follow_region_group)
         ui.parameter_3.setPlaceholderText('(x,y,宽度,高度)')
-        ui.auxiliary_3.setText('设置区域')
-        right.addWidget(ui.parameter_3); right.addWidget(ui.auxiliary_3)
-        columns.addWidget(click, 1); columns.addWidget(self.region_group, 1)
+        self._region_target = None
+        ui.auxiliary_3.setText('框选固定区域')
+        ui.auxiliary_3.setToolTip('拖动框选；单击窗口则使用该窗口当前范围，之后保持固定。')
+        self.follow_region_button = QPushButton('跟随窗口区域')
+        self.follow_region_button.clicked.connect(self._pick_follow_region)
+        self.region_hint = QLabel('未选择跟随窗口')
+        self.region_hint.setWordWrap(True)
+        fixed_hint = QLabel('拖动框选，或单击获取窗口当前范围')
+        follow_hint = QLabel('点选窗口，每次识别时更新范围')
+        for label in (fixed_hint, follow_hint):
+            label.setWordWrap(True)
+            label.setObjectName('mutedText')
+        right.addWidget(fixed_hint); right.addWidget(ui.parameter_3); right.addStretch(1); right.addWidget(ui.auxiliary_3)
+        follow_layout.addWidget(follow_hint); follow_layout.addWidget(self.region_hint); follow_layout.addStretch(1); follow_layout.addWidget(self.follow_region_button)
+        self.region_group.toggled.connect(lambda checked: self._toggle_region_group(False, checked))
+        self.follow_region_group.toggled.connect(lambda checked: self._toggle_region_group(True, checked))
+        for column_layout in (left, right, follow_layout):
+            column_layout.setProperty("preserveVerticalStretch", True)
+            column_layout.setContentsMargins(10, 12, 10, 10)
+            column_layout.setSpacing(6)
+        region_buttons = (ui.auxiliary_6, ui.auxiliary_3, self.follow_region_button)
+        button_height = max(32, *(button.sizeHint().height() for button in region_buttons))
+        for button in region_buttons:
+            button.setFixedHeight(button_height)
+        for group in (click, self.region_group, self.follow_region_group):
+            group.setMinimumWidth(0)
+            group.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+            columns.addWidget(group, 1)
         layout.addLayout(columns)
         missing = QHBoxLayout()
         self.skip_check = QCheckBox('未找到图像时自动略过'); self.skip_check.setChecked(True)
@@ -216,6 +257,40 @@ class ImageClickEditorMixin:
         self.preview.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.tabs = QTabWidget()
         self.tabs.addTab(ui.commonGroupBox, '功能参数'); self.tabs.addTab(self.preview, '图像预览')
+        self.region_preview = RegionPreview(self)
+        self.region_preview_page = QWidget(self)
+        preview_layout = QVBoxLayout(self.region_preview_page)
+        self.region_offset_box = QGroupBox('跟随窗口偏移')
+        self.region_offset_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        offsets_layout = QGridLayout(self.region_offset_box)
+        offsets_layout.setContentsMargins(8, 4, 8, 6)
+        offsets_layout.setHorizontalSpacing(6)
+        offsets_layout.setVerticalSpacing(3)
+        self.region_offset_spins = []
+        for index, label in enumerate(('左上角 X:', '左上角 Y:', '右下角 X:', '右下角 Y:')):
+            spin = QSpinBox(self.region_offset_box)
+            spin.setRange(-100000,100000); spin.setSuffix(' px')
+            spin.setMinimumWidth(0)
+            spin.setMaximumWidth(110)
+            spin.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            offsets_layout.addWidget(QLabel(label),index//2,index%2*2)
+            offsets_layout.addWidget(spin,index//2,index%2*2+1)
+            spin.valueChanged.connect(self._region_offsets_changed)
+            self.region_offset_spins.append(spin)
+        self.region_screenshot_button = QPushButton('全屏截图预览')
+        self.region_screenshot_button.clicked.connect(lambda: self._capture_region_preview(fullscreen=True))
+        self.follow_screenshot_button = QPushButton('全屏截图预览', self.region_offset_box)
+        self.follow_screenshot_button.clicked.connect(lambda: self._capture_region_preview(fullscreen=True))
+        offsets_layout.addWidget(self.follow_screenshot_button, 0, 4, 2, 1, Qt.AlignVCenter)
+        offsets_layout.setColumnStretch(1, 1)
+        offsets_layout.setColumnStretch(3, 1)
+        preview_layout.addWidget(self.region_screenshot_button)
+        preview_layout.addWidget(self.region_offset_box)
+        preview_layout.addWidget(self.region_preview,1)
+        self.tabs.addTab(self.region_preview_page, '区域预览')
+        self.tabs.currentChanged.connect(self._region_preview_tab_changed)
+        self.region_preview.region_changed.connect(self._preview_region_changed)
+        ui.parameter_3.textChanged.connect(self._update_region_preview)
         ui.rootLayout.replaceWidget(old, panel)
         ui.rootLayout.insertWidget(2, self.tabs)
         # Serialized backing fields remain alive; visible controls above edit them.
@@ -241,7 +316,23 @@ class ImageClickEditorMixin:
             combo.setMinimumContentsLength(8)
             combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self._image_action_changed()
+        self._configure_region_columns()
         self.resize(760, 700)
+
+    def _configure_region_columns(self):
+        window_image = getattr(self, 'WINDOW_IMAGE', False)
+        self.region_group.setVisible(not window_image)
+        self.follow_region_group.setVisible(window_image or bool(self._region_target))
+        if window_image:
+            self.region_group.setChecked(False)
+            self.follow_region_group.setCheckable(False)
+            self.follow_region_group.setTitle('窗口识别区域')
+            self.follow_region_button.setText('点选目标窗口')
+            layout = self.follow_region_group.layout()
+            layout.removeWidget(self.follow_region_button)
+            layout.insertWidget(0, self.follow_region_button)
+        else:
+            self.region_group.setTitle('启动区域识别')
 
     def _set_confidence(self, value):
         self.ui.parameter_5.setValue(value / 100)
@@ -380,9 +471,151 @@ class ImageClickEditorMixin:
             except ValueError as error:
                 QMessageBox.warning(self, '点击位置', str(error))
         elif key == '区域':
-            self._select_screen(False)
+            try:
+                selected = pick_fixed_region(self)
+                if selected is not None:
+                    binding_parameters, _, _ = _module_imports.load('binding_parameters_select_background_save_capture')
+                    binding = binding_parameters(self)
+                    if binding is not None:
+                        selected = region_in_bound_window(selected, binding)
+                    self.ui.parameter_3.setText(str(selected))
+                    self.region_group.setChecked(True)
+                    self._refresh_region_mode()
+            except Exception as error:
+                QMessageBox.warning(self, '区域选择失败', str(error))
         else:
             super()._run_auxiliary(key)
+
+    def _region_preview_tab_changed(self, *_):
+        if self.tabs.currentWidget() is self.region_preview_page:
+            self._capture_region_preview(fullscreen=False)
+
+    def _capture_region_preview(self, fullscreen=True):
+        if getattr(self, '_region_capture_pending', False):
+            return
+        self._region_capture_pending = True
+        self.region_screenshot_button.setEnabled(False)
+        self.follow_screenshot_button.setEnabled(False)
+        visible = [(w, w.windowOpacity()) for w in QApplication.topLevelWidgets() if w.isVisible()]
+        for widget, _ in visible:
+            widget.setWindowOpacity(0)
+        def capture():
+            error = None
+            try:
+                from anclicker.ui.region_screenshot import capture_desktop
+                pixmap, area = capture_desktop()
+                self._region_screen_area = area
+                binding_parameters, _, _ = _module_imports.load('binding_parameters_select_background_save_capture')
+                binding = binding_parameters(self)
+                if binding is not None and self.region_group.isChecked():
+                    from anclicker.platform.background_runtime import Windows
+                    windows = Windows()
+                    target = windows.resolve(binding)
+                    origin = windows.gui.ClientToScreen(int(target['窗口句柄']), (0,0))
+                    area = (area[0]-origin[0],area[1]-origin[1],area[2],area[3])
+                self._region_canvas_area = area
+                self._update_region_preview()
+                self.region_preview.set_background(pixmap, area)
+                self.region_preview.set_region(area,
+                    (self.region_preview.region.x(),self.region_preview.region.y(),self.region_preview.region.width(),self.region_preview.region.height()) if self.region_preview.region is not None else None,
+                    '截图预览 · 拖动边框调整范围')
+            except Exception as exc:
+                error = str(exc)
+            finally:
+                for widget, opacity in visible:
+                    try: widget.setWindowOpacity(opacity)
+                    except RuntimeError: pass
+                try:
+                    self._region_capture_pending = False
+                    self.region_screenshot_button.setEnabled(True)
+                    self.follow_screenshot_button.setEnabled(True)
+                except RuntimeError:
+                    return
+            if error:
+                QMessageBox.warning(self, '截图预览失败', error)
+            elif fullscreen and self.isVisible() and self.tabs.currentWidget() is self.region_preview_page:
+                self.region_preview.open_fullscreen()
+        QTimer.singleShot(180, capture)
+
+    def _update_region_preview(self, *_):
+        if not hasattr(self, 'region_preview') or self.tabs.currentWidget() is not self.region_preview_page:
+            return
+        self.region_offset_box.setVisible((getattr(self, 'WINDOW_IMAGE', False) or self.follow_region_group.isChecked()))
+        self.region_screenshot_button.setVisible(not (getattr(self, 'WINDOW_IMAGE', False) or self.follow_region_group.isChecked()))
+        try:
+            if (getattr(self, 'WINDOW_IMAGE', False) or self.follow_region_group.isChecked()):
+                if not self._region_target: raise ValueError('请先点选跟随窗口')
+                target = dict(self._region_target)
+                target.pop('区域比例', None)
+                target.pop('区域偏移', None)
+                for spin, value in zip(self.region_offset_spins,self._region_target.get('区域偏移',[0,0,0,0])):
+                    with QSignalBlocker(spin): spin.setValue(int(value))
+                self._preview_window_rect = window_region(target)
+                screen = self.screen().virtualGeometry()
+                area = getattr(self, '_region_screen_area', (screen.x(),screen.y(),screen.width(),screen.height()))
+                region = window_region(self._region_target)
+                x=min(area[0],region[0]); y=min(area[1],region[1])
+                area=(x,y,max(area[0]+area[2],region[0]+region[2])-x,max(area[1]+area[3],region[1]+region[3])-y)
+            elif self.region_group.isChecked():
+                region = actions.region(self.ui.parameter_3.text())
+                screen = self.screen().virtualGeometry()
+                area = getattr(self, '_region_canvas_area', (screen.x(), screen.y(), screen.width(), screen.height()))
+                if region:
+                    x=min(area[0],region[0]); y=min(area[1],region[1])
+                    area=(x,y,max(area[0]+area[2],region[0]+region[2])-x,max(area[1]+area[3],region[1]+region[3])-y)
+            else:
+                self.region_preview.set_region((0,0,1920,1080), None, '请选择并启用区域识别')
+                return
+            self.region_preview.set_region(area, region, '拖动边框或角点调整范围' if region else '请先设置区域')
+        except Exception as error:
+            self.region_preview.set_region((0,0,1920,1080), None, str(error))
+
+    def _preview_region_changed(self, region):
+        if (getattr(self, 'WINDOW_IMAGE', False) or self.follow_region_group.isChecked()) and self._region_target:
+            x,y,w,h=self._preview_window_rect
+            rx,ry,rw,rh=region
+            self._region_target.pop('区域比例', None)
+            offsets=[rx-x,ry-y,rx+rw-x-w,ry+rh-y-h]
+            self._region_target['区域偏移']=offsets
+            for spin, value in zip(self.region_offset_spins,offsets):
+                with QSignalBlocker(spin): spin.setValue(value)
+        else:
+            with QSignalBlocker(self.ui.parameter_3):
+                self.ui.parameter_3.setText(str(region))
+
+    def _region_offsets_changed(self, *_):
+        if not (getattr(self, 'WINDOW_IMAGE', False) or self.follow_region_group.isChecked()) or not self._region_target:
+            return
+        self._region_target.pop('区域比例', None)
+        self._region_target['区域偏移']=[spin.value() for spin in self.region_offset_spins]
+        self._update_region_preview()
+
+    def _toggle_region_group(self, following, checked):
+        if checked:
+            other = self.region_group if following else self.follow_region_group
+            other.setChecked(False)
+        self._update_region_preview()
+
+    def _refresh_region_mode(self):
+        following = self._region_target is not None
+        self.ui.parameter_3.setReadOnly(False)
+        title = (self._region_target or {}).get('窗口标题', '')
+        self.region_hint.setText('跟随窗口：' + title if following else '未选择跟随窗口')
+        self.region_hint.setToolTip(self.region_hint.text())
+        self._update_region_preview()
+
+    def _pick_follow_region(self):
+        try:
+            target = pick_background_window(self)
+            if target is None:
+                return
+            selected = window_region(target)
+            self._region_target = dict(target)
+            self._follow_region = str(selected)
+            self.follow_region_group.setChecked(True)
+            self._refresh_region_mode()
+        except Exception as error:
+            QMessageBox.warning(self, '窗口区域选择失败', str(error))
 
     def _select_screen(self, capture):
         BINDING = _module_imports.load('BINDING')
@@ -468,14 +701,20 @@ class ImageClickEditorMixin:
         QTimer.singleShot(180, choose)
 
     def load_draft(self, draft):
+        draft = draft if isinstance(draft, InstructionDraft) else InstructionDraft.from_mapping(draft)
         super().load_draft(draft)
         if not hasattr(self, 'folder_combo'):
             return
         path = self.ui.parameter_0.text()
         if path:
             self._set_image_path(path)
+        self._region_target = dict(draft.parameters.get('区域窗口') or {}) if draft.parameters.get('区域模式') == '跟随窗口' else None
+        self._refresh_region_mode()
         region = self.ui.parameter_3.text()
-        self.region_group.setChecked(region.replace(' ', '') not in ('', '(0,0,0,0)', '0,0,0,0'))
+        self._follow_region = region
+        following = self._region_target is not None
+        self.region_group.setChecked(not following and region.replace(' ', '') not in ('', '(0,0,0,0)', '0,0,0,0'))
+        self.follow_region_group.setChecked(following)
         policy = self.ui.parameter_2.text()
         if policy not in ('自动略过', '自动跳过', ''):
             try:
@@ -488,18 +727,32 @@ class ImageClickEditorMixin:
             if self.ui.parameter_1.currentText() == '无操作':
                 self.timeout_spin.setValue(1)
         self._image_action_changed()
+        self._configure_region_columns()
 
     def get_draft(self):
         self._sync_selected_image()
         # Disabled region retains its coordinates for toggling back, but is not executed.
         control = self.ui.parameter_3
         saved = control.text()
-        if not self.region_group.isChecked():
+        following = (getattr(self, 'WINDOW_IMAGE', False) or self.follow_region_group.isChecked())
+        enabled = following or self.region_group.isChecked()
+        if following:
+            control.setText(getattr(self, '_follow_region', '') or saved)
+        elif not enabled:
             control.setText('')
         try:
             draft = super().get_draft()
             if self.region_group.isChecked() and actions.region(saved) is None:
                 raise ValueError('请先设置有效识别区域。')
+            if following:
+                if not self._region_target:
+                    raise ValueError('请重新点选跟随窗口。')
+                offsets = self._region_target.get('区域偏移',[0,0,0,0])
+                base = actions.region(getattr(self, '_follow_region', '') or saved)
+                if base and (base[2]+offsets[2]-offsets[0]<=0 or base[3]+offsets[3]-offsets[1]<=0):
+                    raise ValueError('偏移后的区域宽度和高度必须大于 0')
+                draft.parameters['区域模式'] = '跟随窗口'
+                draft.parameters['区域窗口'] = dict(self._region_target)
             return draft
         finally:
             control.setText(saved)
@@ -507,6 +760,19 @@ class ImageClickEditorMixin:
     def _valid_image(self):
         self._sync_selected_image()
         path = self._resolved_image_path()
+        if path and not Path(path).is_file():
+            from anclicker.app.paths import PORTABLE_DATA_FOLDER
+            folder = QFileDialog.getExistingDirectory(self, '未找到图片，请选择图片所在文件夹', PORTABLE_DATA_FOLDER)
+            if not folder:
+                return False
+            name = Path(path).name
+            matches = sorted(p for p in Path(folder).rglob(name) if p.is_file())
+            if len(matches) != 1:
+                QMessageBox.warning(self, '未找到唯一图片', '所选文件夹中未找到图片或存在同名图片，请使用“选择图片”指定文件。')
+                return False
+            self.db.writes_to_resource_folder_path(folder)
+            self._set_image_path(str(matches[0]))
+            path = self._resolved_image_path()
         pixmap = QPixmap()
         if path:
             try:

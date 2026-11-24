@@ -44,7 +44,7 @@ def main():
         subprocess.run(['dotnet', 'tool', 'run', 'vpk', 'pack', '--packId', UPDATE_CONFIG['pack_id'],
             '--packVersion', version, '--packDir', str(args.app.resolve()),
             '--mainExe', EXECUTABLE_NAME, '--channel', UPDATE_CONFIG['runtime'], '--runtime', UPDATE_CONFIG['runtime'],
-            '--packTitle', APP_NAME, '--outputDir', str(feed), '--noInst'], cwd=ROOT, check=True)
+            '--packTitle', Path(UPDATE_CONFIG['launcher_name']).stem, '--outputDir', str(feed), '--noInst'], cwd=ROOT, check=True)
         if version == '0.0.1':
             with zipfile.ZipFile(feed / UPDATE_CONFIG['portable_name']) as archive:
                 archive.extractall(portable)
@@ -59,7 +59,7 @@ def main():
     CURRENT_VERSION = _module_imports.load('CURRENT_VERSION')
     _validate_delta(context, sandbox / 'delta-check', app_version=CURRENT_VERSION.removeprefix('v'))
     data = portable / 'data'
-    env = dict(os.environ, ANCLICKER_SMOKE_FEED=str(feed),
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', ANCLICKER_SMOKE_FEED=str(feed),
                ANCLICKER_SINGLETON_KEY='upgrade-' + uuid.uuid4().hex)
     env.pop('ANCLICKER_DATA_DIR', None)
     result = data / 'velopack-smoke-result.json'

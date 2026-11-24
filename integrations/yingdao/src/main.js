@@ -2,13 +2,14 @@ const acRecorder = require('./ac-recorder');
 const { app, BrowserWindow, ipcMain, dialog, screen, shell, session, clipboard } = require('electron');
 const navigateWebContents = require('./browser-navigation');
 const { configureSession } = require('./browser-proxy');
+const browserRecovery = require('./browser-recovery');
 async function navigateBrowser(wc, url) {
   try { await configureSession(wc.session); }
   catch (error) {
     wc.emit('ac:navigation-state',{requestedUrl:url,loading:false,error:'浏览器网络配置失败：'+error.message});
     throw error;
   }
-  return navigateWebContents(wc,url);
+  return browserRecovery.recover(wc,url,navigateWebContents,runtimeNotices.report);
 }
 const attachBrowserControls = require('./browser-controls');
 const extBrowser = require('./ext-browser');   // 外部浏览器驱动（Edge / 便携版 Chrome，走 CDP）
@@ -17,11 +18,13 @@ const fs = require('fs');
 
 app.setName('AnClickerRPA');
 app.setPath('userData', process.env.ANCLICKER_RPA_DATA || path.join(app.getPath('appData'), 'AnClicker', 'rpa'));
+const runtimeNotices = require('./runtime-notices');
 const bridge = require('./ac-bridge-main');
 
 
 let mainWindow = null;
 let browserWindows = [];    // 独立浏览器窗口数组 [{ id, win }]
+const browserWindowSession = process.pid + '-' + Date.now();
 let activeBrowserId = null; // 当前激活的浏览器窗口 id
 let excelEditors = [];       // 多个独立 Excel 编辑器窗口 [{ id, win, snapshot, embedded }]
 let excelEditorSeq = 1;      // 编辑器窗口 id 自增
@@ -318,10 +321,12 @@ function makeSession(mode) {
 
 // 创建新的独立浏览器窗口
 // 多个浏览器窗口彼此错开摆放：否则新窗口完全盖住旧窗口，看起来像"只开了一个"
-function createBrowserWindow(url, loginMode) {
-  const id = 'b' + (browserIdSeq++);
+function createBrowserWindow(url, loginMode, cdpRecord = null) {
+  const number = browserIdSeq++;
+  const id = 'b' + number;
+  const windowTitle = '极速网页AC' + number;
   const mode = LOGIN_MODE_LIST.includes(loginMode) ? loginMode : LOGIN_MODE.CLEAN;
-  const ses = makeSession(mode);
+  const ses = cdpRecord ? {partition:'persist:ac-cdp-'+cdpRecord.key, slot:null, badge:'CDP'} : makeSession(mode);
   const W = 1180, H = 760;
   const webPreferences = {
     nodeIntegration: false,
@@ -330,10 +335,11 @@ function createBrowserWindow(url, loginMode) {
   };
   // 不设 partition = 跟默认会话共用；设了就是独立会话
   if (ses.partition) webPreferences.partition = ses.partition;
-  const win = new BrowserWindow({
+  const win = require('./browser-window-theme').createThemedBrowserWindow({
     width: W,
     height: H,
-    title: '极速网页AC',
+    show: !cdpRecord || !cdpRecord.hidden,
+    title: windowTitle,
     icon: path.join(__dirname, '..', 'icon.ico'),
     webPreferences
   });
@@ -359,8 +365,11 @@ function createBrowserWindow(url, loginMode) {
   // redirect a desktop window to a mobile/offline landing page.
   wc.setUserAgent(wc.getUserAgent().replace(/\s(?:Electron|anclicker-rpa-runtime|AnClickerRPA)\/[^\s]+/gi, ''));
   acRecorder.attach(wc);
+  wc.on('did-create-window', child => registerBrowserPopup(child));
   // 转发导航事件给主应用渲染进程（带窗口 id）
+  wc.on('did-navigate-in-page', () => { if (cdpRecord) saveCdpWindow(id); });
   wc.on('did-navigate', (_e, url) => {
+    if (cdpRecord) saveCdpWindow(id, url);
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:navigated', { id, url });
   });
   wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
@@ -370,11 +379,18 @@ function createBrowserWindow(url, loginMode) {
   wc.on('page-title-updated', (e, title) => {
     // 不让页面标题直接覆盖窗口标题：把会话标记保留在标题里，方便区分多个窗口
     e.preventDefault();
-    try { win.setTitle('极速网页AC'); } catch (err) { }
+    try { win.setTitle(windowTitle); } catch (err) { }
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:titleUpdated', { id, title });
   });
   // The local control view survives remote page failures and navigation.
-  attachBrowserControls(win, {normalizeUrl, navigate:navigateBrowser, markNavigation:wc=>acRecorder.markNavigation(wc)});
+  attachBrowserControls(win, {windowTitle, normalizeUrl, navigate:navigateBrowser, markNavigation:wc=>acRecorder.markNavigation(wc), cancelNavigation:browserRecovery.cancel});
+  const notice = runtimeNotices.attach(win, async()=>{
+    const status=wc.__acNavigationStatus||{};
+    const target=status.requestedUrl||wc.getURL();
+    if(!target||target==='about:blank')throw Error('请先填写要重连的网页地址');
+    await navigateBrowser(wc,target);
+  });
+  wc.on('ac:navigation-state',state=>{if(!state.loading&&!state.error)notice.hide();});
 
   // Workflow target changes only when opening or explicitly switching pages.
   // Focusing a different desktop window must not change the next command's page.
@@ -389,7 +405,13 @@ function createBrowserWindow(url, loginMode) {
     }
   });
 
-  browserWindows.push({ id, win, slot: ses.slot, badge: ses.badge, mode, partition: ses.partition });
+  browserWindows.push({ id, win, slot: ses.slot, badge: ses.badge, mode, partition: ses.partition, cdpKey:cdpRecord && cdpRecord.key });
+  if (cdpRecord) {
+    win.on('close', () => saveCdpWindow(id));
+    if (cdpRecord.bounds && Number.isFinite(cdpRecord.bounds.width) && Number.isFinite(cdpRecord.bounds.height)) {
+      win.setSize(Math.max(400,Math.min(2400,cdpRecord.bounds.width)),Math.max(300,Math.min(1600,cdpRecord.bounds.height)));
+    }
+  }
   activeBrowserId = id;
   // 新窗口立刻通知主应用刷新任务栏（不等页面加载，加载失败也能出现在任务栏里）
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -403,6 +425,61 @@ function createBrowserWindow(url, loginMode) {
   }
 
   return browserWindows.find(b => b.id === id);
+}
+
+// Dedicated CDP windows keep their own persistent Chromium sessions.
+const cdpStatePath = () => path.join(app.getPath('userData'), 'cdp-pages.json');
+let cdpRestorePromise = null;
+function readCdpRecords() {
+  try {
+    const state = JSON.parse(fs.readFileSync(cdpStatePath(),'utf8'));
+    if (!Array.isArray(state.pages)) return [];
+    return state.pages.filter(p => /^[a-f0-9-]{16,64}$/.test(p.key) && /^https?:\/\//i.test(p.url)).slice(0,50);
+  } catch (_) { return []; }
+}
+function writeCdpRecords(records) {
+  const file = cdpStatePath();
+  fs.mkdirSync(path.dirname(file),{recursive:true});
+  fs.writeFileSync(file+'.tmp', JSON.stringify({version:1,pages:records},null,2));
+  fs.renameSync(file+'.tmp',file);
+}
+function saveCdpWindow(id, url) {
+  const page = browserWindows.find(b=>b.id===id && b.cdpKey && !b.win.isDestroyed());
+  if (!page) return;
+  url = url || page.win.webContents.getURL();
+  if (!/^https?:\/\//i.test(url)) return;
+  try {
+    const records = readCdpRecords();
+    const record = {key:page.cdpKey,url,title:page.win.webContents.getTitle(),bounds:page.win.getBounds()};
+    const index = records.findIndex(p=>p.key===record.key);
+    if (index<0) records.push(record); else records[index]=record;
+    writeCdpRecords(records.slice(-50));
+  } catch (error) { console.error('CDP 网页记录保存失败:',error.message); }
+}
+async function restoreCdpWindows() {
+  if (!cdpRestorePromise) cdpRestorePromise = (async () => {
+    const previous = activeBrowserId;
+    const records = readCdpRecords();
+    const restored = records.map(record => ({record,page:createBrowserWindow('about:blank',LOGIN_MODE.SHARED,{...record,hidden:true})}));
+    if (previous) activeBrowserId=previous;
+    await Promise.all(restored.map(async ({record,page}) => {
+      try { await navigateBrowser(page.win.webContents,record.url); }
+      catch (_) { /* Keep the window available for explicit reconnect. */ }
+    }));
+  })();
+  return cdpRestorePromise;
+}
+
+// Pages opened by target=_blank / window.open are usable CDP targets too.
+function registerBrowserPopup(win) {
+  if (!win || win.isDestroyed() || browserWindows.some(b=>b.win===win)) return;
+  const id = 'b' + browserIdSeq++;
+  browserWindows.push({id,win,badge:'网页弹窗',mode:'网页弹窗',slot:null,partition:null});
+  win.webContents.on('did-create-window', child => registerBrowserPopup(child));
+  win.on('closed', () => {
+    browserWindows = browserWindows.filter(b=>b.id!==id);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:windowClosed',{id});
+  });
 }
 
 // 获取当前激活的浏览器窗口
@@ -573,7 +650,13 @@ function pickScriptSource(token = '') {
           const el = target(e);
           const css = buildSelector(el);
           if (!css || !__qAll(css).includes(el)) throw new Error('未能生成可用的元素定位，请重新拾取');
-          window.__rpaPicked = {status:'selected', css, xpath:buildXPath(el), text:String(el.innerText || el.value || el.textContent || '').trim().slice(0,60)};
+          const text=String(el.innerText || el.value || el.textContent || '').trim().slice(0,100);
+          let anchorSelector=el.localName;
+          const attr=['name','aria-label','placeholder','title'].find(name=>el.getAttribute(name));
+          if (attr) anchorSelector+='['+attr+'='+JSON.stringify(el.getAttribute(attr))+']';
+          else if (/^(button|a|span|label|td|th)$/i.test(el.localName) && text && text.length<=80) anchorSelector='text='+text;
+          else if (el.localName==='input' && el.type) anchorSelector+='[type='+JSON.stringify(el.type)+']';
+          window.__rpaPicked = {status:'selected', css, xpath:buildXPath(el), text, tag:el.tagName, anchorSelector};
         } catch (err) { window.__rpaPicked = {status:'error', error:String(err.message || err)}; }
         finally { cleanup(); }
       }
@@ -665,7 +748,7 @@ async function pickElement() {
       if (picked && (picked.status === 'selected' || picked.status === 'error')) {
         if (picked.error) throw new Error(picked.error);
         if (!picked.css) throw new Error('拾取结果没有有效的定位信息，请重新拾取');
-        return {canceled:false, css:picked.css, xpath:picked.xpath, text:picked.text};
+        return {canceled:false, css:picked.css, xpath:picked.xpath, text:picked.text, tag:picked.tag, anchorSelector:picked.anchorSelector};
       }
       await new Promise(r => setTimeout(r, 100));
     }
@@ -851,9 +934,13 @@ function pointPickScriptSource(maxPoints) {
 }
 
 // 坐标始终相对于页面主视口，子框架不另建坐标原点。
-async function pickPoints(maxPoints = 1000, initialPoints = []) {
+async function pickPoints(maxPoints = 1000, initialPoints = [], remote = null) {
   let execute, alive;
-  if (extOn()) {
+  if (remote) {
+    await remote.send('Page.bringToFront');
+    execute = script => remote.evaluate(script);
+    alive = remote.alive;
+  } else if (extOn()) {
     await extBrowser.focusCurrent();
     execute = script => extBrowser.execJS(script, 2000);
     alive = () => extBrowser.isRunning();
@@ -1288,29 +1375,77 @@ ipcMain.handle('browser:newTab', async (_e, url, loginMode) => {
 
 // 切换/聚焦窗口
 ipcMain.handle('browser:switchTab', async (_e, id) => {
-  if (extOn()) { const r = await extBrowser.switchTarget(id); return { id: r.id }; }
+  if (!browserWindows.some(b=>b.id===id && !b.win.isDestroyed()) && extBrowser.isRunning()) {
+    const r = await extBrowser.switchTarget(id); browserEngine=extBrowser.info().kind; return {id:r.id};
+  }
+  browserEngine='内置';
   const target = activateBrowserWindow(id);
   return { id: target ? target.id : null };
 });
 
 // 关闭窗口
 ipcMain.handle('browser:closeTab', async (_e, id) => {
-  if (extOn()) { const n = await extBrowser.closeTarget(id); return { remaining: n }; }
+  if (!browserWindows.some(b=>b.id===id) && extBrowser.isRunning()) { const n = await extBrowser.closeTarget(id); return { remaining: n }; }
   const remaining = closeBrowserWindow(id);
   return { remaining: remaining };
 });
 
-// 获取所有窗口信息（含登录会话标记，便于区分多个账号窗口）
-ipcMain.handle('browser:getTabs', async () => {
-  if (extOn()) {
-    const pages = await extBrowser.listPages();
-    return pages.map(p => ({ id: p.id, url: p.url, title: p.title, badge: browserEngine, mode: browserEngine, slot: null }));
+// Resolve an explicit selection before every pick, preview and saved operation.
+ipcMain.handle('browser:selectWindow', async (_e, target, background = false) => {
+  if (!target || typeof target !== 'object') throw new Error('网页窗口信息无效，请重新选择');
+  const pages = (await listAllBrowserTargets()).filter(p => !target.engine || p.engine === target.engine);
+  let page = pages.find(p => String(p.id) === String(target.id) && (target.session === browserWindowSession || (!target.session && (!target.url || p.url === target.url))));
+  if (!page && target.cdpKey) page = pages.find(p => p.cdpKey === target.cdpKey);
+  if (!page && target.url) {
+    const matches = pages.filter(p => p.url === target.url);
+    if (matches.length === 1) page = matches[0];
+    else if (matches.length > 1) throw new Error('多个窗口地址相同，请重新选择网页窗口');
   }
-  return browserWindows.map(b => {
-    let url = '', title = '';
-    try { url = b.win.webContents.getURL(); title = b.win.webContents.getTitle(); } catch (e) {}
-    return { id: b.id, url, title, badge: b.badge || '', mode: b.mode || '', slot: b.slot || null };
+  if (!page) throw new Error('所选网页窗口已关闭或地址已变化，请刷新后重新选择');
+  // Select the already-running engine, without closing other engine windows.
+  browserEngine = page.engine;
+  if (page.engine !== '内置') { if (background) await extBrowser.attach(page.id); else await extBrowser.switchTarget(page.id); }
+  else if (background) activeBrowserId = page.id;
+  else { activateBrowserWindow(page.id); requireBrowserWindow(true); }
+  return {id:page.id};
+});
+
+// 获取所有窗口信息（含登录会话标记，便于区分多个账号窗口）
+async function listAllBrowserTargets() {
+  const result = await require('./browser-targets').listTargets(browserWindows,extBrowser,browserWindowSession);
+  if (result.warning) console.warn(result.warning);
+  return result.pages;
+}
+ipcMain.handle('browser:getTabs', listAllBrowserTargets);
+
+ipcMain.handle('browser:remoteTabs', async (_e, endpoints) => require('./remote-cdp').list(endpoints));
+ipcMain.handle('browser:openRemote', async (_e, params) => {
+  const url=normalizeUrl(params.url);
+  if(!/^https?:\/\//i.test(url))throw Error('请填写 http 或 https 地址');
+  return require('./remote-cdp').withTarget(params.window,async client=>{
+    if(url!==params.window.url)await client.send('Page.navigate',{url});
+    await client.send('Page.bringToFront');
+    return true;
   });
+});
+ipcMain.handle('browser:restoreCdp', async () => { await restoreCdpWindows(); return true; });
+ipcMain.handle('browser:openCdp', async (_e, params = {}) => {
+  const url = normalizeUrl(params.url);
+  if (!/^https?:\/\//i.test(url)) throw new Error('请填写 http 或 https 网页地址');
+  browserEngine = '内置';
+  await restoreCdpWindows();
+  const selected = params.window || {};
+  let page = browserWindows.find(b=>b.cdpKey && !b.win.isDestroyed() && (b.cdpKey===selected.cdpKey || (selected.session===browserWindowSession && b.id===selected.id)));
+  if (!page) {
+    const key = require('crypto').randomUUID();
+    page = createBrowserWindow('about:blank',LOGIN_MODE.SHARED,{key});
+  }
+  activeBrowserId=page.id;
+  saveCdpWindow(page.id,url);
+  if (page.win.isMinimized()) page.win.restore();
+  page.win.show(); page.win.focus();
+  if (page.win.webContents.getURL() !== url) await navigateBrowser(page.win.webContents,url);
+  return {id:page.id};
 });
 
 // ============ 清空浏览器登录数据（多账号切换前清理残留） ============
@@ -1345,6 +1480,9 @@ ipcMain.handle('browser:clearData', async () => {
   // 2) 账号位 1..N（磁盘上的持久会话）
   for (let i = 1; i <= ACCOUNT_SLOT_MAX; i++) {
     await clearOne(session.fromPartition('persist:yd-acc-' + i), '账号位' + i);
+  }
+  for (const record of readCdpRecords()) {
+    await clearOne(session.fromPartition('persist:ac-cdp-' + record.key), 'CDP ' + record.key);
   }
   // 3) 当前已打开的独立窗口（内存会话，清完这些窗口就退出登录了）
   for (const b of browserWindows) {
@@ -1475,6 +1613,19 @@ async function sendKeyToActiveWindow(key, times, modifiers) {
   return (mods.length ? mods.join('+') + '+' : '') + key + ' x' + n;
 }
 
+ipcMain.handle('browser:backgroundInput', async (_e, kind, payload, target = null) => {
+  if (!['click','key'].includes(kind)) throw new Error('未知后台网页操作');
+  if (target && target.remote) return require('./remote-cdp').withTarget(target, client => require('./background-input')[kind]((method, params) => client.send(method, params), payload));
+  if (extOn()) return extBrowser.backgroundInput(kind, payload);
+  const active = getActiveBrowser();
+  if (!active) throw new Error('请先通过 AnClicker 打开网页并选择 CDP 窗口');
+  const debuggerApi = active.win.webContents.debugger;
+  const owned = !debuggerApi.isAttached();
+  if (owned) debuggerApi.attach('1.3');
+  try { return await require('./background-input')[kind]((method, params) => debuggerApi.sendCommand(method, params), payload); }
+  finally { if (owned && debuggerApi.isAttached()) debuggerApi.detach(); }
+});
+
 ipcMain.handle('browser:sendKey', async (_e, key, times, modifiers) => {
   if (extOn()) return await extBrowser.sendKey(key, times, modifiers);
   return await sendKeyToActiveWindow(key, times, modifiers);
@@ -1586,7 +1737,8 @@ ipcMain.handle('browser:pickElement', async () => {
 });
 
 // 坐标拾取（多点）：在浏览器里点几个点，返回这些点的坐标
-ipcMain.handle('browser:pickPoints', async (_e, maxPoints, initialPoints) => {
+ipcMain.handle('browser:pickPoints', async (_e, maxPoints, initialPoints, target = null) => {
+  if (target && target.remote) return require('./remote-cdp').withTarget(target, client => pickPoints(Number(maxPoints)||1000,initialPoints,client));
   return await pickPoints(Number(maxPoints) || 1000, initialPoints);
 });
 
@@ -1860,4 +2012,13 @@ ipcMain.handle('ac:agent', (e,params) => {
   if(extOn())throw new Error('对话 Agent 请使用内置浏览器');
   const active=getActiveBrowser();
   return require('./ac-agent').execute(active&&active.win.webContents,params);
+});
+
+
+ipcMain.handle('ac:region', (e,params) => {
+  if(!mainWindow||e.sender!==mainWindow.webContents)throw new Error('无效调用');
+  if(extOn())throw new Error('区域提取请使用 AnClicker 内置浏览器');
+  const active=getActiveBrowser();
+  if(params?.action==='select'&&active){active.win.show();active.win.focus();}
+  return require('./ac-region').execute(active&&active.win.webContents,params);
 });

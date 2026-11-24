@@ -7,6 +7,20 @@ SETTING_TYPE_ACTIVATION = "激活信息"
 ACTIVATION_SETTING_ITEMS = frozenset({"激活月份", "激活状态", "激活校验日期"})
 THIRD_PARTY_SETTING_ITEMS = frozenset({"appId", "apiKey", "secretKey", "云码Token"})
 
+# Workbook pages carry task parameters, never the application's UI or hotkeys.
+PROJECT_SETTING_DEFAULTS = {
+    "运行重复次数": "1",
+    "运行未连接模块": "True",
+    "执行中隐藏主窗口": "False",
+    "任务名称": "默认任务",
+    "绑定窗口标题": "",
+    "多功能代码": "",
+    "多功能流程签名": "",
+}
+PROJECT_SETTING_ITEMS = frozenset(PROJECT_SETTING_DEFAULTS) | {
+    "有限重复次数", "旧版迁移来源分支", "旧版迁移配置归档",
+}
+
 
 def get_setting_type(setting_item: str) -> str:
     """根据设置项名称返回统一的中文分类。"""
@@ -19,10 +33,12 @@ def get_setting_type(setting_item: str) -> str:
     return SETTING_TYPE_BASIC
 
 DEFAULT_SETTINGS = {
+    "小化窗口起始位置": "last",
+    "小窗口大小模式": "last",
     "图像匹配精度": "0.8",
     "退出提醒清空指令": "False",
     "系统提示音": "False",
-    "显示工具栏": "True",
+    "显示工具栏": "False",
     "界面主题": "light",
     "任务完成后显示主窗口": "False",
     "当前文件路径": "None",
@@ -34,6 +50,7 @@ DEFAULT_SETTINGS = {
     "云码Token": "",
     "快捷键-开始运行": "f10",
     "快捷键-结束运行": "f11",
+    "快捷键-结束运行2": "",
     "快捷键-暂停和恢复": "alt+f11",
 }
 

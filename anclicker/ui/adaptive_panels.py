@@ -51,10 +51,20 @@ class AdaptivePanelSizer(QObject):
         ratio = min(1.0, width / self.reference_width)
         if not self.palette:
             horizontal = bool(self.body.property('horizontalControls'))
-            ratio = min(1.0, width / (460 if horizontal else self.reference_width), height / (190 if horizontal else self.reference_height))
+            owner = getattr(self.body, '_workspace_owner', self.body.window())
+            view_workspace = getattr(owner, 'view_workspace', None)
+            presets = getattr(view_workspace, 'layout_presets', None)
+            dynamic_controls = (self.body.objectName() == 'groupBox_3' and
+                                getattr(presets, 'selected', None) == 'dynamic2')
+            if dynamic_controls:
+                # Use scrolling instead of compressing controls vertically.
+                ratio = min(1.0, width / (460 if horizontal else self.reference_width))
+            else:
+                ratio = min(1.0, width / (460 if horizontal else self.reference_width), height / (190 if horizontal else self.reference_height))
         pixels = getattr(self, "expanded_pixels", max(7, round(self.base_pixels * ratio)))
         if pixels == self.last_size: return
         self.last_size = pixels
+        uniform = self.body.property('uniformSettingsFont')
         scale = pixels / 13
         for child in self.body.findChildren(QWidget):
             if child not in self.minimums: self.minimums[child] = child.minimumSize()
@@ -62,7 +72,7 @@ class AdaptivePanelSizer(QObject):
             original_style = self.child_styles[child]
             if 'font-size' in original_style:
                 child.setStyleSheet(re.sub(r'font-size\s*:\s*(\d+(?:\.\d+)?)(px|pt)',
-                    lambda match: 'font-size: '+str(max(7,round(float(match.group(1))*scale)))+match.group(2),original_style))
+                    lambda match: 'font-size: '+str(pixels if uniform else max(7,round(float(match.group(1))*scale)))+('px' if uniform else match.group(2)),original_style))
             size = self.minimums[child]
             child.setMinimumSize(round(size.width()*scale), round(size.height()*scale))
         for layout in self.body.findChildren(QLayout):
@@ -86,6 +96,8 @@ class AdaptivePanelSizer(QObject):
         controller = getattr(getattr(owner, 'view_workspace', None), 'interface_scale', None)
         if controller is not None:
             controller.apply()
+        refresh_geometry = getattr(self.body, '_refresh_adaptive_geometry', None)
+        if refresh_geometry is not None:refresh_geometry()
         if self.palette:
             QTreeWidget = _module_imports.load('QTreeWidget')
             tree = self.body.findChild(QTreeWidget)

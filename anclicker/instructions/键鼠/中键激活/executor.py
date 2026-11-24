@@ -4,6 +4,7 @@ from anclicker.instructions.common import actions
 from anclicker.domain.instructions import CommandRecord
 from anclicker.domain.instructions import ExecutionContext
 from anclicker.instructions.common import InstructionExecutorBase
+from anclicker.execution.instruction_helpers.window_trigger_wait import wait_for_trigger
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -24,6 +25,11 @@ class InstructionExecutor(InstructionExecutorBase):
             return result_
         if context.stop_requested:
             return None
+        # Preserve explicitly saved legacy click actions until the user edits them.
+        if '触发按键' in command.parameters or '类型' not in command.parameters:
+            triggered = wait_for_trigger(context, command.parameters)
+            context.emit('触发按键已按下，继续下一步' if triggered else '触发等待已取消')
+            return triggered
         count_ = int(actions.parameter(command.parameters, '次数', default=1))
         mode_ = actions.parameter(command.parameters, '类型', default='模拟点击')
         if not 1 <= count_ <= 9999 or mode_ not in ('模拟点击', '结束等待'):
