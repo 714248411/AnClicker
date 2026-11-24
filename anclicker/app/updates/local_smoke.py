@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
-import velopack
+from anclicker.app.updates.config import create_update_manager, update_url
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -22,7 +22,7 @@ def run(app, window):
         raise ValueError('Smoke feed must be an existing absolute local directory')
     data = Path(os.environ['ANCLICKER_DATA_DIR'])
     marker = data / 'velopack-smoke-state.json'
-    manager = velopack.UpdateManager(str(feed))
+    manager = create_update_manager(str(feed))
     version = str(manager.get_current_version())
     if not marker.exists():
         with sqlite3.connect(data / '命令集.db') as db:
@@ -47,6 +47,12 @@ def run(app, window):
             source_url=str(feed), restart_args=['--velopack-local-smoke'])
         window.auto_update.mark_update_ready(update)
         window.view_workspace.title_bar.updateButton.click()
+        if getattr(window, '_update_exit_requested', False):
+            raise RuntimeError('Update entry installed without explicit confirmation')
+        prompt = window.auto_update._update_prompt
+        if prompt is None or not prompt.isVisible():
+            raise RuntimeError('Manual update entry did not show confirmation')
+        prompt.update_button.click()
         if not getattr(window, '_update_exit_requested', False):
             raise RuntimeError('Title-bar update did not schedule a restart')
     else:
@@ -56,6 +62,6 @@ def run(app, window):
         with sqlite3.connect(data / '命令集.db') as db:
             assert db.execute('SELECT value FROM velopack_retention').fetchone() == ('preserved',)
         assert (data / 'images' / 'retention.txt').read_text(encoding='utf-8') == 'preserved'
-        state.update(to=version, restarted=True, data_preserved=True)
+        state.update(to=version, restarted=True, data_preserved=True, next_source=update_url())
         (data / 'velopack-smoke-result.json').write_text(json.dumps(state), encoding='utf-8')
         app.exit(0)

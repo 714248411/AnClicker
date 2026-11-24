@@ -22,6 +22,8 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Optional
 
 from anclicker.domain.instructions import CommandRecord, InstructionDraft
+from anclicker.domain.thread_groups import grouped_commands, thread_parents, thread_group_order
+from anclicker.domain.step_folding import relocated_locked_parameters
 
 
 from anclicker.domain.graph_models import *
@@ -314,11 +316,88 @@ class GraphRepository:
             connection.close()
 
     @contextlib.contextmanager
-    def _transaction(self, *, validate_graph: bool = True):
+    def _transaction(self, *, validate_graph: bool = True, track_folds: bool = True, track_threads: bool = True, temporary_unlocks=(), inserted_members=(), member_targets=None):
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                from anclicker.domain.instructions import CommandRecord
+                from anclicker.domain.step_folding import sync_dynamic_folds, folding_groups, drag_fold_parameters
+                def fold_records():
+                    return [CommandRecord(id=row[0], type_id=row[1], parameters=json.loads(row[2]), order=row[3])
+                            for row in connection.execute('SELECT ID, 类型标识, 参数JSON, 排序 FROM 命令 ORDER BY 排序, ID')]
+                restore_locks = []
+                for cid in set(temporary_unlocks):
+                    row = connection.execute('SELECT 类型标识, 参数JSON FROM 命令 WHERE ID=?', (int(cid),)).fetchone()
+                    if row is None or row[0] not in ('折叠步骤', '多线程启动'):
+                        raise GraphValidationError('临时解锁的集合已不存在，请重新拖拽')
+                    params = json.loads(row[1])
+                    if params.get('整体锁定', row[0] == '多线程启动'):
+                        restore_locks.append(cid)
+                        params['整体锁定'] = False
+                        connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                           (json.dumps(params, ensure_ascii=False), cid))
+                has_folds = track_folds and connection.execute(
+                    "SELECT 1 FROM 命令 WHERE 类型标识='折叠步骤' LIMIT 1").fetchone() is not None
+                before_folds = fold_records() if has_folds or member_targets is not None else []
+                # Fixed-count folds also retain their old tail when a drag inserts
+                # inside them; temporarily allowing insertion must not eject it.
+                unlocked_groups = {cid: group for cid, group in folding_groups(before_folds).items()
+                                   if cid in restore_locks and group.get('kind') != '多线程启动'}
                 yield connection
+                marked_order = [row[0] for row in connection.execute('SELECT ID FROM 命令 ORDER BY 排序, ID')] if member_targets is not None else None
+                if track_threads:
+                    self._sync_thread_groups(connection)
+                for command_id, parameters in (sync_dynamic_folds(before_folds, fold_records()) if before_folds else {}).items():
+                    connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                       (json.dumps(parameters, ensure_ascii=False), command_id))
+                after = fold_records() if unlocked_groups else []
+                positions = {command.id: index + 1 for index, command in enumerate(after)}
+                old_positions = {command.id: index + 1 for index, command in enumerate(before_folds)}
+                for cid, group in unlocked_groups.items():
+                    old_members = sorted(old_positions[member] for member in group['members'])
+                    if old_members and old_members != list(range(old_positions[cid]+1, max(old_members)+1)):
+                        continue
+                    owner = positions.get(cid)
+                    if owner is None:
+                        continue
+                    is_target = member_targets is None or cid in member_targets
+                    added = set(inserted_members) if is_target else set()
+                    retained = group['members'] if is_target else group['members'] - set(inserted_members)
+                    end = max([positions[member] for member in retained | added
+                               if member in positions and positions[member] > owner] or [owner])
+                    row = connection.execute('SELECT 参数JSON FROM 命令 WHERE ID=?', (cid,)).fetchone()
+                    params = json.loads(row[0])
+                    if params.get('按条数', True) and not params.get('按范围', False) and end > owner:
+                        params['下方条数'] = end - owner
+                    elif params.get('动态范围', False):
+                        params.update({'按条数': False, '按范围': True, '终止步骤': end})
+                    else:
+                        params.update({'按条数': False, '按范围': True,
+                                       '步骤范围': f'{owner+1}-{end}' if end > owner else str(owner)})
+                    connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                       (json.dumps(params, ensure_ascii=False), cid))
+                if member_targets is not None:
+                    for cid, params in drag_fold_parameters(before_folds, fold_records(), inserted_members, member_targets).items():
+                        connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                           (json.dumps(params, ensure_ascii=False), cid))
+                for cid in restore_locks:
+                    row = connection.execute('SELECT 参数JSON FROM 命令 WHERE ID=?', (cid,)).fetchone()
+                    if row is not None:
+                        params = json.loads(row[0])
+                        params['整体锁定'] = True
+                        connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                           (json.dumps(params, ensure_ascii=False), cid))
+                if member_targets is not None:
+                    final_commands = fold_records()
+                    if [c.id for c in final_commands] != marked_order:
+                        raise GraphValidationError('拖拽条位置与现有多线程连线冲突，请调整连线后重试。')
+                    moved = set(inserted_members)
+                    for owner, group in folding_groups(final_commands).items():
+                        if owner in moved:
+                            continue
+                        expected = moved if owner in member_targets else set()
+                        if group['members'] & moved != expected:
+                            raise GraphValidationError('当前连线无法保持拖拽条指定的集合归属，请调整连线后重试。')
                 if validate_graph:
                     self._validate_connection(connection, require_order=True)
                 else:
@@ -886,39 +965,113 @@ class GraphRepository:
                 connection.executemany('INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)', zip(chain, chain[1:]))
         return result
 
-    def append_recording(self, drafts: Sequence[InstructionDraft], *, connect=True) -> list[int]:
-        """Append one recording atomically without changing existing links."""
+    def _insert_recording_rows(self, connection, normalized):
+        ids, nodes = [], []
+        copied_threads = []
+        order = connection.execute("SELECT COALESCE(MAX(排序), -1)+1 FROM 命令").fetchone()[0]
+        base_y = float(connection.execute("SELECT COALESCE(MAX(Y), 0) FROM 节点").fetchone()[0]) + 180
+        for index, record in enumerate(normalized):
+            type_id, parameters, repeat, policy, note = record
+            values = json.loads(parameters)
+            payload = values.pop('_线程复制', None)
+            if payload is not None:
+                copied_threads.append((index, payload))
+                parameters = json.dumps(values, ensure_ascii=False)
+            cursor = connection.execute(
+                "INSERT INTO 命令(类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?)",
+                (type_id, parameters, repeat, policy, note, order + index))
+            command_id, node_id = int(cursor.lastrowid), uuid.uuid4().hex
+            row, column = divmod(index, 6)
+            connection.execute(
+                "INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) VALUES (?, ?, 'instruction', ?, ?)",
+                (node_id, command_id, 160 + column * 280, base_y + row * 160))
+            ids.append(command_id)
+            nodes.append(node_id)
+        for offset, payload in copied_threads:
+            for source, target, kind in payload.get('edges', ()):
+                source, target = int(source) + offset, int(target)
+                target = target + offset if target >= 0 else -1
+                if not 0 <= source < len(nodes) or not -1 <= target < len(nodes):
+                    raise ValueError('复制的线程连线范围无效')
+                pair = (nodes[source], nodes[target] if target >= 0 else END_NODE_ID)
+                connection.execute('INSERT OR IGNORE INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)', pair)
+                connection.execute('INSERT OR REPLACE INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, ?)', (*pair, int(kind)))
+            for owner, entry in payload.get('entries', ()):
+                owner, entry = int(owner) + offset, int(entry) + offset
+                if not 0 <= owner < len(ids) or not 0 <= entry < len(ids):
+                    raise ValueError('复制的线程入口范围无效')
+                p = json.loads(connection.execute('SELECT 参数JSON FROM 命令 WHERE ID=?', (ids[owner],)).fetchone()[0])
+                p['入口编号'] = ids[entry]
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?', (json.dumps(p, ensure_ascii=False), ids[owner]))
+        return ids, nodes
+
+    def _normalize_recording(self, drafts):
         normalized = [self._normalize_draft(draft) for draft in drafts]
         for type_id, *_ in normalized:
             if not self._is_known_type(type_id):
                 raise ValueError(f"未知指令类型：{type_id}")
+        return normalized
+
+    def append_recording(self, drafts: Sequence[InstructionDraft], *, connect=True) -> list[int]:
+        """Append one recording atomically without changing existing links."""
+        normalized = self._normalize_recording(drafts)
         if not normalized:
             return []
-        ids, nodes = [], []
         with self._transaction(validate_graph=False) as connection:
             count = connection.execute("SELECT COUNT(*) FROM 命令").fetchone()[0]
-            order = connection.execute("SELECT COALESCE(MAX(排序), -1)+1 FROM 命令").fetchone()[0]
-            base_y = float(connection.execute("SELECT COALESCE(MAX(Y), 0) FROM 节点").fetchone()[0]) + 180
-            for index, record in enumerate(normalized):
-                type_id, parameters, repeat, policy, note = record
-                cursor = connection.execute(
-                    "INSERT INTO 命令(类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序) VALUES (?, ?, ?, ?, ?, ?)",
-                    (type_id, parameters, repeat, policy, note, order + index))
-                command_id, node_id = int(cursor.lastrowid), uuid.uuid4().hex
-                row, column = divmod(index, 6)
-                connection.execute(
-                    "INSERT INTO 节点(节点ID, 命令ID, 节点类型, X, Y) VALUES (?, ?, 'instruction', ?, ?)",
-                    (node_id, command_id, 160 + column * 280, base_y + row * 160))
-                ids.append(command_id)
-                nodes.append(node_id)
+            ids, nodes = self._insert_recording_rows(connection, normalized)
             if count == 0:
                 connection.execute("DELETE FROM 节点连接 WHERE 源节点ID=? AND 目标节点ID=?", (START_NODE_ID, END_NODE_ID))
             if connect:
-                connection.executemany("INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)", zip(nodes, nodes[1:]))
-                # A new empty task is a complete start-to-end recording.
+                connection.executemany("INSERT OR IGNORE INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)", zip(nodes, nodes[1:]))
                 if count == 0:
                     connection.executemany("INSERT INTO 节点连接(源节点ID, 目标节点ID) VALUES (?, ?)",
                                            [(START_NODE_ID, nodes[0]), (nodes[-1], END_NODE_ID)])
+        return ids
+
+    def insert_table_commands(self, drafts, *, before_command_id=END_NODE_ID, placement=None, temporary_unlocks=(), member_targets=None):
+        """Insert at a stable table boundary and split an ordinary sequential flow."""
+        normalized = self._normalize_recording(drafts)
+        if not normalized:
+            return []
+        inserted_members = []
+        with self._transaction(validate_graph=False, temporary_unlocks=temporary_unlocks, inserted_members=inserted_members, member_targets=member_targets) as connection:
+            current = [row[0] for row in connection.execute('SELECT ID FROM 命令 ORDER BY 排序')]
+            if before_command_id == END_NODE_ID:
+                index = len(current)
+            elif before_command_id in current:
+                index = current.index(before_command_id)
+            else:
+                raise GraphValidationError('插入位置的指令已删除，请重新选择插入位置')
+            from anclicker.domain.step_folding import folding_groups, locked_insertion_boundary, relocated_locked_parameters
+            from anclicker.domain.instructions import CommandRecord
+            folds = [CommandRecord(id=row[0], type_id=row[1], parameters=json.loads(row[2]), order=row[3])
+                     for row in connection.execute('SELECT ID, 类型标识, 参数JSON, 排序 FROM 命令 ORDER BY 排序, ID')]
+            index = locked_insertion_boundary(current, folding_groups(folds), index, placement)
+            rewire = self._is_plain_chain(connection, allow_disconnected=True)
+            ids, nodes = self._insert_recording_rows(connection, normalized)
+            inserted_members.extend(ids)
+            ordered = current[:index] + ids + current[index:]
+            # Control-flow instructions need explicit branch choices. Never infer
+            # their branches from row order or flatten an existing branched graph.
+            controls = {'条件判断', '颜色判断', '循环', '条件循环'}
+            rewire = rewire and not any(record[0] in controls for record in normalized)
+            if rewire:
+                connection.execute('DELETE FROM flow_edge_metadata')
+                self._reorder_chain(connection, ordered)
+            else:
+                self._set_command_orders(connection, ordered)
+            for command_id, parameters in relocated_locked_parameters(folds, ordered).items():
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                   (json.dumps(parameters, ensure_ascii=False), command_id))
+            # Place the inserted nodes in the selected gap, making room below it.
+            target = connection.execute('SELECT X, Y FROM 节点 WHERE 命令ID=?',
+                                        (current[index],)).fetchone() if index < len(current) else None
+            if target is not None:
+                x, y = target
+                connection.execute("UPDATE 节点 SET Y=Y+? WHERE Y>=?", (len(ids)*160, y))
+                for offset, node_id in enumerate(nodes):
+                    connection.execute('UPDATE 节点 SET X=?, Y=? WHERE 节点ID=?', (x, y+offset*160, node_id))
         return ids
 
     def add_error_handler(self, source_id: str, x: float, y: float) -> CommandRecord:
@@ -1082,8 +1235,120 @@ class GraphRepository:
             raise GraphRepositoryError("修改命令后无法读取记录")
         return record
 
-    def update_command_note(self, command_id: int, note: str) -> None:
+    def _sync_thread_groups(self, connection):
+        if connection.execute("SELECT 1 FROM 命令 WHERE 类型标识='多线程启动' LIMIT 1").fetchone() is None:
+            return
+        commands = tuple(self._command_from_row(row) for row in connection.execute(
+            'SELECT ID, 类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序 FROM 命令 ORDER BY 排序'))
+        nodes = tuple(self._node_from_row(row) for row in connection.execute(
+            'SELECT 节点ID, 命令ID, 节点类型, X, Y FROM 节点'))
+        edges = self._edge_records(connection)
+        order = thread_group_order(commands, nodes, edges)
+        if order != [c.id for c in commands]:
+            self._set_command_orders(connection, order)
+        for before, after in zip(commands, grouped_commands(commands, nodes, edges)):
+            if before.parameters != after.parameters:
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                    (json.dumps(after.parameters, ensure_ascii=False), after.id))
+
+    def sync_thread_groups(self):
+        with self._transaction(validate_graph=False, track_folds=False):
+            pass
+
+    def set_thread_nested(self, command_id, enabled):
         with self._transaction(validate_graph=False) as connection:
+            commands = [self._command_from_row(row) for row in connection.execute(
+                'SELECT ID, 类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序 FROM 命令 ORDER BY 排序')]
+            threads = [c for c in commands if c.type_id == '多线程启动']
+            index = next((i for i, c in enumerate(threads) if c.id == int(command_id)), None)
+            if index is None:
+                raise ValueError('多线程指令不存在')
+            command = threads[index]
+            parents = thread_parents(commands)
+            depth = int(command.parameters.get('嵌套层级', 0))
+            if enabled:
+                if index == 0:
+                    raise ValueError('上方没有多线程，无法打开嵌套多线程')
+                if parents[command.id] == threads[index - 1].id:
+                    return
+                target = int(threads[index - 1].parameters.get('嵌套层级', 0)) + 1
+            else:
+                if parents[command.id] is None:
+                    return
+                target = max(0, depth - 1)
+            if not enabled:
+                # Promote this entire subtree past the old parent's remaining
+                # children, so those siblings keep their original parent.
+                moving = {command.id} | set(command.parameters.get('线程分组成员', ()))
+                parent = next(c for c in threads if c.id == parents[command.id])
+                parent_members = {parent.id} | set(parent.parameters.get('线程分组成员', ()))
+                remaining = [c.id for c in commands if c.id not in moving]
+                boundary = max((i + 1 for i, cid in enumerate(remaining) if cid in parent_members), default=len(remaining))
+                block = [c.id for c in commands if c.id in moving]
+                self._set_command_orders(connection, remaining[:boundary] + block + remaining[boundary:])
+            delta = target - depth
+            for child in threads[index:]:
+                old_depth = int(child.parameters.get('嵌套层级', 0))
+                if child.id != command.id and old_depth <= depth:
+                    break
+                p = dict(child.parameters)
+                p['嵌套层级'] = max(0, old_depth + delta)
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                   (json.dumps(p, ensure_ascii=False), child.id))
+
+    def dissolve_thread(self, command_id):
+        """Remove only the starter; keep body nodes/edges and promote its children."""
+        command_id = int(command_id)
+        with self._transaction(validate_graph=False) as connection:
+            commands = [self._command_from_row(row) for row in connection.execute(
+                'SELECT ID, 类型标识, 参数JSON, 重复次数, 异常处理, 备注, 排序 FROM 命令 ORDER BY 排序')]
+            command = next((c for c in commands if c.id == command_id), None)
+            if command is None or command.type_id != '多线程启动':
+                raise ValueError('多线程指令不存在')
+            parents = thread_parents(commands)
+            for child in commands:
+                parent = parents.get(child.id)
+                while parent is not None and parent != command_id:
+                    parent = parents.get(parent)
+                if parent == command_id:
+                    parameters = dict(child.parameters)
+                    parameters['嵌套层级'] = max(0, int(parameters.get('嵌套层级', 0)) - 1)
+                    connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                        (json.dumps(parameters, ensure_ascii=False), child.id))
+            connection.execute('DELETE FROM 命令 WHERE ID=?', (command_id,))
+            remaining = [c.id for c in commands if c.id != command_id]
+            self._set_command_orders(connection, remaining)
+            for cid, parameters in relocated_locked_parameters(commands, remaining).items():
+                # Thread depths above have already been promoted.
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                    (json.dumps(parameters, ensure_ascii=False), cid))
+        return True
+
+    def set_step_collapsed(self, command_id, collapsed):
+        with self._transaction(validate_graph=False, track_folds=False, track_threads=False) as connection:
+            row = connection.execute('SELECT 类型标识, 参数JSON FROM 命令 WHERE ID=?', (int(command_id),)).fetchone()
+            if row is None or row[0] not in ('折叠步骤', '多线程启动'):
+                return
+            # Visibility hides descendants recursively, while their own saved
+            # states remain intact for the next expansion of this parent.
+            parameters = json.loads(row[1])
+            parameters['已折叠'] = bool(collapsed)
+            connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                               (json.dumps(parameters, ensure_ascii=False), int(command_id)))
+
+    def set_step_locks(self, command_ids, locked):
+        with self._transaction(validate_graph=False, track_folds=False) as connection:
+            for command_id in set(command_ids):
+                row = connection.execute('SELECT 类型标识, 参数JSON FROM 命令 WHERE ID=?', (int(command_id),)).fetchone()
+                if row is None or row[0] not in ('折叠步骤', '多线程启动'):
+                    raise ValueError('折叠步骤不存在，请刷新后重试。')
+                parameters = json.loads(row[1])
+                parameters['整体锁定'] = bool(locked)
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                   (json.dumps(parameters, ensure_ascii=False), int(command_id)))
+
+    def update_command_note(self, command_id: int, note: str) -> None:
+        with self._transaction(validate_graph=False, track_folds=False) as connection:
             cursor = connection.execute(
                 "UPDATE 命令 SET 备注=? WHERE ID=?", (str(note), int(command_id))
             )
@@ -1119,6 +1384,28 @@ class GraphRepository:
             unconnected=unconnected,
         )
 
+    def migrate_dynamic_folds(self):
+        """Upgrade old ranges to contiguous, row-following groups on load."""
+        from anclicker.domain.step_folding import folding_groups
+        with self._connection() as connection:
+            parameters = [json.loads(row[0]) for row in connection.execute(
+                "SELECT 参数JSON FROM 命令 WHERE 类型标识='折叠步骤'")]
+        if all('动态范围' in p for p in parameters):
+            return
+        commands = self.list_commands()
+        legacy = [c for c in commands if c.type_id == '折叠步骤' and '动态范围' not in c.parameters]
+        if not legacy:
+            return
+        groups = folding_groups(commands)
+        positions = {c.id: i + 1 for i, c in enumerate(commands)}
+        with self._transaction(validate_graph=False, track_folds=False) as connection:
+            for command in legacy:
+                p = dict(command.parameters)
+                end = max((positions[cid] for cid in groups[command.id]['members']), default=positions[command.id])
+                p.update({'动态范围': True, '按条数': False, '按范围': True, '终止步骤': end})
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                   (json.dumps(p, ensure_ascii=False), command.id))
+
     def delete_commands(
         self, command_ids: Iterable[int], *, preserve_flow: bool = True
     ) -> int:
@@ -1137,6 +1424,10 @@ class GraphRepository:
             }
             if not existing:
                 return 0
+            from anclicker.domain.instructions import CommandRecord
+            from anclicker.domain.step_folding import relocated_locked_parameters
+            fold_commands = [CommandRecord(id=row[0], type_id=row[1], parameters=json.loads(row[2]), order=row[3])
+                for row in connection.execute('SELECT ID, 类型标识, 参数JSON, 排序 FROM 命令 ORDER BY 排序, ID')]
             if preserve_flow:
                 chain = self._validate_connection(connection, require_order=True)
                 remaining_nodes = [
@@ -1163,11 +1454,15 @@ class GraphRepository:
                     "SELECT ID FROM 命令 ORDER BY 排序, ID"
                 )]
                 self._set_command_orders(connection, remaining_ids)
+            remaining_ids = [row[0] for row in connection.execute('SELECT ID FROM 命令 ORDER BY 排序, ID')]
+            for command_id, parameters in relocated_locked_parameters(fold_commands, remaining_ids).items():
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                   (json.dumps(parameters, ensure_ascii=False), command_id))
             deleted_count = len(existing)
         return deleted_count
 
     def clear(self) -> None:
-        with self._transaction(validate_graph=False) as connection:
+        with self._transaction(validate_graph=False, track_folds=False) as connection:
             connection.execute("DELETE FROM 节点连接")
             connection.execute("DELETE FROM 命令")
             connection.execute(
@@ -1187,7 +1482,7 @@ class GraphRepository:
             raise ValueError("节点大小必须是有限数值")
         if width < 90 or height < 40:
             raise ValueError("节点大小低于允许范围")
-        with self._transaction(validate_graph=False) as connection:
+        with self._transaction(validate_graph=False, track_folds=False, track_threads=False) as connection:
             row = connection.execute(
                 "SELECT 1 FROM 节点 WHERE 节点ID=? AND 节点类型='instruction'",
                 (node_id,),
@@ -1206,7 +1501,8 @@ class GraphRepository:
         normalized = self._normalize_node_positions(positions)
         if not normalized:
             return
-        with self._transaction(validate_graph=False) as connection:
+        # Canvas translation changes coordinates only, never command ordering or ownership.
+        with self._transaction(validate_graph=False, track_folds=False, track_threads=False) as connection:
             self._save_node_positions(connection, normalized)
 
     @staticmethod
@@ -1273,12 +1569,12 @@ class GraphRepository:
             self._reorder_chain(connection, normalized_ids)
 
     @classmethod
-    def _is_plain_chain(cls, connection) -> bool:
+    def _is_plain_chain(cls, connection, *, allow_disconnected=False) -> bool:
         if connection.execute("SELECT 1 FROM 命令 WHERE 类型标识 IN ('条件判断','颜色判断','循环','条件循环') LIMIT 1").fetchone():
             return False
         nodes = {row[0] for row in connection.execute('SELECT 节点ID FROM 节点')}
         edges = cls._edge_records(connection)
-        if len(edges) != len(nodes) - 1 or any(edge.kind != 0 for edge in edges):
+        if (not allow_disconnected and len(edges) != len(nodes) - 1) or any(edge.kind != 0 for edge in edges):
             return False
         outgoing = {}
         incoming = set()
@@ -1287,6 +1583,18 @@ class GraphRepository:
                 return False
             outgoing[edge.source] = edge.target
             incoming.add(edge.target)
+        if allow_disconnected:
+            # Multiple recordings and copied rows can form separate ordinary
+            # paths. Table reordering joins those paths, but never a cycle.
+            visited = set()
+            for head in nodes - incoming:
+                current = head
+                while current not in visited:
+                    visited.add(current)
+                    if current not in outgoing:
+                        break
+                    current = outgoing[current]
+            return visited == nodes
         visited, current = set(), START_NODE_ID
         while current not in visited:
             visited.add(current)
@@ -1344,19 +1652,27 @@ class GraphRepository:
                                        (json.dumps(parameters, ensure_ascii=False), command.id))
         return True
 
-    def reorder_table_commands(self, command_ids: Sequence[int]) -> bool:
-        """Persist table order/layout; only rewire a complete ordinary chain."""
+    def reorder_table_commands(self, command_ids: Sequence[int], *, temporary_unlocks=(), inserted_members=(), member_targets=None) -> bool:
+        """Reorder a sequential flow, including newly added isolated commands."""
         ids = [int(item) for item in command_ids]
-        with self._transaction(validate_graph=False) as connection:
+        with self._transaction(validate_graph=False, temporary_unlocks=temporary_unlocks, inserted_members=inserted_members, member_targets=member_targets) as connection:
             rows = connection.execute('SELECT 命令.ID, 节点.节点ID, 节点.X, 节点.Y FROM 命令 JOIN 节点 ON 命令.ID=节点.命令ID ORDER BY 命令.排序').fetchall()
             if len(ids) != len(rows) or len(set(ids)) != len(ids) or set(ids) != {row[0] for row in rows}:
                 raise GraphValidationError('重排必须包含全部命令且每条命令只出现一次')
-            rewire = self._is_plain_chain(connection)
+            from anclicker.domain.step_folding import relocated_locked_parameters
+            from anclicker.domain.instructions import CommandRecord
+            fold_commands = [CommandRecord(id=row[0], type_id=row[1], parameters=json.loads(row[2]), order=row[3])
+                for row in connection.execute('SELECT ID, 类型标识, 参数JSON, 排序 FROM 命令 ORDER BY 排序')]
+            fold_updates = relocated_locked_parameters(fold_commands, ids, enforce_boundaries=True)
+            rewire = self._is_plain_chain(connection, allow_disconnected=True)
             if rewire:
                 connection.execute('DELETE FROM flow_edge_metadata')
                 self._reorder_chain(connection, ids)
             else:
                 self._set_command_orders(connection, ids)
+            for command_id, parameters in fold_updates.items():
+                connection.execute('UPDATE 命令 SET 参数JSON=? WHERE ID=?',
+                                   (json.dumps(parameters, ensure_ascii=False), command_id))
             node_ids = {row[0]: row[1] for row in rows}
             for command_id, slot in zip(ids, rows):
                 connection.execute('UPDATE 节点 SET X=?, Y=? WHERE 节点ID=?', (slot[2], slot[3], node_ids[command_id]))
@@ -1409,7 +1725,7 @@ class GraphRepository:
             DatabaseOperation = _module_imports.load('DatabaseOperation')
 
             database_operation = DatabaseOperation(self.db_path)
-        database_operation.export_settings_to_excel(workbook)
+        database_operation.export_settings_to_excel(workbook, project_only=True)
         if tuple(workbook.sheetnames) != WORKBOOK_SHEETS:
             raise GraphRepositoryError("导出的工作表结构不完整")
 
@@ -1424,20 +1740,26 @@ class GraphRepository:
         """Raise :class:`WorkbookValidationError` unless the workbook is valid."""
         self._parse_workbook(workbook)
 
-    def import_from_workbook(self, workbook: Any, *, source_path=None) -> None:
+    def import_from_workbook(self, workbook: Any, *, source_path=None, preserve_paths=False) -> None:
         """Validate everything first, then atomically replace graph and settings."""
         convert_legacy_workbook = _module_imports.load('convert_legacy_workbook')
 
         workbook = convert_legacy_workbook(workbook, base_directory=str(Path(source_path).parent) if source_path else None)
         commands, nodes, edges, settings = self._parse_workbook(workbook)
-        with image_import_batch():
+        if not preserve_paths:
+            from anclicker.storage.portable_migration import relocate_command_files
             commands = [replace(command, parameters_json=self._encode_parameters(
-                self._portable_image_parameters(self._decode_parameters(command.parameters_json),
-                                                command.type_id, source_path,
-                                                [str(Path(row[0]) if Path(row[0]).is_absolute()
-                                                     else self.data_folder / row[0])
-                                                 for row in settings['资源文件夹']], prefer_project=source_path is not None)))
+                relocate_command_files(self._decode_parameters(command.parameters_json), self.data_folder, include_images=False, command_type=command.type_id)))
                         for command in commands]
+        with image_import_batch():
+            if not preserve_paths:
+                commands = [replace(command, parameters_json=self._encode_parameters(
+                    self._portable_image_parameters(self._decode_parameters(command.parameters_json),
+                                                    command.type_id, source_path,
+                                                    [str(Path(row[0]) if Path(row[0]).is_absolute()
+                                                         else self.data_folder / row[0])
+                                                     for row in settings['资源文件夹']], prefer_project=source_path is not None)))
+                            for command in commands]
             DatabaseOperation = _module_imports.load('DatabaseOperation')
 
             with self._connection() as connection:
@@ -1485,7 +1807,7 @@ class GraphRepository:
                         "INSERT INTO flow_edge_metadata(source_id, target_id, kind) VALUES (?, ?, ?)",
                         [(edge.source, edge.target, edge.kind) for edge in edges],
                     )
-                    DatabaseOperation._apply_parsed_settings(connection, settings)
+                    DatabaseOperation._apply_parsed_settings(connection, settings, project_only=True)
                     self._validate_draft_connection(connection)
                     connection.commit()
                 except Exception:

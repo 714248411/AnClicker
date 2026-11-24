@@ -1,6 +1,8 @@
 """执行器公共接口。"""
 
 from __future__ import annotations
+from dataclasses import replace
+from anclicker.platform.rpa_bridge import bridge_context
 
 from anclicker.domain.instruction_interfaces import InstructionExecutorInterface
 from anclicker.domain.instructions import CommandRecord, ExecutionContext
@@ -24,7 +26,7 @@ class InstructionExecutorBase(InstructionExecutorInterface):
         context_timing, COMMAND_INTERVAL = _module_imports.load('context_timing_COMMAND_INTERVAL')
         wait_interruptibly = _module_imports.load('wait_interruptibly')
         interval = context_timing(context)[COMMAND_INTERVAL]
-        with input_context(context):
+        with input_context(context), bridge_context(context):
             result_ = None
             for _ in range(command.repeat_count):
                 if context.stop_requested:
@@ -34,7 +36,11 @@ class InstructionExecutorBase(InstructionExecutorInterface):
                         break
                 context.metadata['_timing_step_completed'] = False
                 try:
-                    result_ = self.execute_once(context, command)
+                    from anclicker.storage.project_paths import runtime_parameters
+                    # Resolve on a copy on each repetition so variable paths can change.
+                    values = runtime_parameters(context, command)
+                    prepared = command if values is command.parameters else replace(command, parameters=values)
+                    result_ = self.execute_once(context, prepared)
                 finally:
                     context.metadata['_timing_step_completed'] = True
                 if context.stop_requested:

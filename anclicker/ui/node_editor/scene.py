@@ -42,6 +42,9 @@ class NodeScene(QGraphicsScene):
 
     graphChanged = Signal(int, int)
     commandActivated = Signal(object)
+    stepFoldRequested = Signal(object)
+    threadNestedRequested = Signal(object, bool)
+    stepLocksRequested = Signal(object, bool)
     reorderPreview = Signal(object)
     reorderCommitted = Signal(object)
     graphCommitted = Signal(object, object, float, float)
@@ -59,6 +62,9 @@ class NodeScene(QGraphicsScene):
         super().__init__(parent_)
         self.setSceneRect(-5000.0, -5000.0, 10000.0, 10000.0)
         self.setBackgroundBrush(QBrush(BACKGROUND_COLOR))
+        from anclicker.ui.instruction_thumbnails import ThumbnailCache
+        self.thumbnail_cache = ThumbnailCache(self, self.update)
+        self.thumbnail_context = ('', ())
         self.specs: dict[str, NodeDisplaySpec] = {}
         self.nodes_by_id: dict[object, NodeItem] = {}
         self.nodes_by_command_id: dict[object, NodeItem] = {}
@@ -353,6 +359,9 @@ class NodeScene(QGraphicsScene):
                     width_=record_["width"],
                     height_=record_["height"],
                 )
+                from anclicker.ui.instruction_thumbnails import image_references
+                refs = image_references(record_['type_id'], record_['parameters'])
+                node_.thumbnail_key = (refs, *self.thumbnail_context) if refs else None
                 self.addItem(node_)
                 node_.setPos(record_["x"], record_["y"])
                 self.nodes_by_id[node_.node_id] = node_
@@ -419,6 +428,14 @@ class NodeScene(QGraphicsScene):
             str(key_): value_ for key_, value_ in dict(parameters_ or {}).items()
             if not str(key_).startswith("__flow_") and key_ not in {"录制批次", "录制时间"}
         }
+        if type_id_ == "运行Python":
+            code=str(visible_.get('代码','') or '')
+            lines=code.splitlines()
+            summary=f'Python 代码 · {len(lines)} 行'
+            if repeat_count_>1:summary+=f' · 重复 ×{repeat_count_}'
+            preview=next((line.strip() for line in lines if line.strip()),'未填写代码')
+            if len(preview)>64:preview=preview[:63]+'…'
+            return summary+'\n'+preview
         if type_id_ == "条件判断":
             condition_summary = _module_imports.load('condition_summary')
             return condition_summary(visible_)

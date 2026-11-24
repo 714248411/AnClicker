@@ -66,11 +66,18 @@ def global_hotkeys_supported(hkobj=None) -> bool:
     return bool(getattr(hkobj, "supported", SystemHotkey is not None))
 
 
+def normalize_hotkey(keys):
+    """Translate Qt shortcut names to the global-hotkey backend vocabulary."""
+    aliases={'ctrl':'control','esc':'escape','del':'delete','ins':'insert',
+             'pgup':'prior','pgdown':'next','meta':'super'}
+    return tuple(aliases.get(str(key).lower(),str(key).lower()) for key in keys)
+
+
 def is_hotkey_valid(hkobj, hk: typing.List[str]):
     """判断快捷键是否有效"""
     if not global_hotkeys_supported(hkobj):
         return False
-    hk = hkobj.order_hotkey(hk)
+    hk = hkobj.order_hotkey(normalize_hotkey(hk))
     try:
         if sys.platform == "win32" and user32 is not None:
             keycode, masks = hkobj.parse_hotkeylist(hk)

@@ -7,6 +7,8 @@ from anclicker.platform.qt_compat.QtWidgets import QDialog, QLabel, QPushButton,
 class UpdateCheckDialog(QDialog):
     """可随时重新打开的更新进度；关闭窗口不打断下载。"""
 
+    retry_requested = Signal()
+
     def __init__(self, window, current_version):
         super().__init__(window)
         self.setWindowTitle('检查更新')
@@ -53,6 +55,11 @@ class UpdateCheckDialog(QDialog):
         layout.addWidget(self.hint_label)
         buttons = QHBoxLayout()
         buttons.addStretch()
+        self.retry_button = QPushButton("重新检查", self)
+        self.retry_button.setAutoDefault(False)
+        self.retry_button.clicked.connect(self.retry_requested)
+        self.retry_button.hide()
+        buttons.addWidget(self.retry_button)
         self.dismiss_button = QPushButton('关闭', self)
         self.dismiss_button.setAutoDefault(False)
         self.dismiss_button.clicked.connect(self.reject)
@@ -91,6 +98,7 @@ class UpdateCheckDialog(QDialog):
         painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 12, 12)
 
     def set_progress(self, text, value):
+        self.retry_button.hide()
         self.status_label.setText(text)
         self.progress_bar.show()
         self.progress_bar.setRange(0, 0 if value < 0 else 100)
@@ -100,10 +108,11 @@ class UpdateCheckDialog(QDialog):
         self.adjustSize()
 
     def set_error(self, text):
+        self.retry_button.show()
         self.status_label.setText(text)
         self.progress_bar.hide()
         self.percent_label.clear()
-        self.hint_label.setText('可关闭此窗口，再从“检查更新”重试。')
+        self.hint_label.setText('可点击“重新检查”，或关闭后稍后再试。')
         self.dismiss_button.setText('关闭')
         self.adjustSize()
 
@@ -112,7 +121,7 @@ class UpdatePrompt(QDialog):
     update_requested = Signal()
     deferred = Signal(object, object)
 
-    def __init__(self, window, version, notes='', ready=False):
+    def __init__(self, window, version, notes='', ready=False, *, notice_only=False, external_release=False):
         super().__init__(window)
         self.setWindowTitle('发现新版本')
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -123,14 +132,16 @@ class UpdatePrompt(QDialog):
         self.setStyleSheet(f'QDialog#updatePrompt {{background:{bg};border:1px solid {border};border-radius:12px;}} QLabel {{color:{fg};background:transparent;}} QPushButton {{padding:7px 18px;border:1px solid {border};border-radius:6px;color:{fg};background:{bg};}} QPushButton#updateNow {{background:#5266dc;color:white;border:none;}}')
         layout = QVBoxLayout(self);layout.setContentsMargins(20,18,20,18);layout.setSpacing(12)
         title=QLabel(f'发现新版本 {version or ""}',self);title.setStyleSheet('font-size:16px;font-weight:600;');layout.addWidget(title)
-        text=QLabel('更新包已准备好，点击更新后安装并重启。' if ready else '点击更新后下载并安装；稍后更新可从标题栏的“新版本”继续。',self)
+        text=QLabel('有新版本可用。仅在您点击“检查更新”后进入更新流程，不会自动下载或安装。' if notice_only else ('更新包已准备好，点击更新后安装并重启。' if ready else '点击更新后下载并安装；稍后更新可从标题栏的“新版本”继续。'),self)
+        if external_release and not notice_only:
+            text.setText('已通过 GitHub 发现新版。点击“前往下载”打开官方发布页，选择完整包下载。')
         text.setWordWrap(True);layout.addWidget(text)
         if notes:
             detail=QLabel(str(notes)[:900],self);detail.setWordWrap(True);detail.setTextFormat(Qt.PlainText)
             detail.setMaximumHeight(180);layout.addWidget(detail)
         row=QHBoxLayout();row.addStretch()
-        self.later_button=QPushButton('稍后更新',self);self.later_button.clicked.connect(self.reject)
-        self.update_button=QPushButton('更新',self);self.update_button.setObjectName('updateNow');self.update_button.clicked.connect(self.choose_update)
+        self.later_button=QPushButton('暂不更新' if notice_only else '稍后更新',self);self.later_button.clicked.connect(self.reject)
+        self.update_button=QPushButton('检查更新' if notice_only else '更新',self);self.update_button.setObjectName('updateNow');self.update_button.clicked.connect(self.choose_update)
         self.later_button.setAutoDefault(False);self.update_button.setAutoDefault(False)
         row.addWidget(self.later_button);row.addWidget(self.update_button);layout.addLayout(row)
         self.setFixedWidth(min(460,max(280,window.width()-40)))

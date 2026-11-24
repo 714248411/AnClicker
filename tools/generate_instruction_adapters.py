@@ -37,7 +37,7 @@ def selected_specs(family):
             yield spec, by_type[spec.type_id]
         elif family == 'background' and spec.category == '后台功能' and spec.type_id != '后台答题器':
             yield spec, None
-        elif family == 'ocr' and spec.category == '本地OCR':
+        elif family == 'ocr' and spec.category == '本地OCR' and spec.type_id not in ('制作字库','字库点击','小地图拼接制作大地图','多线程血量判断','A星寻路'):
             yield spec, None
 
 
@@ -48,6 +48,9 @@ def editor_source(spec, command):
     elif command is not None:
         base = 'RpaInstructionEditor'
         base_module = 'anclicker.ui.instruction_editors.rpa_instruction'
+        if spec.type_id == '滚动元素到页面中心':
+            base = 'ScrollElementEditor'
+            base_module = 'anclicker.ui.instruction_editors.extensions.scroll_element'
         if spec.type_id == '坐标点击（可多点）':
             base = 'CoordinateClickEditor'
             base_module = 'anclicker.ui.instruction_editors.extensions.coordinate_click'

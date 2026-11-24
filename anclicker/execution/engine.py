@@ -1,5 +1,6 @@
 """Qt-independent command execution, flow traversal and project calls."""
 from __future__ import annotations
+from anclicker.execution.thread_flow import prepare_connected_flow
 import time
 from threading import Event
 from pathlib import Path
@@ -16,6 +17,7 @@ from anclicker._imports import DeferredImports as _DeferredImports
 # Dependencies declared here retain their existing on-demand loading boundaries.
 _module_imports = _DeferredImports(globals(), {
     'release_execution_resources': ('from', 'anclicker.execution.actions', ('release_execution_resources',), 0),
+    'close_monitors': ('from', 'anclicker.platform.vision_tools.runtime', ('close_monitors',), 0),
     'snapshot_disabled_ids': ('from', 'anclicker.domain.flow_comments', ('snapshot_disabled_ids',), 0),
     'execute_jump_flow': ('from', 'anclicker.execution.flow_jump_runtime', ('execute_jump_flow',), 0),
     'execute_control_flow': ('from', 'anclicker.execution.flow_control_runtime', ('execute_control_flow',), 0),
@@ -67,7 +69,7 @@ class ExecutionEngine:
         self._prepare_context(context)
         try:
             if mode[0] == '全部指令':
-                return self._execute_flow(snapshot, context)
+                return self._execute_commands(list(snapshot.commands), context, snapshot=snapshot)
             commands = list(snapshot.commands)
             if mode[0] == '单行指令':
                 commands = [command for command in commands if command.id == mode[1]]
@@ -95,6 +97,11 @@ class ExecutionEngine:
         # executors use runtime; no window is ever placed in execution metadata.
         context.metadata.update(database=self.db, run_project=self._run_project,
                                 wait_interruptibly=self._wait_interruptibly)
+        getter = getattr(self.db, 'get_setting_value', None)
+        current = getter('当前文件路径') if callable(getter) else None
+        if current and current != 'None' and 'project_path' not in context.metadata:
+            context.metadata['project_path'] = str(Path(current).resolve())
+            context.metadata['project_stack'] = [Path(current).resolve()]
 
     def _notify_command(self, type_id, command_id):
         self.services.command_started(type_id, command_id)
@@ -160,7 +167,7 @@ class ExecutionEngine:
         try:
             commands_ = self._commands_for_mode()
             variables_ = self._load_variables() if commands_ else {}
-            self._persisted_values = {str(name): str(value) for name, value in variables_.items()}
+            self._persisted_values = {str(name): str(value) for name, value in dict(variables_).items()}
         except Exception as error_:
             self.services.output(f"无法开始运行：{error_}")
             self.services.finished("任务未启动")
@@ -200,6 +207,7 @@ class ExecutionEngine:
             finally:
                 release_execution_resources = _module_imports.load('release_execution_resources')
                 cleanup_error = release_execution_resources(context_)
+                self._persist_variables(context_.variables)
                 if cleanup_error is not None:
                     self.services.output(f'运行资源释放失败：{cleanup_error}')
                     self.request_stop()
@@ -245,7 +253,13 @@ class ExecutionEngine:
         raise ValueError(f"不支持的运行模式：{mode_}")
 
 
-    def _execute_commands(
+    def _execute_commands(self, commands_, context_, snapshot=None):
+        self._execute_commands_impl(commands_, context_, snapshot)
+        manager = context_.metadata.get('parallel_manager')
+        if manager is not None:
+            manager.wait_connected(self, context_)
+
+    def _execute_commands_impl(
         self, commands_: list[CommandRecord], context_: ExecutionContext, snapshot=None
     ) -> None:
         self._prepare_context(context_)
@@ -257,8 +271,15 @@ class ExecutionEngine:
             self._execute_flow((snapshot if snapshot is not None else self.repository.execution_snapshot()), context_)
             return
         snapshot_ = (snapshot if snapshot is not None else self.repository.execution_snapshot())
+        from anclicker.execution.parallel_runtime import prepare_flow
+        snapshot_ = prepare_connected_flow(snapshot_, context_)
+        commands_by_id = {c.id: c for c in snapshot_.commands}
+        commands_ = [commands_by_id[c.id] for c in commands_]
+        prepare_flow(snapshot_, context_)
+        reserved_ = context_.metadata.get('parallel_reserved', ())
+        reserved_ids_ = {node.command_id for node in snapshot_.nodes if node.node_id in reserved_}
         snapshot_disabled_ids = _module_imports.load('snapshot_disabled_ids')
-        disabled_ = snapshot_disabled_ids(snapshot_)
+        disabled_ = snapshot_disabled_ids(snapshot_) | reserved_ids_
         commands_ = [command for command in commands_ if command.id not in disabled_]
         if any(command.type_id in {'报错跳转','变量比较','循环','条件循环'} for command in snapshot_.commands) and commands_:
             execute_jump_flow = _module_imports.load('execute_jump_flow')
@@ -294,6 +315,9 @@ class ExecutionEngine:
 
     def _execute_flow(self, snapshot_, context_: ExecutionContext, start_id=None) -> None:
         """Follow persisted links, including condition branches and loop backs."""
+        snapshot_ = prepare_connected_flow(snapshot_, context_)
+        from anclicker.execution.parallel_runtime import prepare_flow
+        prepare_flow(snapshot_, context_)
         if any(command.type_id in {'循环', '条件循环'} for command in snapshot_.commands):
             execute_control_flow = _module_imports.load('execute_control_flow')
             return execute_control_flow(self, snapshot_, context_, start_id)
@@ -347,6 +371,10 @@ class ExecutionEngine:
                     return
                 current_id_ = pending_.pop(0)
                 path_ = set()
+            if current_id_ in context_.metadata.get("parallel_reserved", ()):
+                executed_.add(current_id_)
+                current_id_ = "end"
+                continue
             steps_ += 1
             if steps_ > 500_000:
                 raise GraphValidationError("流程执行超过 500000 步，已停止以避免卡死")
@@ -413,6 +441,10 @@ class ExecutionEngine:
                         loop_iterations_.pop(current_id_, None)
                         wanted_kind_ = 4
             else:
+                if command_.type_id == '多线程启动' and current_id_ in {edge.target for edge in start_edges_}:
+                    pending_.extend(edge.target for edge in edges_ if edge.target != 'end')
+                    current_id_ = "end"
+                    continue
                 if not edges_:
                     current_id_ = "end"
                     continue
@@ -453,6 +485,9 @@ class ExecutionEngine:
                 time.sleep(min(0.05, remaining_))
             if not self.start_state:
                 return None
+        from anclicker.platform.image_paths import repair_command_image_paths
+        if repair_command_image_paths(command_, context_):
+            self.services.output(f'指令 #{command_.id} 图片路径已自动更新。')
         spec_ = get_instruction_spec(command_.type_id)
         executor_ = spec_.create_executor()
         self.services.output("换行")
@@ -486,26 +521,24 @@ class ExecutionEngine:
             return
         if not file_path.strip():
             raise ValueError('未设置要运行的项目文件')
-        path = Path(file_path.strip().strip('"')).expanduser()
         parent_path = context.metadata.get('project_path')
-        if not path.is_absolute():
-            if not parent_path:
-                raise ValueError('当前项目尚未保存，请使用目标项目的完整路径')
-            path = Path(parent_path).parent / path
-        path = path.resolve()
+        from anclicker.storage.project_paths import project_root, resolve_path
+        root = project_root(parent_path, Path(self.db.db_path).parent, self.db.get_setting_value('本机项目默认保存目录'))
+        path = Path(resolve_path(file_path.strip().strip('"'), root,
+                                 base=Path(parent_path).parent if parent_path else root)).resolve()
         stack = context.metadata.get('project_stack', [])
         if path in stack:
             raise ValueError('项目循环调用已阻止：' + ' → '.join(p.name for p in [*stack, path]))
         if len(stack) >= 32:
             raise ValueError('项目嵌套超过 32 层，已阻止继续调用')
-        if path.suffix.lower() != '.xlsx' or not path.is_file():
-            raise ValueError(f'项目文件不存在或不是 .xlsx：{path}')
+        if path.suffix.lower() not in ('.xlsx', '.xlsm') or not path.is_file():
+            raise ValueError(f'项目文件不存在或不是 .xlsx/.xlsm：{path}')
         with TemporaryDirectory(prefix='anclicker-project-') as directory:
             database = DatabaseOperation(str(Path(directory) / 'project.db'))
             repository = GraphRepository(database.db_path)
             workbook = load_workbook(path, data_only=False)
             try:
-                repository.import_from_workbook(workbook, source_path=path)
+                repository.import_from_workbook(workbook, source_path=path, preserve_paths=True)
             finally:
                 workbook.close()
             snapshot = repository.execution_snapshot()
@@ -528,16 +561,35 @@ class ExecutionEngine:
                     context.variables.setdefault(name, value)
                 context.emit(f'开始运行项目：{path}')
                 self._execute_flow(snapshot, context, start_id)
+                manager = context.metadata.get('parallel_manager')
+                if manager is not None:
+                    manager.wait_connected(self, context)
                 context.emit(f'项目{"已中断" if context.stop_requested or not self.start_state else "已完成"}：{path.name}')
             finally:
-                # Propagate key/button tracking changes back to the calling scope.
-                for key in ('recorded_keys', 'recorded_buttons', '_background_session', '_background_error'):
-                    if key in context.metadata:
-                        saved_metadata[key] = context.metadata[key]
-                    else:
-                        saved_metadata.pop(key, None)
-                context.metadata = saved_metadata
-                context.runtime = saved_runtime
+                # Join resources created inside the child before its temporary database disappears.
+                # Keep caller-owned resources alive when the nested project reused them.
+                try:
+                    manager = context.metadata.get('parallel_manager')
+                    if manager is not None and manager is not saved_metadata.get('parallel_manager'):
+                        manager.stop(seal=True)
+                    monitors = context.metadata.get('vision_monitors')
+                    if monitors is not None and monitors is not saved_metadata.get('vision_monitors'):
+                        close_monitors = _module_imports.load('close_monitors')
+                        close_monitors(context)
+                finally:
+                    # Propagate input ownership even if a child worker failed to stop.
+                    self._restore_project_context(context, saved_metadata, saved_runtime)
+
+    @staticmethod
+    def _restore_project_context(context, saved_metadata, saved_runtime):
+        # Propagate key/button tracking changes back to the calling scope.
+        for key in ('recorded_keys', 'recorded_buttons', '_background_session', '_background_error'):
+            if key in context.metadata:
+                saved_metadata[key] = context.metadata[key]
+            else:
+                saved_metadata.pop(key, None)
+        context.metadata = saved_metadata
+        context.runtime = saved_runtime
 
 
     def _handle_command_error(

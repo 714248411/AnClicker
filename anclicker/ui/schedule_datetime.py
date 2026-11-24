@@ -2,7 +2,21 @@
 from anclicker.platform.qt_compat.QtCore import Qt, QDate, QTime, QDateTime, QEvent, Signal, QLocale, QRectF, QPoint, QPointF
 from anclicker.platform.qt_compat.QtGui import QIntValidator, QPainter, QColor, QPen, QIcon, QTextCharFormat
 from anclicker.platform.qt_compat.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QLabel,
-                               QPushButton, QFrame, QCalendarWidget, QToolButton)
+                               QPushButton, QFrame, QCalendarWidget, QToolButton, QComboBox)
+
+
+class WeekdaySelector(QComboBox):
+    """Keep a visible, palette-aware arrow without native popup chrome."""
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(self.palette().buttonText().color(), 1.2)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        x, y = self.width()-11, self.height()/2
+        painter.drawLine(QPointF(x-3, y-1.5), QPointF(x, y+1.5))
+        painter.drawLine(QPointF(x, y+1.5), QPointF(x+3, y-1.5))
 
 
 class CalendarDropButton(QPushButton):
@@ -168,6 +182,7 @@ class SegmentedDateTimeEdit(QWidget):
         self._value = QDateTime(value or QDateTime.currentDateTime())
         self.active_section = None
         self.sections = {}
+        self.date_widgets = []
         row = QHBoxLayout(self)
         row.setContentsMargins(8, 5, 8, 5)
         row.setSpacing(0)
@@ -178,10 +193,22 @@ class SegmentedDateTimeEdit(QWidget):
             field = DateTimeSection(self, name, digits, maximum)
             self.sections[name] = field
             row.addWidget(field)
+            if name in ('年', '月', '日'):
+                self.date_widgets.append(field)
             if separator:
                 label = QLabel(separator, self)
                 label.setObjectName('scheduleDateSeparator')
                 row.addWidget(label)
+                if name in ('年', '月', '日'):
+                    self.date_widgets.append(label)
+        self.weekday = WeekdaySelector(self)
+        self.weekday.setObjectName('scheduleWeekday')
+        self.weekday.setAccessibleName('选择星期')
+        self.weekday.setMinimumContentsLength(4)
+        self.weekday.addItems(['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'])
+        row.insertWidget(0, self.weekday)
+        self.weekday.hide()
+        self.weekday.currentIndexChanged.connect(self._select_weekday)
         row.addStretch()
         self.calendar_popup = CalendarPopup(self)
         self.calendar = self.calendar_popup.calendar
@@ -212,6 +239,21 @@ class SegmentedDateTimeEdit(QWidget):
         row.addWidget(self.refresh_button)
         self.setFocusProxy(self.sections['年'])
         self._refresh()
+
+    def setRepeatMode(self, repeat):
+        self.setTimeOnly(repeat in ('每天', '工作日', '每周'))
+        self.weekday.setVisible(repeat == '每周')
+
+    def _select_weekday(self, index):
+        self.setDateTime(self._value.addDays(index + 1 - self._value.date().dayOfWeek()))
+
+    def setTimeOnly(self, enabled):
+        self.weekday.hide()
+        self.calendar_popup.hide()
+        for widget in self.date_widgets:
+            widget.setVisible(not enabled)
+        self.calendar_button.setVisible(not enabled)
+        self.setFocusProxy(self.sections['时' if enabled else '年'])
 
     def changeEvent(self, event):
         super().changeEvent(event)
@@ -255,6 +297,9 @@ class SegmentedDateTimeEdit(QWidget):
 
     def _refresh(self):
         date, time = self._value.date(), self._value.time()
+        self.weekday.blockSignals(True)
+        self.weekday.setCurrentIndex(date.dayOfWeek()-1)
+        self.weekday.blockSignals(False)
         values = (date.year(), date.month(), date.day(), time.hour(), time.minute(), time.second())
         for field, value in zip(self.sections.values(), values):
             field.setText(str(value).zfill(field.digits))

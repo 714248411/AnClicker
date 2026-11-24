@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from contextlib import closing
 import os
 import struct
@@ -42,6 +43,7 @@ class ReleaseContext:
     pack_id: str
     version: str
     runtime: str
+    delivery_channel: str = "stable"
 
 
 def allow_project_artifact(relative_path: PurePosixPath) -> bool:
@@ -51,6 +53,15 @@ def allow_project_artifact(relative_path: PurePosixPath) -> bool:
         parts = parts[2:]
     elif parts[:1] == ('current',):
         parts = parts[1:]
+    # Bundled crawl runtime includes upstream read-only dependency datasets.
+    # Keep these exact package namespaces distinct from writable application Data.
+    prefix = ('runtime', 'crawl4ai', 'python', 'lib', 'site-packages')
+    if parts[:5] == prefix:
+        tail = parts[5:]
+        if tail[:2] == ('fake_useragent', 'data'):
+            return True
+        if tail and tail[0] in ('joblib', 'numpy', 'scipy') and any(p in ('test', 'tests') for p in tail[1:]):
+            return True
     # Generated seed and OpenCV's packaged read-only Python initializer only.
     return parts in {('defaults', '命令集.db'), ('cv2', 'data'), ('cv2', 'data', '__init__.py')}
 
@@ -59,6 +70,27 @@ def validate_project_release(context: ReleaseContext) -> None:
     """业务项目在此增加数据库迁移、插件或业务协议等专属检查。"""
     validate_native_runtime = _module_imports.load('validate_native_runtime')
     validate_native_runtime(context.app_dir)
+    manifest = json.loads((context.app_dir / 'models/bundle-manifest.json').read_text(encoding='utf-8'))
+    models = manifest['models']
+    if set(models) != {'splitter', 'converter'}:
+        raise RuntimeError('完整更新包必须包含拆分与转换双模型')
+    for record in models.values():
+        model = context.app_dir / 'models' / record['file']
+        digest = hashlib.sha256()
+        with model.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(chunk)
+        if model.stat().st_size != record['bytes'] or digest.hexdigest() != record['sha256']:
+            raise RuntimeError('更新包模型校验失败')
+    required = [
+        'models/llama-cpu/llama-server.exe', 'models/llama-vulkan/llama-server.exe',
+        'runtime/electron/electron.exe', 'runtime/crawl4ai/python/python.exe',
+        'ocr_models/rapidocr/ch_PP-OCRv4_det_infer.onnx',
+        'ocr_models/rapidocr/ch_PP-OCRv4_rec_infer.onnx',
+        'ocr_models/rapidocr/ch_ppocr_mobile_v2.0_cls_infer.onnx',
+    ]
+    if any(not (context.app_dir / name).is_file() for name in required):
+        raise RuntimeError('完整更新包缺少 OCR、浏览器或 AI 必备运行时')
     # The sole database exception is a generated, empty seed, never user storage.
     sqlite3 = _module_imports.load('sqlite3')
     database = context.app_dir / 'defaults' / '命令集.db'
@@ -94,6 +126,9 @@ def _check_member(name: str) -> None:
 
 def validate_directory(path: Path) -> None:
     for member in path.rglob("*"):
+        # Startup may create the requested empty portable image folder.
+        if member.parent == path and member.name == "Data" and member.is_dir() and not any(member.iterdir()):
+            continue
         _check_member(member.relative_to(path).as_posix())
 
 
@@ -134,6 +169,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
     environment = os.environ.copy()
     environment.update({
         "ANCLICKER_DATA_DIR": str(data_dir),
+        "PYTHONDONTWRITEBYTECODE": "1",
         "ANCLICKER_SMOKE_LIGHTWEIGHT": "0" if full_checks else "1",
         "ANCLICKER_SINGLETON_KEY": "release-" + __import__("uuid").uuid4().hex,
 
@@ -150,7 +186,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
         report.unlink(missing_ok=True)
         subprocess.run(
             [str(executable), "--release-smoke"], cwd=sandbox, env=environment,
-            check=True, timeout=120 if full_checks else 45,
+            check=True, timeout=600 if (executable.parent / 'AnClicker-resources.json').is_file() else (120 if full_checks else 45),
         )
         if launcher:
             deadline = time.monotonic() + 45
@@ -180,7 +216,7 @@ def _smoke_executable(executable: Path, context: ReleaseContext, sandbox: Path, 
             or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and result.get("full_checks") is not True)
             or (environment["ANCLICKER_SMOKE_LIGHTWEIGHT"] == "0" and not result.get("rpa_validation", {}).get("web_recording"))
             or result.get("version") != context.version
-            or result.get("update_config") != update_source_config()
+            or result.get("update_config") != update_source_config(context.delivery_channel)
             or Path(result.get("data_root", "")).resolve() != data_dir.resolve()
         ):
             raise RuntimeError(f"实际 EXE 启动自检失败: {executable}: {result}")
@@ -264,8 +300,25 @@ def validate_release(context: ReleaseContext) -> None:
     verify_once(context, 'startup', lambda: _validate_release(context))
 
 
-def _validate_release(context: ReleaseContext) -> None:
+def _validate_release(context: ReleaseContext, *, resources_prepared=False) -> None:
     """在构建后和发布前调用；任何失败均阻止上传。"""
+    # Validate in a private copy; keep release package inputs compressed.
+    if not resources_prepared and (context.app_dir / 'AnClicker-resources.json').is_file():
+        import shutil
+        from dataclasses import replace
+        from anclicker.app.resource_bundle import ensure_resources
+        with tempfile.TemporaryDirectory(prefix='anclicker-resource-gate-') as directory:
+            staged = Path(directory) / 'app'
+            def copy(source, target):
+                try:
+                    os.link(source, target)
+                    return target
+                except OSError:
+                    return shutil.copy2(source, target)
+            shutil.copytree(context.app_dir, staged, copy_function=copy)
+            ensure_resources(staged, verify=True)
+            _validate_release(replace(context, app_dir=staged), resources_prepared=True)
+        return
     executable = context.app_dir / f"{context.program_title}.exe"
     if not executable.is_file():
         raise FileNotFoundError(executable)

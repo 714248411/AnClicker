@@ -32,6 +32,11 @@ target = args.output.resolve()
 target.parent.mkdir(parents=True, exist_ok=True)
 files = [p for p in ROOT.iterdir() if p.is_file() and (p.suffix.lower() in {'.py', '.md', '.toml', '.lock', '.txt', '.qrc', '.ico', '.cmd'} or p.name in {'LICENSE', '.gitignore', '.python-version'})]
 
+# Model source is distributed; weights, runtimes and service state stay local.
+files.extend((ROOT / 'models').glob('*.py'))
+files.extend((ROOT / 'models').glob('LICENSE-*.txt'))
+files.extend((ROOT / 'models/knowledge').glob('*.json'))
+
 for folder in sorted(folders):
     for current, dirs, names in os.walk(ROOT / folder):
         dirs[:] = [d for d in dirs if d not in skip]

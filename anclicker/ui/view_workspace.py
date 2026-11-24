@@ -1,6 +1,7 @@
 """Linked Clicker workspaces and the light/dark desktop themes."""
 
 from __future__ import annotations
+from anclicker.ui.information_dialogs import DonationDialog
 from anclicker.ui.workspace_constants import MAIN_VIEW, TABLE_VIEW, FLOW_VIEW, CODE_VIEW, RECORDING_VIEW, WEB_RECORDING_VIEW, AGENT_VIEW, CODE_SETTING, CODE_GRAPH_SIGNATURE_SETTING, TASK_NAME_SETTING, WINDOW_TITLE_SETTING, THEME_SETTING
 
 from anclicker.ui.theme import THEMES, apply_theme
@@ -50,7 +51,7 @@ from anclicker.ui.web_recording_view import WebRecordingView
 
 
 
-from anclicker.ui.instruction_table import CommentRowDelegate, InstructionTableWidget, InstructionTableController
+from anclicker.ui.instruction_table import CommentRowDelegate, InstructionTableWidget, InstructionTableController, NavigationHeaderHeight
 from anclicker.ui.navigation import NavigationController
 from anclicker.ui.code_workspace import CodeWorkspace
 
@@ -113,6 +114,13 @@ class ViewWorkspace:
         window.workspace.palette.restore_instruction_order(order)
         window.workspace.palette.orderChanged.connect(
             lambda order: window.db.set_setting_value('指令栏置顶顺序', json.dumps(order, ensure_ascii=False)))
+        try:
+            expanded_groups = json.loads(window.db.get_setting_value('指令栏展开分类') or '[]')
+        except (TypeError, ValueError):
+            expanded_groups = []
+        window.workspace.palette.restore_expanded_groups(expanded_groups)
+        window.workspace.palette.expandedGroupsChanged.connect(
+            lambda groups: window.db.set_setting_value('指令栏展开分类', json.dumps(groups, ensure_ascii=False)))
         self._normalize_existing_controls()
         self._apply_theme()
         self._assemble_views()
@@ -175,6 +183,7 @@ class ViewWorkspace:
         WorkspaceTabBar = _module_imports.load('WorkspaceTabBar')
         self.tabs.setObjectName("workspaceTabs")
         self.tabs.setTabBar(WorkspaceTabBar(self.tabs))
+        self._navigation_header_height = NavigationHeaderHeight(self)
         self.tabs.tabBar().setExpanding(False)
         self.tabs.addTab(self.main_page, "主界面")
         self.tabs.addTab(self.table_page, "表格图")
@@ -185,7 +194,7 @@ class ViewWorkspace:
         self.tabs.addTab(self.web_recording_page, "网页录制")
         AgentView = _module_imports.load('AgentView')
         self.agent_page = AgentView(self.window)
-        self.tabs.addTab(self.agent_page, "对话 Agent")
+        self.tabs.addTab(self.agent_page, "对话Ai编程")
 
     def _build_main_view(self) -> QWidget:
         HomeWorkspace = _module_imports.load('HomeWorkspace')
@@ -371,10 +380,21 @@ class ViewWorkspace:
         view = self.window.workspace.editor.view
         self._flow_view_before_run = (view.transform(), view.horizontalScrollBar().value(),
                                      view.verticalScrollBar().value())
-        self.flow_log_panel.show()
-        height = max(300, self.flow_splitter.height())
-        self.flow_splitter.setSizes([int(height * .75), int(height * .25)])
+        self._flow_log_before_run = (not self.flow_log_panel.isHidden(), self.flow_splitter.sizes())
+        self.sync_runtime_log_visibility()
+        if not self.flow_log_panel.isHidden():
+            height = max(300, self.flow_splitter.height())
+            self.flow_splitter.setSizes([int(height * .75), int(height * .25)])
         self._schedule_runtime_fit()
+
+    def sync_runtime_log_visibility(self):
+        docking = getattr(self, 'docking', None)
+        dock = docking.docks.get('log') if docking is not None else None
+        separate_log = dock is not None and not dock.isHidden()
+        if separate_log:
+            self.flow_log_panel.hide()
+        elif getattr(self, '_runtime_view_active', False):
+            self.flow_log_panel.show()
 
     def _schedule_runtime_fit(self):
         if not getattr(self, '_runtime_view_active', False) or not getattr(self, '_runtime_fit_pending', False):
@@ -383,7 +403,7 @@ class ViewWorkspace:
         def fit_after_layout():
             if serial != self._runtime_view_serial or not self._runtime_view_active:
                 return
-            if self.tabs.currentIndex() != FLOW_VIEW or not self.flow_log_panel.isVisible():
+            if self.tabs.currentIndex() != FLOW_VIEW:
                 return
             self.editor_page.layout().activate()
             self.window.workspace.editor.view.fit_graph()
@@ -396,7 +416,11 @@ class ViewWorkspace:
         serial = self._runtime_view_serial
         self._runtime_fit_pending = False
         self._runtime_view_active = False
-        self.flow_log_panel.hide()
+        log_state = getattr(self, '_flow_log_before_run', (False, None))
+        self.flow_log_panel.setVisible(log_state[0])
+        self.sync_runtime_log_visibility()
+        if log_state[1] is not None:
+            self.flow_splitter.setSizes(log_state[1])
         for node in self.window.workspace.editor.scene.nodes_by_id.values():
             node.runtime_active = False
             node.update()
@@ -476,27 +500,7 @@ class ViewWorkspace:
             QMessageBox.warning(self.window, "捐赠", "捐赠二维码加载失败，请检查程序资源。")
             return
 
-        dialog = QDialog(self.window)
-        dialog.setObjectName("donationDialog")
-        dialog.setWindowTitle("捐赠")
-        dialog.setModal(True)
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(18, 18, 18, 14)
-        layout.setSpacing(12)
-        image = QLabel(dialog)
-        image.setObjectName("donationQrCode")
-        image.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image.setPixmap(
-            pixmap.scaled(
-                QSize(435, 381),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-        )
-        close_button = QPushButton("关闭", dialog)
-        close_button.clicked.connect(dialog.accept)
-        layout.addWidget(image)
-        layout.addWidget(close_button, 0, Qt.AlignmentFlag.AlignCenter)
+        dialog = DonationDialog(pixmap, self.window, self.theme_mode)
         dialog.exec()
 
     def _place_palette(self) -> None:
@@ -531,7 +535,7 @@ class ViewWorkspace:
                 grid.removeWidget(widget)
                 self.workspace_splitter.addWidget(widget)
             grid.addWidget(self.workspace_splitter, 0, 0, 1, 3)
-            self._panel_sizes = {'palette':240, 'center':800, 'controls':300}
+            self._panel_sizes = {'palette':190, 'center':735, 'controls':245}
             try:
                 saved = json.loads(self.window.db.get_setting_value('工作区面板宽度') or '{}')
                 if isinstance(saved, dict):
@@ -580,6 +584,13 @@ class ViewWorkspace:
         )
         self.controls_action.setText('展开控制栏' if self.controls_collapsed else '收起控制栏')
         self.controls_action.setToolTip(self.controls_action.text())
+        controls_menu = getattr(self, 'controls_menu_action', None)
+        if controls_menu is not None:
+            blocked = controls_menu.blockSignals(True)
+            try:
+                controls_menu.setChecked(not self.controls_collapsed)
+            finally:
+                controls_menu.blockSignals(blocked)
         self.theme_action.setText("切换深色" if self.theme_mode == "light" else "切换浅色")
 
     def _remembered_pages(self):
@@ -594,10 +605,10 @@ class ViewWorkspace:
         }
 
     def restore_last_view(self):
-        # A missing or obsolete preference starts at the main page.
-        key = str(self.window.db.get_setting_value('上次关闭界面') or 'main')
+        # A fresh workspace opens the table with palette, log and controls visible.
+        key = str(self.window.db.get_setting_value('上次关闭界面') or 'table')
         keys = list(self._remembered_pages())
-        self._show_workspace(keys.index(key) if key in keys else MAIN_VIEW)
+        self._show_workspace(keys.index(key) if key in keys else TABLE_VIEW)
 
     def save_last_view(self):
         if hasattr(self, 'docking'): self.docking.save()
@@ -610,7 +621,7 @@ class ViewWorkspace:
         # Navigation chooses the useful default; explicit layout presets retain
         # their saved visibility until the user next changes pages.
         if not getattr(getattr(self, 'docking', None), 'restoring', False):
-            if index == MAIN_VIEW:
+            if index in (MAIN_VIEW, AGENT_VIEW):
                 self.palette_collapsed = True
             elif index in (TABLE_VIEW, FLOW_VIEW):
                 self.palette_collapsed = False
@@ -680,8 +691,8 @@ class ViewWorkspace:
             table.scrollToItem(table.item(table.runtime_row, 0), QAbstractItemView.ScrollHint.EnsureVisible)
         table.viewport().update()
 
-    def _add_table_command(self, type_id: str) -> None:
-        return self.instruction_table_controller._add_table_command(type_id)
+    def _add_table_command(self, type_id: str, before_command_id='end') -> None:
+        return self.instruction_table_controller._add_table_command(type_id, before_command_id)
 
     def _graph_finalized(self, complete: bool) -> None:
         self._sync_code_if_needed(force=True)
@@ -701,8 +712,8 @@ class ViewWorkspace:
     def copy_table_commands(self):
         return self.instruction_table_controller.copy_table_commands()
 
-    def paste_table_commands(self):
-        return self.instruction_table_controller.paste_table_commands()
+    def paste_table_commands(self, placement="auto"):
+        return self.instruction_table_controller.paste_table_commands(placement)
 
     def _select_table_ids(self, ids):
         return self.instruction_table_controller._select_table_ids(ids)
@@ -760,3 +771,14 @@ class ViewWorkspace:
 
     def _apply_theme(self):
         apply_theme(self)
+        from anclicker.ui.settings_theme import apply_settings_theme
+        for editor in getattr(getattr(self, 'docking', None), 'parameters', {}).values():
+            apply_settings_theme(editor, self.window)
+            scaler = getattr(editor, '_panel_scaler', None)
+            if scaler is not None:
+                scaler.base_style = editor.styleSheet()
+                scaler.child_styles.clear()
+                scaler.last_size = None
+                scaler.apply()
+        if hasattr(self, 'interface_scale'):
+            self.interface_scale.apply()

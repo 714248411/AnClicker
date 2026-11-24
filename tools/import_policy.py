@@ -6,7 +6,7 @@ from importlib.util import resolve_name
 from pathlib import Path
 import sys
 
-SOURCE_DIRECTORIES = ('anclicker', 'legacy', 'tools', 'examples', 'archive')
+SOURCE_DIRECTORIES = ('anclicker', 'models', 'legacy', 'tools', 'examples', 'archive')
 
 
 def python_files(root):
@@ -64,7 +64,7 @@ def hidden_imports(root, excluded=()):
     """Include deferred dependencies and real from-list submodules in PYZ."""
     root = Path(root)
     modules = set()
-    sources = [root / 'main.py', *(root / 'anclicker').rglob('*.py'), *(root / 'legacy').rglob('*.py')]
+    sources = [root / 'main.py', *(root / 'anclicker').rglob('*.py'), *(root / 'models').glob('*.py'), *(root / 'legacy').rglob('*.py')]
     for path in sources:
         parts = path.relative_to(root).parts
         if parts[0] == 'legacy':

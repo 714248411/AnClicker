@@ -1,6 +1,8 @@
 """Small, resizable execution console using the original controls and log."""
-from anclicker.platform.qt_compat.QtCore import QObject, QEvent, Qt
+from anclicker.platform.qt_compat.QtCore import QObject, QEvent, Qt, QTimer, QRect
 from anclicker.platform.qt_compat.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLayout
+
+from anclicker.ui.compact_position import place_compact_window, save_compact_position, resize_compact_window, save_compact_size
 
 
 class CompactWorkspace(QObject):
@@ -9,6 +11,9 @@ class CompactWorkspace(QObject):
         self.workspace = workspace
         self.window = workspace.window
         self.active = False
+        self._position_ready=False
+        self.position_timer=QTimer(self);self.position_timer.setSingleShot(True)
+        self.position_timer.setInterval(300);self.position_timer.timeout.connect(self._save_position)
         self.window.installEventFilter(self)
         workspace.title_bar.compact_button.toggled.connect(self.set_active)
 
@@ -16,12 +21,19 @@ class CompactWorkspace(QObject):
         if self.active == enabled:
             return
         w, view = self.window, self.workspace
+        if not enabled:
+            self.position_timer.stop()
+            self._save_position()
+        self._position_ready=False
         self.active = enabled
         button = view.title_bar.compact_button
         button.setChecked(enabled)
         button.setToolTip('还原完整界面' if enabled else '小化：仅显示控制与操作')
         button.setAccessibleName(button.toolTip())
         if enabled:
+            self.geometry = w.saveGeometry()
+            self.normal_rect = QRect(getattr(w, '_restore_client_geometry', w.normalGeometry()) if w.isMaximized() else w.geometry())
+            self.was_maximized = w.isMaximized()
             if hasattr(view, 'docking'): view.docking.suspend()
             self.workspace_sizes = view.workspace_splitter.sizes() if hasattr(view,'workspace_splitter') else None
             self.controls_hidden = getattr(view, 'controls_scroll', w.groupBox_3).isHidden()
@@ -29,9 +41,13 @@ class CompactWorkspace(QObject):
                 self.controls_minimum = view.controls_scroll.minimumSize()
                 view.controls_scroll.setMinimumWidth(0)
                 view.controls_scroll.show()
-            self.geometry = w.saveGeometry()
-            self.normal_rect = getattr(w, '_restore_client_geometry', w.normalGeometry()) if w.isMaximized() else w.geometry()
-            self.was_maximized = w.isMaximized()
+            self.compact_margins=w.gridLayout_4.contentsMargins()
+            w.gridLayout_4.setContentsMargins(self.compact_margins.left(),3,self.compact_margins.right(),self.compact_margins.bottom())
+            self.dock_title=None
+            if hasattr(view,'docking'):
+                self.dock_title=view.docking.docks['controls'].titleBarWidget()
+                self.dock_title_limits=(self.dock_title.minimumHeight(),self.dock_title.maximumHeight())
+                self.dock_title.setFixedHeight(0)
             self.minimum = w.minimumSize()
             self.control_style = w.groupBox_3.styleSheet()
             # Compact mode shares the same execution settings. Do not disable
@@ -70,10 +86,16 @@ class CompactWorkspace(QObject):
             w.layout().setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
             w.setMinimumSize(280, 350)
             w.showNormal()
-            w.resize(340, 460)
+            resize_compact_window(w)
             self.scale_controls()
             self.splitter.setSizes([180, 100])
+            place_compact_window(w)
+            self._position_ready=True
+            self._save_position()
         else:
+            w.gridLayout_4.setContentsMargins(self.compact_margins)
+            if self.dock_title is not None:
+                self.dock_title.setMinimumHeight(self.dock_title_limits[0]);self.dock_title.setMaximumHeight(self.dock_title_limits[1])
             view.table_splitter.addWidget(self.log)
             self.log.show()
             view.table_splitter.setSizes(self.table_sizes)
@@ -97,15 +119,18 @@ class CompactWorkspace(QObject):
                 view.controls_scroll.setMinimumSize(self.controls_minimum)
                 view.controls_scroll.setVisible(not getattr(view, 'controls_collapsed', self.controls_hidden))
             w.setMinimumSize(self.minimum)
-            w.restoreGeometry(self.geometry)
-            if not self.was_maximized:
-                w.setGeometry(self.normal_rect)
+            # Small-window maximize/restore must not replace the main
+            # window's client restore rectangle.
+            w._restore_client_geometry=QRect(self.normal_rect)
+            w.showNormal()
+            w.setGeometry(self.normal_rect)
+            if self.was_maximized:w.showMaximized()
             if self.workspace_sizes is not None: view.workspace_splitter.setSizes(self.workspace_sizes)
             view.title_bar.setFixedHeight(34)
             view.title_bar.hBoxLayout.setSpacing(2)
             view.title_bar.updateButton.setFixedHeight(28)
             w.setContentsMargins(0, view.title_bar.height(), 0, 0)
-            for item in (view.title_bar.compact_button, view.title_bar.theme_button,
+            for item in (view.title_bar.compact_button, view.title_bar.schedule_button, view.title_bar.theme_button,
                          view.title_bar.minBtn, view.title_bar.maxBtn, view.title_bar.closeBtn):
                 item.setFixedSize(28, 28)
             if hasattr(view, 'docking'): view.docking.resume()
@@ -130,12 +155,20 @@ class CompactWorkspace(QObject):
         bar.updateButton.setFixedHeight(24 if w.width() < 400 else 32)
         w.setContentsMargins(0, bar.height(), 0, 0)
         bar.titleLabel.setStyleSheet(f'font-size: {size}px;')
-        for item in (bar.compact_button, bar.theme_button, bar.minBtn, bar.maxBtn, bar.closeBtn):
+        for item in (bar.compact_button, bar.schedule_button, bar.theme_button, bar.minBtn, bar.maxBtn, bar.closeBtn):
             item.setFixedSize(24 if w.width() < 400 else 30, 24 if w.width() < 400 else 30)
 
+    def _save_position(self):
+        if self.active and self._position_ready:
+            save_compact_position(self.window)
+            save_compact_size(self.window)
+
     def eventFilter(self, watched, event):
+        if watched is self.window and event.type() == QEvent.Type.Move and self.active and self._position_ready:
+            self.position_timer.start()
         if watched is self.window and event.type() == QEvent.Type.Resize and self.active:
             self.scale_controls()
+            if self._position_ready:self.position_timer.start()
         elif watched is self.window and event.type() == QEvent.Type.Close and self.active:
             # Persist normal geometry and the user's current hide preference.
             self.set_active(False)

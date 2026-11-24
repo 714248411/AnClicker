@@ -17,7 +17,9 @@ _module_imports = _DeferredImports(globals(), {
 })
 
 
-KINDS = ('表达式', '图片存在', '图片文件存在', 'OCR文字存在', '颜色判断', '坐标存在')
+from anclicker.execution import typed_conditions
+
+KINDS = ('表达式', *typed_conditions.OPERATIONS, '图片存在', '图片文件存在', 'OCR文字存在', '颜色判断', '坐标存在')
 KIND_ALIASES = {'文字存在': 'OCR文字存在', '屏幕图片存在': '图片存在'}
 
 
@@ -46,7 +48,7 @@ def image_file_path(value, context):
     if not project:
         getter = getattr(context.metadata.get('database'), 'get_setting_value', None)
         project = getter('当前文件路径') if callable(getter) else None
-    return Path(resolve_image_reference(value, project_path=project, legacy_search=False))
+    return Path(resolve_image_reference(value, project_path=project, legacy_search=False, allow_adaptation=False))
 
 
 def validate_parameters(parameters):
@@ -54,6 +56,9 @@ def validate_parameters(parameters):
     if kind not in KINDS:
         raise ValueError('请选择有效的判断类型')
     if kind == '表达式':
+        return
+    if kind in typed_conditions.OPERATIONS:
+        typed_conditions.validate(parameters)
         return
     required = {'图片文件存在': ('图像路径',), '图片存在': ('图像路径',), '颜色判断': ('坐标', '颜色'),
                 'OCR文字存在': ('目标文字',), '坐标存在': ('坐标',)}[kind]
@@ -90,6 +95,9 @@ def evaluate(context, parameters):
     validate_parameters(parameters)
     if not actions.wait_interruptibly(context, 0):
         return False
+    if kind in typed_conditions.OPERATIONS:
+        result = typed_conditions.evaluate(context, parameters)
+        return bool(result) if not context.stop_requested else False
     target_keys = {'图片存在': ('图像路径', '区域'), '图片文件存在': ('图像路径',),
                    'OCR文字存在': ('目标文字', '区域'), '颜色判断': ('坐标', '颜色'),
                    '坐标存在': ()}[kind]
@@ -159,6 +167,10 @@ def condition_summary(parameters):
     kind = condition_kind(parameters)
     if kind == '表达式':
         return str(parameters.get('条件', 'True'))
+    if kind in typed_conditions.OPERATIONS:
+        op = parameters.get('比较方式', typed_conditions.OPERATIONS[kind][0])
+        other = '' if op in typed_conditions.UNARY else ' ' + str(parameters.get('比较值', ''))
+        return kind + '：' + str(parameters.get('判断值', '')) + ' ' + op + other
     label = kind
     if kind != '图片存在' and parameters.get('满足条件') == '不存在 / 不相等':
         label = kind.replace('存在', '不存在').replace('颜色判断', '颜色不相等')

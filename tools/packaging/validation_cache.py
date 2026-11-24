@@ -34,7 +34,7 @@ def fingerprint(context, stage):
             record(path, 'code/' + path.name)
     record(context.project_root / 'info.py', 'code/info.py')
     return {'schema': 1, 'stage': stage, 'context': {k: str(v) for k, v in asdict(context).items()},
-            'source': update_source_config(), 'files': files}
+            'source': update_source_config(context.delivery_channel), 'files': files}
 
 
 def verify_once(context, stage, verify):

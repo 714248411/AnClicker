@@ -1,6 +1,8 @@
 """Private, authenticated loopback transport to the bundled yingdao execution engine."""
 from __future__ import annotations
 import atexit
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
@@ -24,7 +26,14 @@ class RpaBridge:
         try:
             for line in stream:
                 try:
-                    messages.put(json.loads(line))
+                    message=json.loads(line)
+                    if message.get('event')=='browser_chrome':
+                        from anclicker.platform.browser_caption_theme import apply_browser_caption_theme
+                        process=self.process
+                        if process is not None and process.poll() is None:
+                            apply_browser_caption_theme(process.pid,os.environ.get('ANCLICKER_UI_THEME','light'))
+                        continue
+                    messages.put(message)
                 except ValueError:
                     pass
         except OSError:
@@ -94,7 +103,7 @@ class RpaBridge:
                 self.close()
                 raise InterruptedError('已停止自动化指令')
             self.sequence += 1
-            request = {'id':self.sequence, 'command':command, 'variables':dict(variables or {})}
+            request = {'id':self.sequence, 'command':command, 'variables':dict(variables or {}), 'theme':os.environ.get('ANCLICKER_UI_THEME')}
             self.stream.write(json.dumps(request, ensure_ascii=False, allow_nan=False) + '\n')
             self.stream.flush()
             deadline = time.monotonic() + timeout
@@ -111,11 +120,26 @@ class RpaBridge:
                 for line in message.get('logs', []):
                     if context is not None:
                         context.emit(line)
+                if message.get('event') == 'runtime_notice':
+                    continue
                 if message.get('error'):
                     raise RuntimeError(message['error'])
                 return message
             self.close()
             raise TimeoutError('自动化指令超时，执行引擎已关闭')
+    def set_theme(self, mode):
+        """Update idle browser chrome without blocking a running command."""
+        if mode not in ('light', 'dark') or not self.lock.acquire(blocking=False):
+            return
+        try:
+            if self.process is not None and self.process.poll() is None and getattr(self, 'stream', None):
+                self.stream.write(json.dumps({'operation': 'theme', 'theme': mode}) + '\n')
+                self.stream.flush()
+        except OSError:
+            pass
+        finally:
+            self.lock.release()
+
     def close(self):
         with self.lock:
             process, self.process = self.process, None
@@ -144,5 +168,17 @@ class RpaBridge:
 
 _bridge = RpaBridge()
 atexit.register(_bridge.close)
+_context_bridge = ContextVar('anclicker_rpa_bridge', default=None)
+
+
+@contextmanager
+def bridge_context(context):
+    token = _context_bridge.set(context.metadata.get('rpa_bridge'))
+    try:
+        yield
+    finally:
+        _context_bridge.reset(token)
+
+
 def get_bridge():
-    return _bridge
+    return _context_bridge.get() or _bridge

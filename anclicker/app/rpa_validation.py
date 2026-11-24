@@ -1,4 +1,5 @@
 """Validate the bundled engine using temporary workbooks and a local web page."""
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,7 +18,7 @@ _module_imports = _DeferredImports(globals(), {
 def validate_rpa():
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            body=b'''<title>test</title><input id="name"><button id="go" onclick="document.querySelector('#result').textContent=document.querySelector('#name').value">Run</button><div id="result">ready</div>'''
+            body=b'''<title>test</title><label id="anchor-label" style="display:inline-block;width:90px;height:28px">Name</label><input id="name" style="width:100px;height:28px;box-sizing:border-box"><button id="go" onclick="document.querySelector('#result').textContent=document.querySelector('#name').value">Run</button><div id="result">ready</div>'''
             self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers();self.wfile.write(body)
         def log_message(self,*args): pass
     bridge=RpaBridge()
@@ -37,7 +38,12 @@ def validate_rpa():
             run('input',{'selector':'#name','by':'CSS选择器','text':'packaged browser','clear':'是','pressEnter':'否'})
             run('click',{'selector':'#go','by':'CSS选择器','clickType':'单击'})
             assert run('getText',{'selector':'#result','by':'CSS选择器','varName':'output'})['variables']['output']=='packaged browser'
-            assert run('acInspect')['result']['titles']==['极速网页AC']
+            anchor=json.dumps({'anchors':[{'selector':'#anchor-label','by':'CSS选择器','relation':'右侧'}]})
+            preview=run('acPreviewLocator',{'selector':'#name','by':'锚点定位','anchor':anchor})['result']
+            assert preview['found'] and preview['count']==1,preview
+            run('input',{'selector':'#name','by':'锚点定位','anchor':anchor,'text':'packaged anchors','clear':'是','pressEnter':'否'})
+            assert run('getText',{'selector':'#name','by':'CSS选择器','varName':'anchorOutput'})['variables']['anchorOutput']=='packaged anchors'
+            assert run('acInspect')['result']['titles']==['极速网页AC1']
             image=folder/'screenshot.png'
             run('screenshot',{'selector':'#result','path':str(image)})
             assert image.read_bytes().startswith(bytes([137,80,78,71]))
@@ -48,7 +54,7 @@ def validate_rpa():
             assert any(e['type']=='input' and e['selector']=='#name' for e in recording['events'])
             events_to_web_drafts = _module_imports.load('events_to_web_drafts')
             assert any(d.type_id=='等待（秒）' for d in events_to_web_drafts('http://127.0.0.1',recording['events'],recording['elapsed']))
-        return {'excel':True,'browser':True,'screenshot':True,'title':'极速网页AC','web_recording':True}
+        return {'excel':True,'browser':True,'screenshot':True,'title':'极速网页AC1','web_recording':True,'web_anchors':True}
     finally:
         bridge.close();server.shutdown();server.server_close()
 

@@ -2,6 +2,8 @@
 from __future__ import annotations
 from anclicker.ui.workspace_constants import MAIN_VIEW, TABLE_VIEW, FLOW_VIEW, CODE_VIEW, RECORDING_VIEW, WEB_RECORDING_VIEW, AGENT_VIEW
 import weakref
+import json
+from anclicker.ui.compact_position import DEFAULT_COMPACT_SIZE, LAST_SIZE_SETTING, SIZE_MODE_SETTING
 from anclicker.platform.qt_compat.QtCore import QObject, QEvent, QSize, Qt, QTimer
 from anclicker.platform.qt_compat.QtGui import QAction, QKeySequence
 from anclicker.platform.qt_compat.QtWidgets import QMenu
@@ -18,6 +20,48 @@ _module_imports = _DeferredImports(globals(), {
     'open_advanced_timing': ('from', 'anclicker.ui.timing_dialog', ('open_advanced_timing',), 0),
     'ToolbarCustomization': ('from', 'anclicker.ui.toolbar_customization', ('ToolbarCustomization',), 0),
 })
+
+
+def create_controls_menu_action(workspace):
+    action = QAction('显示控制栏', workspace.window)
+    action.setCheckable(True)
+    action.setChecked(not workspace.controls_collapsed)
+    action.toggled.connect(workspace.controls_action.setChecked)
+    workspace.controls_action.toggled.connect(action.setChecked)
+    workspace.controls_menu_action = action
+    return action
+
+
+def restore_default_window_size(workspace):
+    """Restore the current window mode's size without rearranging any panels."""
+    window=workspace.window
+    compact=getattr(getattr(workspace,'compact',None),'active',False)
+    width,height=(340,460) if compact else (1180,720)
+    window.showNormal()
+    screen=window.screen()
+    if screen is not None:
+        area=screen.availableGeometry()
+        width=min(width,area.width());height=min(height,area.height())
+    window.resize(width,height)
+    if hasattr(workspace, 'docking'): workspace.docking.reset_parameter_sizes()
+    if screen is not None:
+        frame=window.frameGeometry()
+        x=max(area.left(),min(frame.left(),area.right()-frame.width()+1))
+        y=max(area.top(),min(frame.top(),area.bottom()-frame.height()+1))
+        window.move(x,y)
+    window.statusBar.showMessage('已恢复默认界面大小',3000)
+
+
+def restore_default_compact_size(workspace):
+    """Use the default compact size once, then continue remembering resizes."""
+    window=workspace.window
+    window.db.set_setting_value(SIZE_MODE_SETTING,'last')
+    window.db.set_setting_value(LAST_SIZE_SETTING,json.dumps(dict(zip(('width','height'),DEFAULT_COMPACT_SIZE))))
+    compact=getattr(workspace,'compact',None)
+    if compact is not None and compact.active:
+        restore_default_window_size(workspace)
+        compact._save_position()
+    window.statusBar.showMessage('已恢复默认小窗大小；下次调整后继续记忆上次大小。',4000)
 
 
 class _ToolbarDockOnDoubleClick(QObject):
@@ -119,7 +163,7 @@ class NavigationController:
         menu = QMenu('视图', workspace.window)
         workspace.view_menu = menu
         view_actions = {}
-        for (label, shortcut, callback) in (('主界面', 'Ctrl+1', workspace.show_main), ('表格图', 'Ctrl+2', workspace.show_table), ('流程图', 'Ctrl+3', workspace.show_flow), ('多功能', 'Ctrl+4', workspace.show_code), ('录制', 'Ctrl+6', workspace.show_recording), ('网页录制', 'Ctrl+7', workspace.show_web_recording), ('对话 Agent', 'Ctrl+8', workspace.show_agent), ('设置变量', 'Ctrl+Shift+V', workspace.show_variables)):
+        for (label, shortcut, callback) in (('主界面', 'Ctrl+1', workspace.show_main), ('表格图', 'Ctrl+2', workspace.show_table), ('流程图', 'Ctrl+3', workspace.show_flow), ('多功能', 'Ctrl+4', workspace.show_code), ('录制', 'Ctrl+6', workspace.show_recording), ('网页录制', 'Ctrl+7', workspace.show_web_recording), ('对话Ai编程', 'Ctrl+8', workspace.show_agent), ('设置变量', 'Ctrl+Shift+V', workspace.show_variables)):
             action = QAction(label, workspace.window)
             action.setShortcut(QKeySequence(shortcut))
             view_actions[label] = action
@@ -135,9 +179,17 @@ class NavigationController:
         workspace.window.menu_3.removeAction(workspace.window.actiong)
         workspace.window.actiong.setText('显示工具栏')
         menu.addAction(workspace.window.actiong)
-        menu.addAction(workspace.controls_action)
-        workspace.restore_view_action = QAction('恢复默认界面', workspace.window)
+        menu.addAction(create_controls_menu_action(workspace))
+        workspace.restore_view_action = QAction('恢复默认界面布局', workspace.window)
         workspace.restore_view_action.triggered.connect(lambda : workspace.layout_presets.reset())
+        workspace.restore_size_action = QAction('恢复默认界面大小',workspace.window)
+        workspace.restore_size_action.setObjectName('actionRestoreDefaultWindowSize')
+        workspace.restore_size_action.setToolTip('恢复窗口、设置面板的默认尺寸及字号，保留面板布局')
+        workspace.restore_size_action.triggered.connect(lambda: restore_default_window_size(workspace))
+        workspace.restore_compact_size_action=QAction('恢复默认小窗大小',workspace.window)
+        workspace.restore_compact_size_action.setObjectName('actionRestoreDefaultCompactSize')
+        workspace.restore_compact_size_action.setToolTip('恢复一次默认小窗尺寸并作为新的上次大小，继续选择上次大小；摆放位置保持不变')
+        workspace.restore_compact_size_action.triggered.connect(lambda:restore_default_compact_size(workspace))
         workspace.layout_menu = QMenu('界面方案', workspace.window)
         workspace.window.menubar.insertMenu(menu.menuAction(), workspace.layout_menu)
         LayoutPresets = _module_imports.load('LayoutPresets')
@@ -170,6 +222,19 @@ class NavigationController:
         flow_view.continuousAnimationChanged.connect(sync_flow_actions)
         menu.aboutToShow.connect(sync_flow_actions)
         sync_flow_actions()
+        view_actions['指令栏收起/展开'] = workspace.palette_collapse_action
+        view_actions['控制与操作收起/展开'] = workspace.controls_action
+        workspace.both_panels_action = QAction('指令与控制栏同时收起/展开', workspace.window)
+        def toggle_both_panels():
+            show = workspace.palette_collapsed and workspace.controls_collapsed
+            if workspace.palette_collapsed == show:
+                workspace.toggle_palette()
+            workspace.controls_action.setChecked(show)
+        workspace.both_panels_action.triggered.connect(toggle_both_panels)
+        view_actions['指令与控制栏同时收起/展开'] = workspace.both_panels_action
+        workspace.window.addAction(workspace.both_panels_action)
+        workspace.window.addAction(workspace.palette_collapse_action)
+        workspace.window.addAction(workspace.controls_action)
         view_actions['显示工具栏'] = workspace.window.actiong
         guidance_action = QAction('中文编程提示', workspace.window)
         guidance_action.setCheckable(True)
@@ -181,14 +246,17 @@ class NavigationController:
         view_actions['中文编程提示'] = guidance_action
         menu.addSeparator()
         install_view_shortcuts = _module_imports.load('install_view_shortcuts')
-        install_view_shortcuts(workspace.window, workspace.window.menu_4, view_actions)
+        workspace.window._view_shortcut_actions = view_actions
         workspace.window.menubar.removeAction(workspace.window.menu_3.menuAction())
         install_menu_styling = _module_imports.load('install_menu_styling')
         install_menu_styling(workspace.window)
         open_advanced_timing = _module_imports.load('open_advanced_timing')
-        tools_menu = next((action.menu() for action in workspace.window.menubar.actions() if action.text().replace('&', '') == '工具'), None)
+        tools_menu = next((action.menu() for action in workspace.window.menubar.actions() if action.text().replace('&', '') == '设置'), None)
         if tools_menu is not None:
-            timing_action = tools_menu.addAction('高级设置（动作延时）')
+            timing_action = QAction('高级设置', tools_menu)
+            entries = tools_menu.actions()
+            index = entries.index(workspace.window.actions_2) + 1
+            tools_menu.insertAction(entries[index] if index < len(entries) else None, timing_action)
             timing_action.setObjectName('advancedExecutionTiming')
             timing_action.triggered.connect(lambda : open_advanced_timing(workspace.window, workspace.window.db))
         ToolbarCustomization = _module_imports.load('ToolbarCustomization')

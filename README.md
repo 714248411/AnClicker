@@ -1,4 +1,4 @@
-# AnClicker
+# AnClicker｜按-点击者
 
 **以按为令，让流程自动发生。**
 
@@ -80,15 +80,15 @@ AnClicker 是一款以**本地执行、开放扩展、用户掌控**为核心的
 
 ---
 
-## v1.6.2
+## 开发中：v1.6.2（尚未发布）
 
-本版本新增对话 Agent，并修复新对话会话创建及图片路径兼容问题。发行包与源码见 [v1.6.2 发布页](https://github.com/714248411/AnClicker/releases/tag/v1.6.2)。
+当前分支已同步对话 Agent 与新对话修复代码，暂不发布新版安装包。最新正式版仍为 [v1.6.1](https://github.com/714248411/AnClicker/releases/tag/v1.6.1)。
 
 新增“对话 Agent”，可通过本地小模型或兼容模型服务编写指令草稿、修改参数，并操作独立浏览器。Windows 支持 CPU/GPU 自动调度、排队与空闲释放。新建对话会保留当前配置的会话模式。
 
-从源码运行时，按下方“开发与运行”以及 [开发版运行说明](docs/RPA_REBUILD.md) 准备环境。Windows 小模型可通过“准备本机小模型.cmd”准备；已有离线运行包时，将 .agent-runtime 解压到源码根目录。Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
+体验新增功能请使用本分支源码，按下方“开发与运行”以及 [开发版运行说明](docs/RPA_REBUILD.md) 准备环境。Windows 小模型可通过“准备本机小模型.cmd”准备；已有离线运行包时，将 .agent-runtime 解压到源码根目录。Linux/macOS 可配置 Ollama 或 OpenAI 兼容模型服务。
 
-[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](tools/packaging/PLATFORM_GUIDE.md) · [更新说明](tools/packaging/RELEASE_NOTES.md)
+[对话 Agent 说明](docs/对话Agent说明.txt) · [平台说明](tools/packaging/PLATFORM_GUIDE.md) · [待发布更新说明](tools/packaging/RELEASE_NOTES.md)
 
 ## 项目简介
 
@@ -243,3 +243,13 @@ Windows 版首次执行“绑定选择窗口”或“测试绑定”时，会优
 自动配置的组件保存在用户数据目录的 `damo/7.2424` 下，便携版升级不会清除，配置成功后可离线重复使用。“高级设置 → 大漠组件设置”保留“自动配置后台组件”及“立即配置 / 重新检查”，也可切换手动配置；既有手动路径和授权不会自动覆盖。网络不可用时，可将已验证的 `xd47243.dll` 与 `Go.dll` 放入本地 `current/damo` 后重试。
 
 后台绑定设置中的“启用截图 / 识图 / 取色”默认开启，兼容原项目。仅需后台键鼠时可关闭，省去图像绑定与截图验证；此时截图、找图和取色会明确提示重新开启。默认绑定等待为 0 秒，旧项目设置的等待时间仍保留。同一运行上下文内重复绑定相同有效窗口时直接复用，窗口或模式变化、宿主异常及仍有按下的按键时会释放旧绑定并重新建立。
+
+## 网页抓取工具与任务规划
+
+指令栏新增“网页抓取工具 → Crawl4AI 网页抓取”，用法见 [抓取说明](docs/CRAWL4AI.md)。Agent 默认将需求拆成单步骤可编辑草稿；需要即时网页操作时，在模型设置中切换对话工作方式。
+
+其他大模型可通过 [工具 API](docs/AGENT_TOOL_API.md) 查询真实指令参数、生成草稿并导入 Agent。双击“启动工具API.cmd”启动本机服务。模型训练脚本和训练数据位于 models/training，当前已通过 models/active_model.json 选择新模型。训练记录、验证范围和已知限制见 [模型说明](models/anclicker-planner-v1/MODEL_CARD.md)。
+
+### 中文步骤、CMD 与截图 OCR 核验
+
+Agent 支持 1–5 编号步骤、中文数字时长及逐步生成草稿。新增“快速文件操作”和“截图OCR核验”，可用真实截图、离线OCR和文件哈希检查结果。CMD 官方资料可通过 cmd_reference 查询。使用示例、训练范围和实际验证记录见 [功能与核验说明](docs/AGENT_CAPABILITIES.md)。

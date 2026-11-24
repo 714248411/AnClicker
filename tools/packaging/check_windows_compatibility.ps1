@@ -1,9 +1,15 @@
 param([string]$PortableDirectory = $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath $PortableDirectory).Path
-$exe = Join-Path $root 'current\AnClicker.exe'
+$exe = Join-Path $root 'AnClicker.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
-    throw 'Place this script beside An Clicker.exe, or pass -PortableDirectory with the extracted portable folder.'
+    $exe = Join-Path $root 'current\AnClicker.exe'
+}
+if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+    $exe = Join-Path $root 'AnClicker\AnClicker.exe'
+}
+if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+    throw 'Place this script beside AnClicker.exe, or pass -PortableDirectory with the extracted portable folder.'
 }
 $reportRoot = Join-Path $root ('compatibility-report-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $reportRoot | Out-Null

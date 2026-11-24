@@ -1,8 +1,11 @@
 from anclicker.platform.qt_compat.QtCore import Qt, QUrl
 from anclicker.platform.qt_compat.QtGui import QDesktopServices
-from anclicker.platform.qt_compat.QtWidgets import QDialog, QMessageBox, QCheckBox, QWidget, QVBoxLayout, QLabel, QPushButton
+from anclicker.platform.qt_compat.QtWidgets import QDialog, QMessageBox, QCheckBox, QWidget, QVBoxLayout, QLabel, QPushButton, QComboBox, QFormLayout, QButtonGroup, QKeySequenceEdit
 from anclicker.platform.services import create_system_hotkey, global_hotkeys_supported, is_hotkey_valid
 from anclicker.storage.database import DatabaseOperation
+from anclicker.storage.settings_defaults import DEFAULT_SETTINGS
+from anclicker.ui.information_dialogs import InformationDialog
+from anclicker.ui.compact_position import POSITION_SETTING, POSITIONS, SIZE_MODE_SETTING
 from anclicker.ui.generated.windows.setting_ui import Ui_Setting
 from anclicker.ui.dialogs.窗口状态 import install_window_state
 
@@ -16,15 +19,31 @@ _module_imports = _DeferredImports(globals(), {
 
 BAIDU_OCR = 'https://ai.baidu.com/tech/ocr'
 YUN_CODE = 'https://www.jfbym.com'
+SETTINGS_SECTIONS = ('小窗口设置', '启停快捷键', 'OCR接口设置', '快捷键设置', '其他设置')
 
 
-class Setting(QDialog, Ui_Setting):
+class Setting(InformationDialog, Ui_Setting):
     """添加设置窗口"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         # 初始化设置窗口
         self.setupUi(self)
+        self.stop2_label=QLabel('结束运行2：',self.groupBox_5)
+        self.stop2_label.setAlignment(Qt.AlignCenter)
+        self.keySequenceEdit_3=QKeySequenceEdit(self.groupBox_5)
+        self.keySequenceEdit_3.setObjectName('keySequenceEdit_3')
+        self.keySequenceEdit_3.setToolTip('原 Esc 停止功能；默认未设置，留空不启用，设置后在任务运行时全局生效。')
+        self.gridLayout_6.addWidget(self.stop2_label,2,0)
+        self.gridLayout_6.addWidget(self.keySequenceEdit_3,2,1)
+        self.tabWidget.tabBar().moveTab(self.tabWidget.indexOf(self.tab_3),0)
+        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), '启停快捷键')
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2),'OCR接口设置')
+        self.restore_shortcuts_button=QPushButton('恢复默认',self.tab_3)
+        self.restore_shortcuts_button.setToolTip('恢复全局快捷键默认值，点击应用后生效')
+        self.restore_shortcuts_button.clicked.connect(self.restore_default_shortcuts)
+        self.verticalLayout_5.insertWidget(1,self.restore_shortcuts_button,0,Qt.AlignRight)
         shortcut_page = QWidget(self.tabWidget)
         shortcut_page.setObjectName('settingsBody')
         shortcut_layout = QVBoxLayout(shortcut_page)
@@ -33,7 +52,7 @@ class Setting(QDialog, Ui_Setting):
         shortcut_tip = QLabel('更改界面切换、中文编程提示等快捷键，可单独启用、停用或清除按键。', shortcut_page)
         shortcut_tip.setWordWrap(True)
         shortcut_layout.addWidget(shortcut_tip)
-        self.change_shortcuts_button = QPushButton('更改快捷键', shortcut_page)
+        self.change_shortcuts_button = QPushButton('快捷键设置', shortcut_page)
         shortcut_layout.addWidget(self.change_shortcuts_button)
         shortcut_layout.addStretch()
         open_shortcuts = getattr(parent, 'open_view_shortcut_settings', None)
@@ -42,7 +61,7 @@ class Setting(QDialog, Ui_Setting):
             self.change_shortcuts_button.clicked.connect(lambda: open_shortcuts(self))
         else:
             shortcut_tip.setText('请从主界面打开设置后更改快捷键。')
-        self.tabWidget.addTab(shortcut_page, '更改快捷键')
+        self.tabWidget.addTab(shortcut_page, '快捷键设置')
         self.label_14.setText('应用编号：')
         self.label_15.setText('接口密钥：')
         self.label_16.setText('安全密钥：')
@@ -50,6 +69,25 @@ class Setting(QDialog, Ui_Setting):
         self.programming_hint_checkbox = QCheckBox('开启中文编程提示', self)
         self.programming_hint_checkbox.setToolTip('关闭后隐藏快捷功能栏的中文引导，拖入指令不再自动展开，并关闭中文候选提示')
         self.gridLayout_3.addWidget(self.programming_hint_checkbox, 2, 0, 1, 2)
+        self.other_settings_page=QWidget();self.other_settings_page.setObjectName('settingsBody')
+        other_layout=QVBoxLayout(self.other_settings_page);other_layout.setContentsMargins(12,12,12,12);other_layout.setSpacing(10)
+        self.small_window_page=QWidget();self.small_window_page.setObjectName('settingsBody')
+        small_layout=QVBoxLayout(self.small_window_page);small_layout.setContentsMargins(12,12,12,12);small_layout.setSpacing(10)
+        position_form=QFormLayout();position_form.setRowWrapPolicy(QFormLayout.WrapAllRows)
+        self.compact_position=QComboBox()
+        for label,value in POSITIONS:self.compact_position.addItem(label,value)
+        position_form.addRow('小窗口起始位置：',self.compact_position);small_layout.addLayout(position_form)
+        self.compact_original_size=QCheckBox('小窗口原始大小',self.small_window_page)
+        self.compact_last_size=QCheckBox('小窗口上次大小',self.small_window_page)
+        self.compact_size_group=QButtonGroup(self);self.compact_size_group.setExclusive(True)
+        self.compact_size_group.addButton(self.compact_original_size);self.compact_size_group.addButton(self.compact_last_size)
+        small_layout.addWidget(self.compact_original_size);small_layout.addWidget(self.compact_last_size)
+        position_hint=QLabel('原始大小使用默认小窗口尺寸；上次大小使用最近一次调整的尺寸。位置与大小均在下次小化时生效。')
+        position_hint.setWordWrap(True);small_layout.addWidget(position_hint);small_layout.addStretch()
+        self.tabWidget.insertTab(0,self.small_window_page,'小窗口设置');self.tabWidget.setCurrentIndex(0)
+        for checkbox in (self.checkBox_2,self.checkBox_3,self.checkBox_4,self.programming_hint_checkbox):
+            self.gridLayout_3.removeWidget(checkbox);other_layout.addWidget(checkbox)
+        other_layout.addStretch();self.tabWidget.addTab(self.other_settings_page,'其他设置')
         self._guidance_palette = getattr(getattr(parent, 'workspace', None), 'palette', None)
         if self._guidance_palette is not None:
             self._guidance_palette.guidanceEnabledChanged.connect(self.programming_hint_checkbox.setChecked)
@@ -66,6 +104,11 @@ class Setting(QDialog, Ui_Setting):
         apply_settings_theme = _module_imports.load('apply_settings_theme')
         apply_settings_theme(self, parent)
 
+    def restore_default_shortcuts(self):
+        for name,editor in (('开始运行',self.keySequenceEdit),('结束运行',self.keySequenceEdit_2),
+                            ('结束运行2',self.keySequenceEdit_3),('暂停和恢复',self.keySequenceEdit_4)):
+            editor.setKeySequence(DEFAULT_SETTINGS['快捷键-'+name])
+
     def unregister_global_shortcut_keys(self):
         """如果是主窗口打开，则注销全局快捷键，否则隐藏全局快捷键设置"""
         try:
@@ -74,7 +117,7 @@ class Setting(QDialog, Ui_Setting):
             self.main_window_open = False
             # 如果tabWidget中tab页名称为“快捷键”，则隐藏该tab页
             for i in range(self.tabWidget.count()):
-                if self.tabWidget.tabText(i) == '快捷键':
+                if self.tabWidget.tabText(i) == '启停快捷键':
                     self.tabWidget.removeTab(i)
                     break
 
@@ -84,12 +127,14 @@ class Setting(QDialog, Ui_Setting):
         def validate_and_set_hotkey(hotkey, key_sequence_edit_, action_):
             """验证并设置快捷键"""
             if self.main_window_open:
+                if action_=='结束运行2' and key_sequence_edit_.keySequence().isEmpty():
+                    return []
                 key_sequence = key_sequence_edit_.keySequence().toString().lower().split('+')
                 key_sequence = [key.replace('ctrl', 'control') for key in key_sequence]
                 if not global_hotkeys_supported(hotkey):
-                    self.db.set_global_shortcut(**{action_: key_sequence})
+                    return key_sequence
                 elif is_hotkey_valid(hotkey, key_sequence):
-                    self.db.set_global_shortcut(**{action_: key_sequence})
+                    return key_sequence
                 else:
                     QMessageBox.information(
                         self, '提醒',
@@ -116,11 +161,29 @@ class Setting(QDialog, Ui_Setting):
         key_mapping = {
             '开始运行': self.keySequenceEdit,
             '结束运行': self.keySequenceEdit_2,
+            '结束运行2': self.keySequenceEdit_3,
             '暂停和恢复': self.keySequenceEdit_4
         }
-        for action, key_sequence_edit in key_mapping.items():
-            validate_and_set_hotkey(create_system_hotkey(), key_sequence_edit, action)
+        if self.main_window_open:
+            sequences=[editor.keySequence().toString().lower() for name,editor in key_mapping.items()
+                       if name!='结束运行2' or not editor.keySequence().isEmpty()]
+            grouped = {}
+            for name, editor in key_mapping.items():
+                sequence = editor.keySequence().toString().lower()
+                if sequence:
+                    grouped.setdefault(sequence, set()).add(name)
+            duplicates = any(len(names) > 1 and names != {'开始运行', '结束运行'}
+                             for names in grouped.values())
+            if any(not sequence or ',' in sequence for sequence in sequences) or duplicates:
+                QMessageBox.information(self,'提醒','开始运行与结束运行可使用同一按键，其他功能请使用不同按键；不支持连续多段快捷键，结束运行2可留空。')
+                raise ValueError('快捷键为空、重复或包含连续多段按键')
+        if self.main_window_open:
+            shortcuts={action:validate_and_set_hotkey(create_system_hotkey(),editor,action)
+                       for action,editor in key_mapping.items()}
+            self.db.set_global_shortcut(**shortcuts)
 
+        self.db.set_setting_value(POSITION_SETTING,self.compact_position.currentData())
+        self.db.set_setting_value(SIZE_MODE_SETTING,'last' if self.compact_last_size.isChecked() else 'default')
         enabled = self.programming_hint_checkbox.isChecked()
         self.db.set_setting_value('中文编程提示', str(enabled))
         if self._guidance_palette is not None:
@@ -140,6 +203,10 @@ class Setting(QDialog, Ui_Setting):
     def load_setting_data(self):
         """加载设置数据库中的数据"""
         # 加载设置数据
+        self.compact_last_size.setChecked((self.db.get_setting_value(SIZE_MODE_SETTING) or 'last')=='last')
+        self.compact_original_size.setChecked(not self.compact_last_size.isChecked())
+        position=self.db.get_setting_value(POSITION_SETTING) or 'last'
+        self.compact_position.setCurrentIndex(max(0,self.compact_position.findData(position if position in dict((value,label) for label,value in POSITIONS) else 'last')))
         enabled = str(self.db.get_setting_value('中文编程提示') or 'True').lower() not in ('false', '0', '关闭')
         if self._guidance_palette is not None:
             enabled = self._guidance_palette.guidance_enabled
@@ -165,6 +232,7 @@ class Setting(QDialog, Ui_Setting):
         global_shortcut_dic = self.db.get_global_shortcut()
         self.keySequenceEdit.setKeySequence('+'.join(global_shortcut_dic['开始运行']))
         self.keySequenceEdit_2.setKeySequence('+'.join(global_shortcut_dic['结束运行']))
+        self.keySequenceEdit_3.setKeySequence('+'.join(global_shortcut_dic['结束运行2']))
         self.keySequenceEdit_4.setKeySequence('+'.join(global_shortcut_dic['暂停和恢复']))
 
     @staticmethod
@@ -176,3 +244,4 @@ class Setting(QDialog, Ui_Setting):
         if self.main_window_open:  # 如果是主窗口打开
             # 注册全局快捷键
             self.parent().register_global_shortcut_keys()
+        super().closeEvent(event)

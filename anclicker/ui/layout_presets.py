@@ -16,8 +16,13 @@ class LayoutPresets:
         if not isinstance(data,dict): data={}
         self.items=[x for x in data.get('items',[]) if isinstance(x,dict) and isinstance(x.get('name'),str) and isinstance(x.get('layout'),dict) and isinstance(x.get('id'),str)] if isinstance(data.get('items',[]),list) else []
         self.selected=data.get('selected')
+        if self.selected == 'dynamic1':
+            self.selected = 'dynamic2'
         self.next_number=max(1,data.get('next',1)) if isinstance(data.get('next',1),int) else 1
+        from anclicker.ui.dynamic_presets import ResponsiveLayout
+        self.responsive = ResponsiveLayout(self)
         self.refresh()
+        self.responsive.schedule()
 
     def persist(self):
         self.window.db.set_setting_value(SETTING,json.dumps({'items':self.items,'selected':self.selected,'next':self.next_number},ensure_ascii=False))
@@ -38,7 +43,15 @@ class LayoutPresets:
         self.menu.addAction('删除方案',self.delete).setEnabled(self.current() is not None)
         self.menu.addAction('更名',self.rename).setEnabled(self.current() is not None)
         self.menu.addSeparator()
+        for key, name in (('dynamic2', '动态方案1'),):
+            # Keep the label aligned with regular menu items; show selection on the right.
+            action = self.menu.addAction(name + ('  ✓' if self.selected == key else ''))
+            action.setObjectName('layout-preset-' + key)
+            action.triggered.connect(lambda checked=False, key=key: self.apply(key))
+        self.menu.addSeparator()
         self.menu.addAction(self.view.restore_view_action)
+        self.menu.addAction(self.view.restore_size_action)
+        self.menu.addAction(self.view.restore_compact_size_action)
 
     def capture(self):
         v=self.view;d=v.docking
@@ -54,8 +67,19 @@ class LayoutPresets:
         item={'id':uuid.uuid4().hex,'name':f'方案{self.next_number}','layout':self.capture()}
         self.next_number+=1;self.items.append(item);self.selected=item['id']
         self.persist();self.refresh()
+        self.view.docking.refresh_control_actions_style()
 
     def apply(self, key):
+        if key == 'dynamic2':
+            if self.view.compact.active:
+                self.view.compact.set_active(False)
+            self.view.docking.reset_layout()
+            self.selected = key
+            self.responsive.active_key = 'palette'
+            self.responsive.apply(force=True)
+            self.persist(); self.refresh()
+            self.window.statusBar.showMessage('已启用动态排版，左侧底部可切换快捷指令与控制与操作。', 3000)
+            return
         item=next((x for x in self.items if x['id']==key),None)
         if item is None:return
         data=item['layout'];v=self.view;d=v.docking
@@ -85,12 +109,14 @@ class LayoutPresets:
         finally:
             d.restoring=False;d.save()
         self.selected=key;self.persist();self.refresh()
+        d.refresh_control_actions_style()
         self.window.statusBar.showMessage('已应用 '+item['name'],3000)
 
     def delete(self):
         if self.current() is None:return
         self.items=[x for x in self.items if x['id']!=self.selected]
         self.selected=None;self.persist();self.refresh()
+        self.view.docking.refresh_control_actions_style()
 
     def rename(self):
         item=self.current()

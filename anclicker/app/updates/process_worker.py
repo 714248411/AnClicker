@@ -4,9 +4,11 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 import velopack
 
+from anclicker.app.updates.config import create_update_manager
 from anclicker._imports import DeferredImports as _DeferredImports
 
 # Dependencies declared here retain their existing on-demand loading boundaries.
@@ -40,7 +42,8 @@ class UpdateCancelled(Exception):
     pass
 
 
-def run_isolated(thread, action, source, update=None, progress=None):
+def run_isolated(thread, action, source, update=None, progress=None, *, timeout=None):
+    deadline = time.monotonic() + timeout if timeout is not None else None
     with tempfile.TemporaryDirectory(prefix='ac-update-') as directory:
         root = Path(directory)
         (root / 'request.json').write_text(json.dumps({'action': action, 'source': source, 'update': encode(update)}), encoding='utf-8')
@@ -56,6 +59,8 @@ def run_isolated(thread, action, source, update=None, progress=None):
         offset = 0
         try:
             while True:
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError("更新检查超时")
                 if thread.isInterruptionRequested():
                     raise UpdateCancelled()
                 if progress and (root / 'progress.txt').exists():
@@ -92,7 +97,7 @@ def main():
     root = Path(sys.argv[sys.argv.index('--update-worker') + 1])
     request = json.loads((root / 'request.json').read_text(encoding='utf-8'))
     try:
-        manager = velopack.UpdateManager(request['source'])
+        manager = create_update_manager(request['source'])
         if request['action'] == 'check':
             value = manager.get_update_pending_restart()
             event = 'pending'

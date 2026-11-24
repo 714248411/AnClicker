@@ -491,17 +491,18 @@ class BackgroundInput:
         if self.closed:
             return False
         released = False
+        clean = True
         try:
             for value in list(self.keys):
                 try:
                     self._call('KeyUp', value, cleanup=True)
                 except Exception:
-                    pass
+                    clean = False
             for button in self.buttons:
                 try:
                     self._call(self._button(button)+'Up', cleanup=True)
                 except Exception:
-                    pass
+                    clean = False
             try:
                 released = self._call('UnBindWindow', cleanup=True) == 1
             except Exception:
@@ -509,21 +510,25 @@ class BackgroundInput:
         finally:
             self.closed = True
             try:
-                if not keep_transport or not released:
+                if not keep_transport or not released or not clean:
                     self.transport.close()
             finally:
                 self.directory.cleanup()
-        return keep_transport and released
+        return keep_transport and released and clean
 
 
-def close_background(context):
+def close_background(context, *, keep_transport=False):
     context.metadata.pop('background_binding_profiles', None)
     session = context.metadata.pop(SESSION, None)
     context.metadata.pop(ERROR, None)
     if session is not None:
         context.metadata.pop('recorded_keys', None)
         context.metadata.pop('recorded_buttons', None)
-        session.close()
+        if keep_transport and session.close(keep_transport=True):
+            from anclicker.platform.background_preload import offer_preloaded
+            offer_preloaded(session.transport)
+        elif not keep_transport:
+            session.close()
 
 
 def bind_background(context, parameters):
@@ -597,6 +602,11 @@ def bind_background(context, parameters):
                     '）：' + str(error) + '；可尝试 GDI 兼容方案或重新选择窗口') from error
             context.emit(profile + ' 未就绪：' + str(error) + '；正在尝试 ' + attempts[index + 1][0])
             continue
+        try:
+            from anclicker.platform.background_preferences import remember_success
+            remember_success(profile)
+        except OSError as error:
+            context.emit('后台方案已生效，但默认方案保存失败：' + str(error))
         session.binding_profile = profile
         session.binding_signature = signature
         profiles[signature] = profile

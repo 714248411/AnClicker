@@ -1,6 +1,6 @@
 from anclicker.app.paths import get_install_folder
 from anclicker.app.paths import resource_path
-"""Install the pinned background runtime on first use, outside replaceable app files."""
+"""Install the bundled offline runtime outside replaceable app files."""
 import hashlib
 import json
 import os
@@ -9,8 +9,6 @@ import shutil
 import sys
 import tempfile
 import threading
-import time
-from urllib.request import Request, urlopen
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -33,10 +31,6 @@ _install_lock = threading.Lock()
 
 
 class ConfigurationCancelled(RuntimeError):
-    pass
-
-
-class DownloadUnavailable(RuntimeError):
     pass
 
 
@@ -76,60 +70,8 @@ def _configuration(directory):
     }
 
 
-def _download_once(url, name, target, size, digest, emit, cancelled):
-    request = Request(url, headers={'User-Agent': 'AnClicker-Component-Setup',
-                                   'Accept': 'application/vnd.github.raw+json'})
-    deadline = time.monotonic() + 120
-    checksum = hashlib.sha256()
-    received, last = 0, -1
-    _check_cancel(cancelled)
-    try:
-        with urlopen(request, timeout=5) as response, target.open('wb') as output:
-            if not response.geturl().startswith('https://'):
-                raise RuntimeError('后台组件下载地址无效')
-            while True:
-                _check_cancel(cancelled)
-                if time.monotonic() > deadline:
-                    raise DownloadUnavailable('后台组件下载超时，请重试')
-                block = response.read1(64 * 1024)
-                if not block:
-                    break
-                received += len(block)
-                if received > size:
-                    raise RuntimeError('后台组件文件大小不符，已停止安装')
-                checksum.update(block)
-                output.write(block)
-                percent = received * 100 // size
-                if percent // 5 != last:
-                    last = percent // 5
-                    emit('正在下载后台组件 ' + name + '：' + str(percent) + '%')
-    except ConfigurationCancelled:
-        raise
-    except (OSError, TimeoutError) as error:
-        _check_cancel(cancelled)
-        raise DownloadUnavailable('后台组件下载失败，请检查网络后重试；也可将配套组件放入 current/damo 后重试') from error
-    _check_cancel(cancelled)
-    if received != size or checksum.hexdigest() != digest:
-        raise RuntimeError('后台组件校验失败，已停止安装；请重新配置')
-
-
-def _download(name, target, size, digest, emit, cancelled):
-    urls = (
-        SOURCE + name,
-        'https://api.github.com/repos/yuan71058/dm72424-go/contents/DM-DLL/' + name + '?ref=' + COMMIT,
-    )
-    for index, url in enumerate(urls):
-        try:
-            return _download_once(url, name, target, size, digest, emit, cancelled)
-        except DownloadUnavailable:
-            if index + 1 == len(urls):
-                raise
-            emit('当前下载连接不可用，正在切换备用下载地址…')
-            _check_cancel(cancelled)
-
-
 def ensure_component(*, emit=lambda message: None, cancelled=lambda: False):
-    """Return a complete verified pair. Partial downloads are never loadable."""
+    """Return a complete verified local pair; never fetch code from the network."""
     if sys.platform != 'win32':
         raise RuntimeError('大漠后台功能仅支持 Windows')
     config_path = _module_imports.load('config_path')
@@ -146,7 +88,7 @@ def ensure_component(*, emit=lambda message: None, cancelled=lambda: False):
         directory.mkdir(parents=True, exist_ok=True)
         # Only known application locations, never a disk-wide scan or system DLL registration.
         app = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(get_install_folder()) / 'current'
-        local = (config_path().parent, app / 'damo')
+        local = (resource_path('resources', 'background', 'dll'), config_path().parent, app / 'damo')
         emit('正在自动配置后台组件…')
         with tempfile.TemporaryDirectory(prefix='.install-', dir=directory) as temporary:
             staging = Path(temporary)
@@ -158,7 +100,7 @@ def ensure_component(*, emit=lambda message: None, cancelled=lambda: False):
                 if source is not None:
                     shutil.copyfile(source, target)
                 else:
-                    _download(name, target, size, digest, emit, cancelled)
+                    raise RuntimeError('随包后台组件缺失或损坏：' + name + '；请重新解压完整安装包，或在大漠组件设置中选择配套 DLL。不会联网下载。')
                 if not _valid(target, size, digest):
                     raise RuntimeError('后台组件校验失败，已停止安装')
                 pe_bits = _module_imports.load('pe_bits')
@@ -174,7 +116,7 @@ def ensure_component(*, emit=lambda message: None, cancelled=lambda: False):
             stamp = staging / 'installed.json'
             stamp.write_text(json.dumps(receipt, ensure_ascii=False, indent=2), encoding='utf8')
             os.replace(stamp, directory / 'installed.json')
-        emit('后台组件已自动配置，下次使用无需重复下载')
+        emit('后台组件已自动配置，已使用本地离线 DLL')
         return _configuration(directory)
     finally:
         _install_lock.release()

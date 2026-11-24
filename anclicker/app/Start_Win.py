@@ -10,6 +10,7 @@
 # See the Mulan PSL v2 for more details.
 from __future__ import print_function
 
+import shutil
 import collections
 import gc
 import html
@@ -22,7 +23,7 @@ from time import time as current_time
 from typing import Optional
 
 import openpyxl
-from anclicker.platform.qt_compat.QtCore import QTimer, Signal, Slot, QUrl, Qt
+from anclicker.platform.qt_compat.QtCore import QTimer, Signal, Slot, QUrl, Qt, QSignalBlocker
 from anclicker.platform.qt_compat.QtGui import QAction, QDesktopServices, QPixmapCache, QShortcut, QKeySequence
 from anclicker.platform.qt_compat.QtWidgets import (
     QApplication,
@@ -33,10 +34,15 @@ from anclicker.platform.qt_compat.QtWidgets import (
     QStatusBar,
     QVBoxLayout,
 )
-from anclicker.app.paths import EXPORTS_FOLDER, LOGS_FOLDER, RESOURCE_FOLDER
-from anclicker.platform.services import create_system_hotkey, global_hotkeys_supported, is_hotkey_valid, open_path
+from anclicker.app.paths import LOGS_FOLDER, RESOURCE_FOLDER
+from anclicker.platform.services import create_system_hotkey, global_hotkeys_supported, is_hotkey_valid, normalize_hotkey, open_path
 from anclicker.app.time_utils import get_str_now_time
 from anclicker.storage.graph_repository import WorkbookValidationError
+from anclicker.ui.window_arrangement_tool import install_window_arrangement_tool
+from anclicker.ui.information_dialogs import InformationDialog, style_about_dialog
+from anclicker.ui.project_files import install_new_blank_action, is_blank_project_path, next_project_path, project_directory, remember_project_directory
+from anclicker.ui.workspace_constants import CODE_SETTING, CODE_GRAPH_SIGNATURE_SETTING, TASK_NAME_SETTING, WINDOW_TITLE_SETTING
+from anclicker.ui.recent_projects import install_recent_context_menu
 from anclicker.ui.instruction_workspace import InstructionWorkspace
 from anclicker.app.main_work import CommandThread
 from anclicker.ui.view_workspace import ViewWorkspace
@@ -59,7 +65,7 @@ _module_imports = _DeferredImports(globals(), {
     'ApplicationState_application_state': ('from', 'anclicker.app.state', ('ApplicationState', 'application_state'), 0),
     'OcrPool': ('from', 'anclicker.ui.ocr_pool', ('OcrPool',), 0),
     'QCheckBox_QWidget_QVBoxLayout': ('from', 'anclicker.platform.qt_compat.QtWidgets', ('QCheckBox', 'QWidget', 'QVBoxLayout'), 0),
-    'RecentProjectPicker_ProjectDropFilter': ('from', 'anclicker.ui.recent_projects', ('RecentProjectPicker', 'ProjectDropFilter'), 0),
+    'RecentProjectPicker_ProjectDropFilter': ('from', 'anclicker.ui.recent_projects', ('RecentProjectPicker', 'ProjectDropFilter', 'install_folder_import'), 0),
     'TaskScheduler': ('from', 'anclicker.app.scheduled_tasks', ('TaskScheduler',), 0),
     'AutoUpdateManager': ('from', 'anclicker.app.updates.自动更新接入', ('AutoUpdateManager',), 0),
     'missing_startup_resources': ('from', 'anclicker.app.startup_resources', ('missing_startup_resources',), 0),
@@ -130,6 +136,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.workspace = InstructionWorkspace(self.db.db_path, self)
         self._install_instruction_workspace()
         self.view_workspace = ViewWorkspace(self)
+        from anclicker.ui.tooltip_policy import TooltipPolicy
+        self.tooltip_policy = TooltipPolicy(self)
         QCheckBox, QWidget, QVBoxLayout = _module_imports.load('QCheckBox_QWidget_QVBoxLayout')
         self.run_unconnected_checkbox = QCheckBox('运行未连接模块', self.groupBox_3)
         self.run_unconnected_checkbox.setObjectName('runUnconnectedCheckBox')
@@ -143,12 +151,16 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         options_layout.addWidget(self.run_unconnected_checkbox)
         options_layout.addWidget(self.checkBox_2)
         self.gridLayout_2.addWidget(options, 2, 0, 1, 2)
-        RecentProjectPicker, ProjectDropFilter = _module_imports.load('RecentProjectPicker_ProjectDropFilter')
+        RecentProjectPicker, ProjectDropFilter, install_folder_import = _module_imports.load('RecentProjectPicker_ProjectDropFilter')
         self.recent_project_picker = RecentProjectPicker(self.groupBox_3)
         self.gridLayout_2.addWidget(self.recent_project_picker, 3, 0, 1, 2)
         self.gridLayout_2.setRowStretch(3, 0)
         self.gridLayout_2.setRowStretch(4, 1)
         self.recent_project_picker.openRequested.connect(self.open_project_path)
+        self.recent_project_picker.removeRequested.connect(self.remove_recent_project)
+        install_folder_import(self)
+        from anclicker.ui.data_transfer import install_data_transfer
+        install_data_transfer(self)
         self.project_drop_filter = ProjectDropFilter(self, self.open_project_path)
         self._initial_graph_fit_pending = True
         self.tabWidget.currentChanged.connect(self._schedule_initial_graph_fit)
@@ -158,7 +170,15 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.pushButton_3.clicked.connect(
             lambda: self.show_windows("全局")
         )  # 显示全局参数窗口
-        self.actions_2.triggered.connect(lambda: self.show_windows("设置"))  # 打开设置
+        from anclicker.platform.qt_compat.QtWidgets import QMenu
+        from anclicker.ui.dialogs.设置窗口 import SETTINGS_SECTIONS
+        self.settings_sections_menu = QMenu('设置', self)
+        self.actions_2.setMenu(self.settings_sections_menu)
+        for section in SETTINGS_SECTIONS:
+            action = self.settings_sections_menu.addAction(section)
+            action.triggered.connect(lambda checked=False, section=section: self.show_windows('设置', section))
+        from anclicker.ui.settings_menu import install_settings_click
+        install_settings_click(self)
         self.actionabout.triggered.connect(
             lambda: self.show_windows("关于")
         )  # 打开关于窗体
@@ -178,6 +198,10 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.actionf.triggered.connect(
             lambda: self.data_import("资源文件夹路径")
         )  # 导入数据
+        install_new_blank_action(self)
+        install_window_arrangement_tool(self)
+        from anclicker.ui.view_shortcuts import install_all_menu_shortcuts
+        install_all_menu_shortcuts(self)
         # 主窗体开始按钮
         self.pushButton_5.clicked.connect(lambda: self.global_shortcut_key("开始线程"))
         self.start_time = None
@@ -208,8 +232,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.command_thread.started.connect(flow_view.play_run_animation, Qt.QueuedConnection)
         self.shortcut_requested.connect(self.global_shortcut_key, Qt.QueuedConnection)
         self._escape_registered = False
+        self._escape_hotkey = None
         self._escape_previous_action = None
-        self.escape_stop = QShortcut(QKeySequence('Esc'), self)
+        self.escape_stop = QShortcut(QKeySequence('+'.join(self.db.get_global_shortcut()['结束运行2'])), self)
         self.escape_stop.setContext(Qt.ApplicationShortcut)
         self.escape_stop.setEnabled(False)
         self.escape_stop.activated.connect(lambda: self.shortcut_requested.emit('终止线程'))
@@ -230,11 +255,16 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.get_data()
         # 加载窗体初始值
         self.load_initialization()
+        from anclicker.ui.project_run_controls import ProjectRunControls
+        self.project_run_controls = ProjectRunControls(self)
+        from anclicker.ui.project_changes import BASELINE_KEY, mark_clean
+        if not self.db.get_setting_value(BASELINE_KEY):
+            mark_clean(self)
         self.view_workspace.restore_last_view()
         self._install_updates()
         TaskScheduler = _module_imports.load('TaskScheduler')
         self.task_scheduler = TaskScheduler(self)
-        self.workspace.palette.scheduleRequested.connect(self.task_scheduler.show_settings)
+        self.view_workspace.title_bar.schedule_button.clicked.connect(self.task_scheduler.show_settings)
 
     def _install_updates(self):
         if sys.platform != 'win32':
@@ -246,7 +276,10 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                      if action.menu() and self.actionabout in action.menu().actions()), None)
         if menu is None:
             menu = self.menubar.addMenu('帮助')
+        if menu.actions() and not menu.actions()[-1].isSeparator():
+            menu.addSeparator()
         check = menu.addAction('检查更新')
+        check.setObjectName('actionCheckForUpdates')
         check.triggered.connect(lambda: self.auto_update.check_for_updates(True))
         self.auto_update.update_ready.connect(self.view_workspace.title_bar.show_update)
         self.auto_update.update_progress.connect(self._update_progress)
@@ -340,6 +373,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self,
             self.db,
             self.windowTitle().split("v")[0].strip(),
+            remember_position=True,
         )
         check_file_integrity()  # 检查文件完整性
         # 显示工具栏
@@ -377,6 +411,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         """注册全局快捷键"""
         # 从数据库获取全局快捷键
         global_shortcut = self.db.get_global_shortcut()
+        self.escape_stop.setKey(QKeySequence('+'.join(global_shortcut['结束运行2'])))
+        self._primary_stop_available=False
+        self._registered_shortcut_help = {}
         # 检查快捷键是否有效，无效则弹出提示
         try:
             global_shortcuts = {
@@ -385,11 +422,14 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                 "暂停和恢复": "暂停和恢复线程",
             }
 
+            shared = normalize_hotkey(global_shortcut['开始运行']) == normalize_hotkey(global_shortcut['结束运行'])
             for shortcut_name, action_ in global_shortcuts.items():
+                if shared and shortcut_name == '结束运行':
+                    continue
+                if shared and shortcut_name == '开始运行':
+                    action_ = '启停共享按键'
                 # 将ctrl替换为control
-                global_shortcut[shortcut_name] = [
-                    key.replace("ctrl", "control") for key in global_shortcut[shortcut_name]
-                ]
+                global_shortcut[shortcut_name] = list(normalize_hotkey(global_shortcut[shortcut_name]))
                 if not global_hotkeys_supported(self.hk_stop):
                     continue
                 if is_hotkey_valid(self.hk_stop, global_shortcut[shortcut_name]):
@@ -400,6 +440,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                         ),
                         overwrite=True
                     )
+                    self._registered_shortcut_help['开始/结束运行' if shared and shortcut_name == '开始运行' else shortcut_name] = '+'.join(global_shortcut[shortcut_name])
+                    if shortcut_name=='结束运行' or shared and shortcut_name=='开始运行':self._primary_stop_available=True
                 else:
                     str_shortcut = "+".join(global_shortcut[shortcut_name])
                     QMessageBox.information(
@@ -413,6 +455,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self.pushButton_5.setText(f"开始运行\t{'+'.join(global_shortcut['开始运行'])}".upper())
             self.pushButton_6.setText(f"结束任务\t{'+'.join(global_shortcut['结束运行'])}".upper())
             self.pushButton_7.setText(f"暂停和恢复\t{'+'.join(global_shortcut['暂停和恢复'])}".upper())
+            if self.command_thread.isRunning() or bool(getattr(self, 'task_scheduler', None) and self.task_scheduler.busy):
+                self._arm_escape_stop()
             if not global_hotkeys_supported(self.hk_stop):
                 self.statusBar.showMessage(
                     "当前桌面环境不支持全局快捷键，请使用界面按钮操作。", 5000
@@ -423,18 +467,29 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                                  QMessageBox.StandardButton.NoButton)
 
     def unregister_global_shortcut_keys(self):
-        """注销全局忷键"""
-        global_shortcut = self.db.get_global_shortcut()
-        try:
-            for shortcut_name, action_ in global_shortcut.items():
-                # 将ctrl替换为control
-                action_ = [key.replace("ctrl", "control") for key in action_]
-                self.hk_stop.unregister(tuple(action_))
-        except Exception as e:
-            print(e)
+        """Release configured hotkeys while settings captures replacement keys."""
+        self.escape_stop.setEnabled(False)
+        self._registered_shortcut_help = {}
+        shortcuts=self.db.get_global_shortcut()
+        released = set()
+        for name,keys in shortcuts.items():
+            if name=='结束运行2' and not self._escape_registered:
+                continue
+            hotkey=self._escape_hotkey if name=='结束运行2' else normalize_hotkey(keys)
+            if tuple(hotkey) in released:
+                continue
+            released.add(tuple(hotkey))
+            try:
+                self.hk_stop.unregister(tuple(hotkey))
+            except Exception as error:
+                print(error)
+        self._escape_registered=False
+        self._escape_hotkey=None
+        self._primary_stop_available=False
 
     def add_recent_to_fileMenu(self):
         """将最近文件添加到菜单中"""
+        install_recent_context_menu(self)
         recently_opened_list = self.db.get_recently_opened_file("文件列表")
         current_file_path = self.db.get_setting_value("当前文件路径")
         self.menuzv.clear()
@@ -443,40 +498,33 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         # 将最近打开文件添加到菜单中
         if len(recently_opened_list) != 0:
             for file in recently_opened_list:
-                file_action = QAction(text=file, parent=self)
+                file_action = QAction(text=file, parent=self.menuzv)
+                file_action.setData(file)
                 # 设置信号
                 file_action.triggered.connect(
-                    lambda checked, file_=file: self.open_recent_file(file_)
+                    lambda checked=False, file_=file: self.open_recent_file(file_)
                 )
                 file_action.setCheckable(True)
                 # 设置当前文件为选中状态
                 if file == current_file_path:
                     file_action.setChecked(True)
                 self.menuzv.addAction(file_action)
+        home = getattr(getattr(self, 'view_workspace', None), 'main_page', None)
+        if home is not None:
+            home.refresh_projects()
         # 关闭菜单栏
         self.menuzv.close()
 
+    def remove_recent_project(self,file_path):
+        self.db.remove_recently_opened_file(file_path)
+        self.add_recent_to_fileMenu()
+        home=getattr(getattr(self,'view_workspace',None),'main_page',None)
+        if home is not None:home.refresh_projects()
+        self.statusBar.showMessage('已从最近列表删除记录，磁盘文件保持不变。',4000)
+
     def open_recent_file(self, file_path):
-        """打开最近打开的文件
-        :param file_path: 文件路径"""
-        recent_file = self.db.get_setting_value("当前文件路径")
-        if file_path != recent_file:
-            if os.path.exists(file_path):
-                self.open_project_path(file_path)
-            elif not os.path.exists(file_path):
-                # 如果文件不存在，则删除最近打开文件列表中的文件
-                self.db.remove_recently_opened_file(file_path)
-                # 从菜单中删除文件
-                for action in self.menuzv.actions():
-                    if action.text() == file_path:
-                        self.menuzv.removeAction(action)
-                QMessageBox.critical(
-                    self, "错误", "文件不存在！已经从最近打开文件中删除。",
-                    QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.NoButton)
-        else:
-            for action in self.menuzv.actions():
-                if action.text() == file_path:
-                    action.setChecked(True)
+        """Reopen even the current path so external workbook edits are read."""
+        return self.open_project_path(file_path)
 
     def delete_data(self):
         """Delete from the active workspace, not stale flow selections."""
@@ -486,21 +534,41 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def open_project_path(self, file_path):
         """One guarded entry point for recent selection, edited paths and drops."""
+        if not os.path.isfile(file_path):
+            self.db.remove_recently_opened_file(file_path)
+            self.add_recent_to_fileMenu()
+            home = getattr(getattr(self, 'view_workspace', None), 'main_page', None)
+            if home is not None:
+                home.refresh_projects()
+            QMessageBox.critical(
+                self, "错误", "文件不存在！已经从最近打开文件中删除。",
+                QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.NoButton)
+            return
         thread = getattr(self, 'command_thread', None)
         if (thread is not None and thread.isRunning()) or (self.view_workspace.recording_page.busy or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'busy', False)):
             self.statusBar.showMessage('请先停止任务和录制，再切换项目。', 5000)
             self.add_recent_to_fileMenu()
             return
         current = self.db.get_setting_value('当前文件路径')
-        if current and os.path.normcase(os.path.abspath(file_path)) == os.path.normcase(os.path.abspath(current)):
-            self.add_recent_to_fileMenu()
-            return
+        same_project = bool(current and current != 'None' and
+                            os.path.normcase(os.path.abspath(file_path)) == os.path.normcase(os.path.abspath(current)))
         recording = self.view_workspace.recording_page
         if (recording.drafts and not recording.written) or getattr(getattr(self.view_workspace, 'web_recording_page', None), 'unsaved', False):
             QMessageBox.warning(self, '录制尚未写入', '请先写入或清空录制，再切换项目。')
             self.add_recent_to_fileMenu()
             return
-        if self.workspace.repository.list_commands():
+        from anclicker.ui.project_changes import is_modified
+        modified = is_modified(self)
+        if same_project and modified:
+            # An external Excel edit must never be overwritten by the stale
+            # in-memory task before reloading that very same workbook.
+            answer = QMessageBox.question(self, '重新打开项目',
+                '是否从文件重新读取最新内容？\n当前未保存的修改将被替换，磁盘文件不会被覆盖。',
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                self.add_recent_to_fileMenu()
+                return
+        elif modified:
             answer = QMessageBox.question(self, '切换项目',
                 '是否先保存当前项目？尚未写入的录制请先写入后再切换。',
                 QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Cancel)
@@ -529,11 +597,15 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return False
         return self.workspace.edit_command(selected_[0])
 
-    def show_windows(self, judge):
+    def show_windows(self, judge, section=None):
         """打开窗体"""
         if judge == "设置":
+            if section == '快捷键设置':
+                self.open_view_shortcut_settings()
+                return
             setting_win = Setting(self)  # 设置窗体
-            setting_win.tabWidget.setCurrentIndex(0)
+            setting_win.tabWidget.setCurrentIndex(next((i for i in range(setting_win.tabWidget.count())
+                if setting_win.tabWidget.tabText(i) == section), 0))
             setting_win.setModal(True)
             setting_win.exec()
         elif judge == "全局":
@@ -548,14 +620,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             QDesktopServices.openUrl(QUrl(MAIN_WEBSITE))
         elif judge == "快捷键说明":
             title = ["快捷键", "说明"]
-            data = [
-                ("Ctrl+Enter", "添加指令"),
-                ("Ctrl+C", "复制指令"),
-                ("Delete", "删除指令"),
-                ("Ctrl+D", "导入指令"),
-                ("Ctrl+S", "保存指令"),
-                ("Ctrl+Alt+S", "另存为Excel")
-            ]
+            from anclicker.ui.view_shortcuts import active_shortcut_help
+            data = active_shortcut_help(self)
             shortcut_win = ShortcutTable(self, title, data)  # 快捷键说明窗口
             shortcut_win.setModal(True)
             shortcut_win.exec()
@@ -573,30 +639,57 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
     def save_data(self, judge: str) -> bool:
         """按节点编辑器四工作表协议导出指令、图和设置。"""
 
+        original_project_path_ = self.db.get_setting_value('当前文件路径')
+
         def choose_save_path_() -> Optional[str]:
-            default_path_ = os.path.normpath(os.path.join(EXPORTS_FOLDER, "指令数据.xlsx"))
+            directory_ = project_directory(self.db)
+            default_path_ = next_project_path(os.path.join(directory_, '指令数据.xlsx'), fill_gaps=True)
+            imported_path_ = self.db.get_setting_value("当前文件路径")
+            if imported_path_ and imported_path_ != 'None' and not is_blank_project_path(imported_path_):
+                default_path_ = next_project_path(os.path.join(directory_, os.path.basename(imported_path_)))
             selected_path_, _ = QFileDialog.getSaveFileName(
-                self, "保存文件", default_path_, "Excel 工作簿 (*.xlsx)"
+                self, "另存为", default_path_, "Excel 工作簿 (*.xlsx)",
+                options=QFileDialog.DontConfirmOverwrite,
             )
             return os.path.normpath(selected_path_) if selected_path_ else None
 
         save_path_ = None
+        if judge == "保存新空白页":
+            save_path_ = self.db.get_setting_value('本机新建默认保存路径')
         if judge == "自动保存":
             recent_path_ = self.db.get_setting_value("当前文件路径")
             if recent_path_ and recent_path_ != "None":
                 save_path_ = os.path.normpath(recent_path_)
-                if not os.path.isdir(os.path.dirname(save_path_)):
+                if os.path.splitext(save_path_)[1].lower() == ".xlsm":
+                    save_path_ = None
+                elif not os.path.isdir(os.path.dirname(save_path_)):
                     save_path_ = None
             if not save_path_:
                 self.statusBar.showMessage(
-                    "未找到最近导入的文件路径，已切换为另存为。", 3000
+                    "当前项目无法直接保存，已切换为另存为 .xlsx。", 3000
                 )
+        direct_save_ = bool(save_path_)
         save_path_ = save_path_ or choose_save_path_()
         if not save_path_:
             return False
         save_path_ = os.path.abspath(save_path_)
+        if save_path_.lower().endswith('.xlsm'):
+            QMessageBox.warning(self, '保存格式', '项目另存为仅支持 .xlsx，请选择新的 .xlsx 文件名；原 .xlsm 文件保留。')
+            return False
         if not save_path_.lower().endswith(".xlsx"):
             save_path_ += ".xlsx"
+
+        def confirm_overwrite_():
+            return QMessageBox.question(
+                self, '确认覆盖', f'文件已存在：\n{save_path_}\n是否覆盖？选择否将取消本次保存。',
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) == QMessageBox.Yes
+
+        overwrite_allowed_ = direct_save_ and judge != '保存新空白页'
+        if not direct_save_ and os.path.exists(save_path_):
+            if not confirm_overwrite_():
+                return False
+            overwrite_allowed_ = True
 
         target_directory_ = os.path.dirname(save_path_)
         try:
@@ -609,10 +702,17 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         if hasattr(self, "view_workspace"):
             self.view_workspace._save_code()
 
+        controls = getattr(self, 'project_run_controls', None)
+        if controls is not None:
+            controls.changed()
         workbook_ = openpyxl.Workbook()
         temporary_path_ = None
         try:
             self.workspace.repository.export_to_workbook(workbook_, self.db)
+            from anclicker.storage.project_paths import save_workbook_paths, project_root
+            path_root_ = project_root(original_project_path_, os.path.dirname(self.db.db_path), project_directory(self.db))
+            save_workbook_paths(workbook_, original_project_path_, save_path_, path_root_,
+                                fallback=os.path.dirname(self.db.db_path))
             with tempfile.NamedTemporaryFile(
                 prefix=".yanyi-", suffix=".xlsx", dir=target_directory_, delete=False
             ) as temporary_file_:
@@ -620,7 +720,32 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             workbook_.save(temporary_path_)
             # Replace only after the workbook has been written completely, so
             # a failed save never damages the user's last valid task file.
-            os.replace(temporary_path_, save_path_)
+            if not overwrite_allowed_:
+                while True:
+                    try:
+                        # Exclusive creation prevents a concurrent new file being overwritten.
+                        with open(save_path_, 'xb') as destination:
+                            try:
+                                with open(temporary_path_, 'rb') as source:
+                                    shutil.copyfileobj(source, destination)
+                            except Exception:
+                                destination.close()
+                                os.remove(save_path_)
+                                raise
+                        break
+                    except FileExistsError:
+                        if judge == '保存新空白页':
+                            save_path_ = next_project_path(save_path_)
+                        elif confirm_overwrite_():
+                            os.replace(temporary_path_, save_path_)
+                            temporary_path_ = None
+                            break
+                        else:
+                            return False
+                if temporary_path_:
+                    os.remove(temporary_path_)
+            else:
+                os.replace(temporary_path_, save_path_)
             temporary_path_ = None
         except PermissionError:
             QMessageBox.critical(
@@ -640,10 +765,21 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
                 except OSError:
                     pass
 
+        from anclicker.storage.project_paths import rebase_saved_commands
+        rebase_saved_commands(self.db, original_project_path_, save_path_, path_root_)
         self.db.update_settings(当前文件路径=save_path_)
+        remember_project_directory(self.db, save_path_)
+        self.db.set_setting_value('本机新建默认保存路径', '')
+        if controls is not None:
+            controls.saved_as(save_path_)
+        from anclicker.ui.project_changes import mark_clean
+        mark_clean(self)
+        if (judge != "保存新空白页" and is_blank_project_path(original_project_path_)
+                and os.path.normcase(os.path.abspath(original_project_path_)) != os.path.normcase(save_path_)):
+            self.db.remove_recently_opened_file(os.path.normpath(original_project_path_))
         self.db.writes_to_recently_opened_files(save_path_)
         self.add_recent_to_fileMenu()
-        if judge != "自动保存" and QMessageBox.question(
+        if judge not in ("自动保存", "新建前另存为", "保存新空白页") and QMessageBox.question(
             self,
             "提示",
             "指令数据保存成功！是否打开所在文件夹？",
@@ -671,7 +807,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         agent = getattr(self.view_workspace, 'agent_page', None)
         if agent is not None and agent.busy:
             agent.stop()
-            self.statusBar.showMessage('正在停止对话 Agent，请结束后再关闭窗口。', 5000)
+            self.statusBar.showMessage('正在停止对话Ai编程，请结束后再关闭窗口。', 5000)
             event.ignore()
             return
         if getattr(self.workspace, '_instruction_test_active', False):
@@ -683,7 +819,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return
         agent = getattr(self.view_workspace, 'agent_page', None)
         if agent is not None and agent.unsaved:
-            if QMessageBox.question(self, '未写入的指令草稿', '对话 Agent 草稿尚未写入，确定退出并丢弃？') != QMessageBox.StandardButton.Yes:
+            if QMessageBox.question(self, '未写入的指令草稿', '对话Ai编程 草稿尚未写入，确定退出并丢弃？') != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
         cancel_update = False
@@ -717,7 +853,9 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             执行中隐藏主窗口=str(self.checkBox_2.isChecked()),
         )
         # 是否退出清空数据库
-        if self.db.get_bool_setting("退出提醒清空指令"):
+        importing_data = (getattr(QApplication.instance(), "_whole_data_import", None)
+                          or getattr(QApplication.instance(), "_whole_workspace_import", None))
+        if self.db.get_bool_setting("退出提醒清空指令") and not importing_data:
             choice = QMessageBox.question(
                 self, "提示", "确定退出并清空所有指令？\n将自动保存当前指令数据。"
                 , QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No)
@@ -741,7 +879,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self.statusBar.showMessage('正在停止更新，请稍后再关闭。', 5000)
             event.ignore()
             return
-        if self.db.get_bool_setting("退出提醒清空指令"):
+        if self.db.get_bool_setting("退出提醒清空指令") and not importing_data:
             self.db.clear_all_ins()
         self.view_workspace.save_last_view()
         web_recording = getattr(self.view_workspace, 'web_recording_page', None)
@@ -756,7 +894,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             self.task_scheduler.timer.stop()
         event.accept()
 
-    def data_import(self, file_path: str) -> None:
+    def data_import(self, file_path: str, *, use_cached_controls=True) -> None:
         """识别旧版备份，完整验证并另存新版后，事务性替换指令图。"""
         thread_ = getattr(self, 'command_thread', None)
         recording_ = getattr(self.view_workspace, 'recording_page', None)
@@ -766,62 +904,73 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         if file_path == "资源文件夹路径":
             target_path_, _ = QFileDialog.getOpenFileName(
                 self,
-                "请选择指令备份文件",
-                EXPORTS_FOLDER,
-                "Excel 工作簿 (*.xlsx)",
+                "导入单文件",
+                project_directory(self.db),
+                "Excel 工作簿 (*.xlsx *.xlsm)",
             )
             if not target_path_:
                 return
         else:
             target_path_ = file_path
-        target_path_ = os.path.normpath(target_path_)
-        if os.path.splitext(target_path_)[1].lower() != ".xlsx":
+        target_path_ = os.path.abspath(target_path_)
+        if os.path.splitext(target_path_)[1].lower() not in {".xlsx", ".xlsm"}:
             QMessageBox.warning(
-                self, "导入失败", "请选择 Clicker / An Clicker 导出的 .xlsx 文件。",
+                self, "导入失败", "请选择 Clicker / AnClicker 导出的 .xlsx / .xlsm 文件。",
                 QMessageBox.StandardButton.Ok,
             )
             return
 
+        controls = getattr(self, 'project_run_controls', None)
+        if controls is not None:
+            controls.changed()
+        imported_controls = {}
         workbook_ = None
         converted_ = None
         migration_message_ = ""
         migrated_branch_ = False
+        automatic_outputs_ = {}
+        original_legacy_path_ = None
         try:
             convert_legacy_workbook, save_converted_copy = _module_imports.load('convert_legacy_workbook_save_converted_copy')
 
             workbook_ = openpyxl.load_workbook(target_path_)
-            needs_batch_migration, choose_migration = _module_imports.load('needs_batch_migration_choose_migration')
-            if needs_batch_migration(workbook_):
-                selected_path_ = choose_migration(self, workbook_, target_path_)
-                if selected_path_:
-                    self.data_import(selected_path_)
-                return
-            converted_ = convert_legacy_workbook(workbook_, os.path.dirname(os.path.abspath(target_path_)))
-            self.workspace.repository.validate_workbook(converted_)
-            migrated_branch_ = any(row[1] == "旧版迁移来源分支" for row in
-                                   converted_["设置"].iter_rows(min_row=2, values_only=True))
-            if converted_ is not workbook_:
-                count_ = converted_["命令"].max_row - 1
-                if QMessageBox.question(
-                    self, "转换旧版数据",
-                    f"识别到 {count_} 条旧版指令，将按表格行顺序生成新版表格和流程图。\n"
-                    "原文件不会修改，将在旁边另存“原文件名-新版.xlsx”。\n"
-                    "当前指令也会先备份。是否转换并导入？",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                ) != QMessageBox.StandardButton.Yes:
-                    return
+            from anclicker.storage.legacy_workbook import is_graph_workbook
+            if not is_graph_workbook(workbook_):
+                from anclicker.storage.migration_tool import migrate_automatically
+                folder_, automatic_outputs_, selected_path_ = migrate_automatically(workbook_, target_path_)
                 backup_ = openpyxl.Workbook()
                 try:
                     self.workspace.repository.export_to_workbook(backup_, self.db)
-                    backup_path_ = save_converted_copy(
-                        backup_, os.path.join(os.path.dirname(target_path_), "导入前指令备份.xlsx")
-                    )
+                    save_converted_copy(backup_, os.path.join(folder_, "导入前指令备份.xlsx"))
                 finally:
                     backup_.close()
-                target_path_ = save_converted_copy(converted_, target_path_)
-                migration_message_ = f"旧版数据已转换。\n新版文件：{target_path_}\n导入前备份：{backup_path_}"
-            self.workspace.repository.import_from_workbook(converted_, source_path=target_path_)
+                original_legacy_path_ = target_path_
+                workbook_.close()
+                target_path_ = selected_path_
+                workbook_ = openpyxl.load_workbook(target_path_)
+                migration_message_ = f"旧版数据已自动迁移，原文件已备份。当前项目：{target_path_}"
+            converted_ = convert_legacy_workbook(workbook_, os.path.dirname(os.path.abspath(target_path_)))
+            self.workspace.repository.validate_workbook(converted_)
+            project_defaults = {CODE_SETTING: '', CODE_GRAPH_SIGNATURE_SETTING: '',
+                                TASK_NAME_SETTING: '默认任务', WINDOW_TITLE_SETTING: ''}
+            settings_sheet = converted_['设置']
+            present = {row[1] for row in settings_sheet.iter_rows(min_row=2, values_only=True) if row[0] == '设置'}
+            for key, value in project_defaults.items():
+                if key not in present:
+                    settings_sheet.append(['设置', key, value, '其他', None])
+            migrated_branch_ = any(row[1] == "旧版迁移来源分支" for row in
+                                   converted_["设置"].iter_rows(min_row=2, values_only=True))
+            from anclicker.ui.project_run_controls import DEFAULTS as CONTROL_DEFAULTS
+            imported_controls = {row[1]: str(row[2]) for row in converted_['设置'].iter_rows(min_row=2, values_only=True)
+                                 if row[0] == '设置' and row[1] in (*CONTROL_DEFAULTS, '有限重复次数') and row[2] is not None}
+            from anclicker.storage.data_partitions import prepare_project_paths
+            data_root_ = os.path.dirname(os.path.abspath(self.db.db_path))
+            if not prepare_project_paths(converted_, target_path_, data_root_, os.path.dirname(data_root_),
+                    lambda missing: QMessageBox.question(self, '是否适配资源路径',
+                        f'有 {len(missing)} 个资源原路径不可用。是否在当前 AnClicker 的 Data 分区内查找并适配？\n选择否将取消打开，保留当前项目。',
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes):
+                return
+            self.workspace.repository.import_from_workbook(converted_, source_path=target_path_, preserve_paths=True)
             self.workspace.clear_connection_history()
         except (WorkbookValidationError, ValueError, sqlite3.DatabaseError, OSError, zipfile.BadZipFile) as error_:
             QMessageBox.warning(
@@ -834,19 +983,38 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             if workbook_ is not None:
                 workbook_.close()
 
-        self.workspace.reload_graph()
+        # Discard the previous editor's pending write only after import succeeds.
+        self.view_workspace._code_save_timer.stop()
+        self.view_workspace._code_dirty = False
+        self.db.update_settings(当前文件路径=target_path_)
+        remember_project_directory(self.db, original_legacy_path_ or target_path_, opened=True)
+        self.workspace.reload_graph(reset_view=True)
+        if hasattr(self.view_workspace, '_load_code'):
+            self.view_workspace._load_code()
+        for attribute, setting in (('task_name', TASK_NAME_SETTING), ('window_title', WINDOW_TITLE_SETTING)):
+            control = getattr(self.view_workspace, attribute, None)
+            if control is not None:
+                with QSignalBlocker(control):
+                    control.setText(str(self.db.get_setting_value(setting) or project_defaults[setting]))
         self.view_workspace.refresh_all()
         if migrated_branch_:
             repeat_number_ = int(self.db.get_setting_value("运行重复次数") or 1)
             self.radioButton.setChecked(repeat_number_ == -1)
             self.radioButton_2.setChecked(repeat_number_ != -1)
             self.spinBox.setValue(max(repeat_number_, 1))
-        self.db.update_settings(当前文件路径=target_path_)
+        self.db.set_setting_value('本机新建默认保存路径', '')
+        if controls is not None:
+            controls.restore(target_path_, imported_controls, use_cache=use_cached_controls)
+        from anclicker.ui.project_changes import mark_clean
+        mark_clean(self)
+        if original_legacy_path_:
+            self.db.remove_recently_opened_file(original_legacy_path_)
+            self.db.add_recent_files(automatic_outputs_.values())
         self.db.writes_to_recently_opened_files(target_path_)
         self.menuzv.clear()
         self.add_recent_to_fileMenu()
         self.statusBar.showMessage(migration_message_ or "指令数据导入成功，已自动设置保存路径。", 6000)
-        if file_path == "资源文件夹路径" or migration_message_:
+        if file_path == "资源文件夹路径" and not migration_message_:
             QMessageBox.information(
                 self, "提示", migration_message_ or "指令数据导入成功！", QMessageBox.StandardButton.Ok
             )
@@ -859,12 +1027,12 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def start(self, run_mode='全部指令', info=0) -> bool:
         if 'agent' in self.application_state.activities():
-            self.statusBar.showMessage('请先结束对话 Agent，再启动主任务。', 5000)
+            self.statusBar.showMessage('请先结束对话Ai编程，再启动主任务。', 5000)
             return False
         if getattr(self.workspace, '_instruction_test_active', False):
-            self.statusBar.showMessage('请先结束对话 Agent 或指令测试，再启动主任务。', 5000)
+            self.statusBar.showMessage('请先结束对话Ai编程 或指令测试，再启动主任务。', 5000)
             return False
-        if getattr(self, 'task_scheduler', None) and self.task_scheduler.busy:
+        if getattr(self, 'task_scheduler', None) and self.task_scheduler.blocks_main_start:
             self.statusBar.showMessage('定时任务正在等待或执行，请稍后启动主任务。', 5000)
             return False
         if getattr(self, '_update_preparing', False):
@@ -882,6 +1050,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             """执行前的操作"""
             self.clear_signal.emit()  # 清空日志
             self.view_workspace.highlight_running_command(None)
+            self._capture_run_window_state()
             self.view_workspace.begin_runtime_view()
             if self.checkBox_2.isChecked() and escape_available_:  # Keep stop controls visible if global Esc is unavailable.
                 self.hide()
@@ -891,8 +1060,10 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return False
         if self._runtime_error_box is not None:
             self._runtime_error_box.reject()
+        from anclicker.storage.data_partitions import ensure_runtime_paths
+        if not ensure_runtime_paths(self):
+            return False
         self.command_thread.prepare_for_start()
-        self._restore_main_after_run = self.checkBox_2.isChecked() or self.view_workspace.compact.active
         escape_available_ = self._arm_escape_stop()
         operation_before_execution()  # 执行前的操作
         self.command_thread.set_run_mode(run_mode, info)
@@ -909,21 +1080,48 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         return True
 
     def _arm_escape_stop(self):
-        self.escape_stop.setEnabled(True)
-        actions_ = {'开始运行':'开始线程', '结束运行':'终止线程', '暂停和恢复':'暂停和恢复线程'}
-        self._escape_previous_action = next((actions_.get(name) for name, keys in self.db.get_global_shortcut().items()
-            if [key.lower() for key in keys] in (['esc'], ['escape'])), None)
+        """Arm the optional configurable runtime stop key."""
+        shortcuts=self.db.get_global_shortcut()
+        keys=normalize_hotkey(shortcuts['结束运行2'])
+        self.escape_stop.setKey(QKeySequence('+'.join(shortcuts['结束运行2'])))
+        self.escape_stop.setEnabled(bool(keys))
+        if not keys:
+            return bool(getattr(self,'_primary_stop_available',False))
+        if self._escape_registered and self._escape_hotkey==keys:
+            return True
+        actions_={'开始运行':'开始线程','结束运行':'终止线程','暂停和恢复':'暂停和恢复线程'}
+        self._escape_previous_action=next((actions_[name] for name in actions_
+            if normalize_hotkey(shortcuts[name])==keys),None)
         try:
             if not global_hotkeys_supported(self.hk_stop):
                 raise RuntimeError('当前环境不支持全局快捷键')
-            if self._escape_previous_action is None and not is_hotkey_valid(self.hk_stop, ['escape']):
-                raise RuntimeError('Esc 已被其他程序占用')
-            self.hk_stop.register(('escape',), callback=lambda *_: self.shortcut_requested.emit('终止线程'), overwrite=True)
-            self._escape_registered = True
+            if self._escape_previous_action is None and not is_hotkey_valid(self.hk_stop,list(keys)):
+                raise RuntimeError('结束运行2快捷键已被其他程序占用')
+            self.hk_stop.register(keys,callback=lambda *_:self.shortcut_requested.emit('终止线程'),overwrite=True)
+            self._escape_hotkey=keys
+            self._escape_registered=True
             return True
         except Exception as error:
-            self.statusBar.showMessage(f'{error}；本次不隐藏窗口，请使用结束任务按钮。', 6000)
+            self.statusBar.showMessage(f'{error}；本次不隐藏窗口，请使用结束任务按钮。',6000)
             return False
+
+    def _sync_stop_shortcut(self):
+        busy=self.command_thread.isRunning() or bool(getattr(self,'task_scheduler',None) and self.task_scheduler.busy)
+        if busy:
+            self._arm_escape_stop()
+            return
+        self.escape_stop.setEnabled(False)
+        if self._escape_registered:
+            try:
+                self.hk_stop.unregister(self._escape_hotkey)
+                if self._escape_previous_action:
+                    action = self._escape_previous_action
+                    self.hk_stop.register(self._escape_hotkey, callback=lambda *_: self.shortcut_requested.emit(action), overwrite=True)
+            except Exception as error:
+                self.statusBar.showMessage(f'恢复结束运行2快捷键失败：{error}', 5000)
+            finally:
+                self._escape_registered = False
+                self._escape_hotkey = None
 
     def _show_runtime_error(self, request):
         if self.command_thread._stop_requested:
@@ -950,6 +1148,19 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.show()
         box.show()
 
+    def _capture_run_window_state(self):
+        self._run_window_snapshot = (self.saveGeometry(), self.windowState(),
+                                     self.view_workspace.tabs.currentIndex())
+
+    def _restore_run_window_state(self):
+        saved = getattr(self, '_run_window_snapshot', None)
+        if saved is not None:
+            self.restoreGeometry(saved[0])
+            self.setWindowState(saved[1])
+            self.view_workspace.tabs.setCurrentIndex(saved[2])
+            self._run_window_snapshot = None
+        self.show()
+
     def _runtime_finished(self):
         self._flush_runtime_messages(all_pending=True)
         if getattr(self, '_closing', False):
@@ -958,23 +1169,8 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
             return
         self.view_workspace.end_runtime_view()
         self.run_unconnected_checkbox.setEnabled(True)
-        self.escape_stop.setEnabled(bool(getattr(self, 'task_scheduler', None) and self.task_scheduler.busy))
-        if self._escape_registered:
-            try:
-                self.hk_stop.unregister(('escape',))
-                if self._escape_previous_action:
-                    action = self._escape_previous_action
-                    self.hk_stop.register(('escape',), callback=lambda *_: self.shortcut_requested.emit(action), overwrite=True)
-            except Exception as error:
-                self.statusBar.showMessage(f'恢复 Esc 快捷键失败：{error}', 5000)
-            finally:
-                self._escape_registered = False
-        if self.isMinimized():
-            self.showNormal()
-        else:
-            self.show()
-        if getattr(self, '_restore_main_after_run', False):
-            self.view_workspace.show_main()
+        self._sync_stop_shortcut()
+        self._restore_run_window_state()
         self.raise_()
         self.activateWindow()
 
@@ -1023,6 +1219,16 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
 
     def global_shortcut_key(self, i_str):
         """全局热键处理函数"""
+        busy = self.command_thread.isRunning() or bool(getattr(self, 'task_scheduler', None) and self.task_scheduler.busy)
+        if i_str == '启停共享按键':
+            i_str = '终止线程' if busy else '开始线程'
+        scheduler = getattr(self, 'task_scheduler', None)
+        if i_str == '开始线程' and (self.command_thread.isRunning() or (scheduler and scheduler.blocks_main_start)):
+            return
+        if i_str == '终止线程' and not busy:
+            agent = getattr(self.view_workspace, 'agent_page', None)
+            if not bool(agent and agent.busy) and getattr(self.workspace, '_instruction_test_context', None) is None:
+                return
         self.db.system_prompt_tone("全局快捷键")  # 发出提示音
 
         if i_str == "终止线程":
@@ -1107,7 +1313,7 @@ class Main_window(FramelessMainWindow, Ui_MainWindow):
         self.db.system_prompt_tone("线程结束")  # 发出提示音
         self.db.show_normal_window_with_specified_title(self.windowTitle())  # 显示窗口
 
-class About(QDialog, Ui_About):
+class About(InformationDialog, Ui_About):
     """关于窗体"""
 
     def __init__(self, parent: Optional[Main_window] = None):
@@ -1116,7 +1322,15 @@ class About(QDialog, Ui_About):
         self.setupUi(self)
         self.db = getattr(parent, "db", None) or DatabaseOperation()
         install_window_state(self, self.db, self.windowTitle())
-        self.label_2.setText(f"版本：{CURRENT_VERSION}")  # 设置版本号
+        self.label_2.setText(f'版本：{CURRENT_VERSION}<br>'
+            '国际官网地址1：<a href="https://www.anclicker.com">www.anclicker.com</a><br>'
+            '国内官网地址：<a href="https://www.anclicker.eogee.com">www.anclicker.eogee.com</a>')
+        self.label_2.setOpenExternalLinks(True)
+        self.label_2.setWordWrap(True)
+        self.gridLayout.removeItem(self.horizontalSpacer_7)
+        self.gridLayout.removeItem(self.horizontalSpacer_8)
+        self.gridLayout.removeWidget(self.label_2)
+        self.gridLayout.addWidget(self.label_2, 0, 0, 1, 3)
         self.label_7.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP, QQ))
         self.label_9.setText('<a href="{}"><font color="red">{}</font></a>'.format(QQ_GROUP_OLD, QQ_OLD))
         self.label_4.setText(
@@ -1156,6 +1370,8 @@ class About(QDialog, Ui_About):
         self.pushButton_feedback_2.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(ISSUE_WEBSITE_2))
         )
+
+        style_about_dialog(self, parent)
 
     def closeEvent(self, event):
         super().closeEvent(event)

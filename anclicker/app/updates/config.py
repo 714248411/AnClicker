@@ -1,11 +1,32 @@
-"""Compatibility facade for application configuration centralized in info.py."""
-from urllib.parse import urlsplit
-from info import UPDATE_CONFIG
+"""Read the channel bundled with the Windows build."""
+import json
+import sys
+from pathlib import Path
+
+from info import UPDATE_CONFIG, update_source_config
+
+
+def installed_update_config():
+    if not getattr(sys, "frozen", False) or sys.platform != "win32":
+        return update_source_config()
+    path = Path(sys.executable).parent / UPDATE_CONFIG["snapshot_name"]
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    expected = update_source_config(saved["delivery_channel"])
+    if saved != expected:
+        raise ValueError("安装包中的内部更新配置无效")
+    return expected
 
 
 def update_url():
-    parsed = urlsplit(UPDATE_CONFIG['url'])
-    if (parsed.scheme != "https" or not parsed.netloc or parsed.username is not None
-            or parsed.password is not None or parsed.query or parsed.fragment):
-        raise ValueError("更新源必须是公开 HTTPS 地址")
-    return UPDATE_CONFIG['url'].rstrip("/")
+    return installed_update_config()["url"]
+
+
+def create_update_manager(source):
+    import velopack
+
+    options = velopack.UpdateOptions(
+        AllowVersionDowngrade=False,
+        MaximumDeltasBeforeFallback=10,
+        ExplicitChannel=UPDATE_CONFIG["runtime"],
+    )
+    return velopack.UpdateManager(source, options)

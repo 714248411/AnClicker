@@ -52,6 +52,10 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
 
     def following(node_id):
         edges = normal.get(node_id,())
+        if (not strict and nodes[node_id].type_id == '多线程启动'
+                and any(edge.target == node_id for edge in normal.get('start', ()))):
+            pending.extend(edge.target for edge in edges if edge.target != 'end')
+            return 'end'
         if edges:
             pending[0:0] = [edge.target for edge in edges[1:]]
             return edges[0].target
@@ -94,6 +98,13 @@ def execute_jump_flow(worker, snapshot, context, start_id=None, single=False):
             if not pending: return
             current = pending.pop(0)
             path.clear()
+        allowed = context.metadata.get('parallel_allowed')
+        if allowed is not None and current not in allowed:
+            raise ValueError('子线程跳转超出分支范围：' + str(current))
+        if current in context.metadata.get("parallel_reserved", ()):
+            visited.add(current)
+            current = "end"
+            continue
         steps += 1
         if steps > 500_000:
             raise ValueError('跳转流程超过 500000 步，已停止以避免无限跳转')

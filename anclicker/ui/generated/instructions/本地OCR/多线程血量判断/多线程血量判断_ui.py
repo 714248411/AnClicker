@@ -1,0 +1,1 @@
+from anclicker.ui.instruction_editors.vision_tools import VisionUi as Ui_InstructionEditor

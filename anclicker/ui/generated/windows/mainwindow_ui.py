@@ -1,3 +1,4 @@
+from anclicker.ui.file_menu_icons import file_menu_icon
 # -*- coding: utf-8 -*-
 
 ################################################################################
@@ -52,8 +53,7 @@ class Ui_MainWindow(object):
         self.actionb.setIcon(icon3)
         self.setting = QAction(MainWindow)
         self.setting.setObjectName(u"setting")
-        icon4 = QIcon()
-        icon4.addFile(u":/\u6309\u94ae\u56fe\u6807/Window/res/\u8bbe\u7f6e.png", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon4 = file_menu_icon('settings')
         self.setting.setIcon(icon4)
         self.actionf = QAction(MainWindow)
         self.actionf.setObjectName(u"actionf")
@@ -424,8 +424,6 @@ class Ui_MainWindow(object):
         self.menubar.setGeometry(QRect(0, 0, 1180, 33))
         self.menu = QMenu(self.menubar)
         self.menu.setObjectName(u"menu")
-        self.menu_5 = QMenu(self.menu)
-        self.menu_5.setObjectName(u"menu_5")
         self.menuzv = QMenu(self.menu)
         self.menuzv.setObjectName(u"menuzv")
         self.menu_2 = QMenu(self.menubar)
@@ -444,11 +442,11 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menu_3.menuAction())
         self.menubar.addAction(self.menu_4.menuAction())
         self.menubar.addAction(self.menu_2.menuAction())
-        self.menu.addAction(self.menu_5.menuAction())
+        self.menu.addAction(self.actionx)
+        self.menu.addAction(self.actiona)
         self.menu.addSeparator()
         self.menu.addAction(self.actionf)
         self.menu.addAction(self.menuzv.menuAction())
-        self.menu_5.addAction(self.actiona)
         self.menu_2.addAction(self.actionabout)
         self.menu_2.addAction(self.actionhelp)
         self.menu_2.addAction(self.actionk)
@@ -472,12 +470,12 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"An Clicker    [v1.0.0 Beat]", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AnClicker    [v1.0.0 Beat]", None))
         self.actionabout.setText(QCoreApplication.translate("MainWindow", u"\u5173\u4e8e", None))
         self.actionhelp.setText(QCoreApplication.translate("MainWindow", u"\u4f7f\u7528\u8bf4\u660e", None))
         self.actionb.setText(QCoreApplication.translate("MainWindow", u"\u53e6\u5b58\u4e3aDB", None))
         self.setting.setText(QCoreApplication.translate("MainWindow", u"\u8bbe\u7f6e", None))
-        self.actionf.setText(QCoreApplication.translate("MainWindow", u"\u5bfc\u5165\u6307\u4ee4", None))
+        self.actionf.setText(QCoreApplication.translate("MainWindow", u"导入单文件", None))
 #if QT_CONFIG(shortcut)
         self.actionf.setShortcut(QCoreApplication.translate("MainWindow", u"Ctrl+D", None))
 #endif // QT_CONFIG(shortcut)
@@ -486,7 +484,7 @@ class Ui_MainWindow(object):
         self.actions_2.setShortcut(QCoreApplication.translate("MainWindow", u"Ctrl+I", None))
 #endif // QT_CONFIG(shortcut)
         self.actiong.setText(QCoreApplication.translate("MainWindow", u"\u5de5\u5177\u680f", None))
-        self.actiona.setText(QCoreApplication.translate("MainWindow", u"\u53e6\u4fdd\u5b58\u4e3aExcel", None))
+        self.actiona.setText(QCoreApplication.translate("MainWindow", u"\u53e6\u5b58\u4e3a Excel", None))
 #if QT_CONFIG(shortcut)
         self.actiona.setShortcut(QCoreApplication.translate("MainWindow", u"Ctrl+Alt+S", None))
 #endif // QT_CONFIG(shortcut)
@@ -515,10 +513,9 @@ class Ui_MainWindow(object):
         self.pushButton_7.setText(QCoreApplication.translate("MainWindow", u"\u6682\u505c/\u6062\u590d", None))
         self.pushButton_6.setText(QCoreApplication.translate("MainWindow", u"\u7ed3\u675f\u4efb\u52a1\uff08F11\uff09", None))
         self.menu.setTitle(QCoreApplication.translate("MainWindow", u"\u6587\u4ef6", None))
-        self.menu_5.setTitle(QCoreApplication.translate("MainWindow", u"\u53e6\u5b58\u4e3a", None))
         self.menuzv.setTitle(QCoreApplication.translate("MainWindow", u"\u6700\u8fd1\u6253\u5f00", None))
         self.menu_2.setTitle(QCoreApplication.translate("MainWindow", u"\u5e2e\u52a9", None))
-        self.menu_4.setTitle(QCoreApplication.translate("MainWindow", u"\u5de5\u5177", None))
+        self.menu_4.setTitle(QCoreApplication.translate("MainWindow", u"\u8bbe\u7f6e", None))
         self.menu_3.setTitle(QCoreApplication.translate("MainWindow", u"\u89c6\u56fe", None))
         self.toolBar.setWindowTitle(QCoreApplication.translate("MainWindow", u"toolBar", None))
     # retranslateUi

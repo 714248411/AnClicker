@@ -1,51 +1,50 @@
-"""Run the existing two-phase release workflow with local SDK paths."""
-import os,sys,subprocess
+"""Build or freeze the selected AnClicker internal update channel."""
+import argparse
+import json
 from pathlib import Path
+import subprocess
+import sys
 
-import sys as _import_sys
-from pathlib import Path as _ImportPath
-if __package__ in (None, ""):
-    _import_sys.path.insert(0, str(_ImportPath(__file__).resolve().parents[1]))
-from anclicker._imports import DeferredImports as _DeferredImports
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from info import EXECUTABLE_NAME, UPDATE_CHANNELS, UPDATE_CONFIG, VERSION
 
-# Dependencies declared here retain their existing on-demand loading boundaries.
-_module_imports = _DeferredImports(globals(), {
-    'anclicker': ('import', 'anclicker', (), False),
-    'UPDATE_CONFIG': ('from', 'info', ('UPDATE_CONFIG',), 0),
-    'publishing_environment': ('from', 'tools.packaging.publishing_credentials', ('publishing_environment',), 0),
-    'VERSION': ('from', 'info', ('VERSION',), 0),
-})
 
-root=Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(root))
-anclicker = _module_imports.load('anclicker')
-env=dict(os.environ)
-sdk=root/'.local/cache/dotnet'
-env['DOTNET_ROOT']=str(sdk)
-env['DOTNET_CLI_TELEMETRY_OPTOUT']='1'
-env['DOTNET_NOLOGO']='1'
-env['PATH']=str(sdk)+os.pathsep+env.get('PATH','')
-env['PYTHONPATH']=str(root/'.local/cache')
-env['PYTHONUTF8']='1'
-for key,value in list(env.items()):
-    if key.lower().endswith('_proxy') and value.startswith('socks5h://'):
-        env[key]='socks5://'+value[len('socks5h://'):]
-action=sys.argv[1]
-if action == 'publish' and len(sys.argv) > 2:
-    sys.path.insert(0, str(root))
-    UPDATE_CONFIG = _module_imports.load('UPDATE_CONFIG')
-    publishing_environment = _module_imports.load('publishing_environment')
-    env = publishing_environment(sys.argv[2], env, UPDATE_CONFIG)
-VERSION = _module_imports.load('VERSION')
-output=root/('artifacts/release/win-'+VERSION+'-20261013-verified')
-if action=='build':
-    command=[sys.executable,str(root/'tools/packaging/发布Velopack.py'),'build','--output',str(output)]
-elif action=='upgrade':
-    command=[sys.executable,str(root/'tools/packaging/smoke_velopack.py')]
-else:
-    command=[sys.executable,str(root/'tools/packaging/发布Velopack.py'),action,'--output',str(output)]
-    if action=='publish':command.append('--yes')
-with (root/'artifacts/validation'/('release-'+action+'.log')).open('w',encoding='utf-8') as log:
-    result=subprocess.run(command,cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT)
-print(action+' exit code: '+str(result.returncode),flush=True)
-raise SystemExit(result.returncode)
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=('build', 'freeze', 'upgrade'))
+    parser.add_argument('--channel', choices=UPDATE_CHANNELS, default='stable')
+    parser.add_argument('--runtime-bundle', type=Path)
+    args = parser.parse_args()
+    channel = args.channel
+    path = ROOT / ('publish.json' if channel == 'stable' else 'publish.beta.json')
+    config = json.loads(path.read_text(encoding='utf-8'))
+    expected = {
+        'key': UPDATE_CONFIG['project'], 'project': UPDATE_CONFIG['project'],
+        'software_type': 'internal', 'pack_id': UPDATE_CONFIG['pack_id'],
+        'api_base_url': UPDATE_CONFIG['internal_api_base_url'],
+        'update_provider': 'qiniu', 'delivery_channel': channel,
+        'output_dir': f'build/updates/{channel}/{{version}}',
+        'package': {'type': 'portable', 'main_executable': EXECUTABLE_NAME},
+    }
+    if any(config.get(key) != value for key, value in expected.items()):
+        parser.error(f'Mismatched publishing configuration: {path.name}')
+    output = ROOT / config['output_dir'].format(version=VERSION)
+    if args.action == 'build':
+        if args.runtime_bundle is None:
+            parser.error('build requires --runtime-bundle')
+        command = [
+            sys.executable, 'tools/packaging/build_velopack.py', '--channel', channel,
+            '--output', str(output), '--runtime-bundle', str(args.runtime_bundle.resolve()),
+        ]
+    elif args.action == 'freeze':
+        command = ['yt-software-publish', 'build', '--config', str(path), '--version', VERSION,
+                   '--notes', 'tools/packaging/RELEASE_NOTES.md']
+    else:
+        app = ROOT / 'artifacts/dist/velopack' / channel / UPDATE_CONFIG['pack_id']
+        command = [sys.executable, 'tools/packaging/smoke_velopack.py', '--app', str(app)]
+    subprocess.run(command, cwd=ROOT, check=True)
+
+
+if __name__ == '__main__':
+    main()

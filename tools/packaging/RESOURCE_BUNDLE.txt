@@ -1,0 +1,11 @@
+资源随便携包直接分发
+
+1. 使用 main.spec 重新构建程序，不再安装资源解压启动钩子。
+2. 完成双模型、OCR、CPU/Vulkan、浏览器运行时及大漠 DLL 的完整 staging 和现有校验。
+3. 保留 models、ocr_models、resources/background、runtime/electron 等原目录中的实际文件，直接交给 Velopack 打包。
+4. 用户完整解压一次便携 ZIP 后即可运行，首次启动无需再次释放内部资源包。
+
+build_velopack.py 和 qiniu_release_188.py 会拒绝含 AnClicker-resources.zip 或
+AnClicker-resources.json 的旧构建目录，遇到提示时重新构建，不要直接删掉压缩包以免缺失资源。
+resource_archive.py 的 pack_resources、资源恢复模块及旧校验脚本仅保留用于历史格式兼容与验证，
+不属于新发布流程。Data、活动模型配置和原有完整资源验证规则保持不变。

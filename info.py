@@ -1,7 +1,7 @@
 """Application-wide public configuration. Never load publishing credentials here."""
 
-APP_NAME = "An Clicker"
-CURRENT_VERSION = "v1.6.2"
+APP_NAME = "AnClicker"
+CURRENT_VERSION = "v1.9.3"
 WINDOW_TITLE = f"{APP_NAME}    [{CURRENT_VERSION}]"
 # Stable application identity: changing these can break data/update compatibility.
 APP_ID = "AnClicker"
@@ -11,19 +11,21 @@ COMPANY_NAME = "YanYi and contributors"
 COPYRIGHT = "Copyright © 2022–2026 YanYi and contributors"
 VERSION = CURRENT_VERSION.removeprefix("v")
 WINDOWS_VERSION = tuple(int(part) for part in VERSION.split(".")) + (0,)
-SINGLETON_KEY_DEFAULT = f"FasterThanLight_{APP_NAME}_SingletonKey"
+# Keep the legacy process/update identities independent of the display name.
+SINGLETON_KEY_DEFAULT = "FasterThanLight_An Clicker_SingletonKey"
 DATA_DIR_ENV = "ANCLICKER_DATA_DIR"
 SINGLETON_ENV = "ANCLICKER_SINGLETON_KEY"
 
-# All public updater/build/publisher settings live in this one dictionary.
+# Public update identity and the legacy publishing route.
 # Credential entries name environment variables; never put AK/SK values here.
 UPDATE_CONFIG = {
     "pack_id": APP_ID,
     "runtime": "win-x64",
     "project": "an-clicker",
+    "internal_api_base_url": "https://www.ytsoftware.cn",
     "public_base_url": "https://updates.ytsoftware.cn",
     "snapshot_name": "update-source.json",
-    "launcher_name": f"{APP_NAME}.exe",
+    "launcher_name": "AnClicker.exe",
     "bucket": "ytsoftware-velopack",
     "region": "z0",
     "access_key_env": "QINIU_ACCESS_KEY",
@@ -39,13 +41,20 @@ UPDATE_CONFIG.update({
     "portable_name": f"{UPDATE_CONFIG['pack_id']}-{UPDATE_CONFIG['runtime']}-Portable.zip",
     "key_prefix": f"{UPDATE_CONFIG['project']}/{UPDATE_CONFIG['runtime']}",
 })
+# Legacy URL used by historical release tools only.
 UPDATE_CONFIG["url"] = f"{UPDATE_CONFIG['public_base_url']}/{UPDATE_CONFIG['key_prefix']}"
+UPDATE_CHANNELS = ("stable", "beta")
 
 
-def update_source_config():
-    """Return a fresh public snapshot for build/publish verification."""
-    return {"url": UPDATE_CONFIG["url"], "pack_id": UPDATE_CONFIG["pack_id"],
-            "runtime": UPDATE_CONFIG["runtime"]}
+def update_source_config(channel="stable"):
+    """Return the public updater configuration for a distribution channel."""
+    if channel not in UPDATE_CHANNELS:
+        raise ValueError(f"Unknown update channel: {channel}")
+    base_url = UPDATE_CONFIG["internal_api_base_url"]
+    project = UPDATE_CONFIG["project"]
+    return {"url": f"{base_url}/api/v1/internal-updates/{project}/{channel}/",
+            "pack_id": UPDATE_CONFIG["pack_id"], "runtime": UPDATE_CONFIG["runtime"],
+            "delivery_channel": channel}
 
 
 QQ = "84284936"

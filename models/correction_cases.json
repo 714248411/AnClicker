@@ -1,0 +1,101 @@
+[
+  {
+    "id": "correction-001",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "把北京写进网页上的城市框",
+    "family": "web_input",
+    "expected": [
+      "输入文本"
+    ],
+    "guidance": "填写网页输入框用输入文本；没有真实元素定位必须追问，不得编造selector。"
+  },
+  {
+    "id": "correction-002",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "页面往底下挪一小段",
+    "family": "scroll",
+    "expected": [
+      "滚轮滑动"
+    ],
+    "guidance": "移动页面视野是滚轮动作，不是输入文字或获取文本。方向与格数只取当前请求；一小段默认一格。"
+  },
+  {
+    "id": "correction-003",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "按一下Esc退出来",
+    "family": "escape",
+    "expected": [
+      "按下键盘"
+    ],
+    "guidance": "Esc是键盘退出键，生成按下键盘；不要让用户自行执行。"
+  },
+  {
+    "id": "correction-004",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "把这一页留个图片备份",
+    "family": "page_capture",
+    "expected": [
+      "网页截图"
+    ],
+    "guidance": "保留网页外观应使用网页截图，不是提取图片链接；缺少保存位置先追问。"
+  },
+  {
+    "id": "correction-005",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "读一下剪贴板里的东西",
+    "family": "clipboard_read",
+    "expected": [
+      "获取剪切板"
+    ],
+    "guidance": "用户要求读取剪贴板，不得写入或覆盖剪贴板。"
+  },
+  {
+    "id": "correction-006",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "把剪贴板文字给我",
+    "family": "clipboard_read",
+    "expected": [
+      "获取剪切板"
+    ],
+    "guidance": "用户要求读取剪贴板，不得写入或覆盖剪贴板。"
+  },
+  {
+    "id": "correction-007",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "表格帮我存起来",
+    "family": "sheet_save",
+    "expected": [
+      "保存Excel"
+    ],
+    "guidance": "保存当前工作簿用保存Excel，不是复制或另存为；使用实际活动表格，不猜路径。"
+  },
+  {
+    "id": "correction-008",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "先把表里的修改存上",
+    "family": "sheet_save",
+    "expected": [
+      "保存Excel"
+    ],
+    "guidance": "保存当前工作簿用保存Excel，不是复制或另存为；使用实际活动表格，不猜路径。"
+  },
+  {
+    "id": "correction-009",
+    "status": "reviewed",
+    "source": "artifacts/debug/colloquial-expanded/failure-cases.jsonl",
+    "query": "给我朝下滚两格",
+    "family": "scroll",
+    "expected": [
+      "滚轮滑动"
+    ],
+    "guidance": "移动页面视野是滚轮动作，不是输入文字或获取文本。方向与格数只取当前请求；一小段默认一格。"
+  }
+]

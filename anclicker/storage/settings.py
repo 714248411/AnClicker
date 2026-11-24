@@ -9,6 +9,11 @@ from anclicker.storage.settings_defaults import *
 
 from anclicker.storage.resources import ResourceCatalog
 
+LOCAL_PROJECT_SETTINGS = {
+    '本机项目控制设置', '本机项目已保存内容', '本机新建默认保存路径',
+    '本机项目默认保存目录', '本机项目目录列表', '最近导入项目文件夹', '当前文件路径',
+}
+
 class SettingsRepository(Repository):
     def __init__(self, db_path, screen_resolution=lambda: '1920*1080'):
         super().__init__(db_path)
@@ -125,10 +130,10 @@ class SettingsRepository(Repository):
 
 
     def get_global_shortcut(self) -> dict:
-        actions = ("开始运行", "结束运行", "暂停和恢复")
+        actions = ("开始运行", "结束运行", "结束运行2", "暂停和恢复")
         values = self.get_setting_values([f"快捷键-{action}" for action in actions])
         return {
-            action: str(values.get(f"快捷键-{action}") or "").lower().split("+")
+            action: [key for key in str(values.get(f"快捷键-{action}") or DEFAULT_SETTINGS.get(f"快捷键-{action}", "")).lower().split("+") if key]
             for action in actions
         }
 
@@ -179,21 +184,38 @@ class SettingsRepository(Repository):
                     return None
         if isinstance(parsed, dict):
             size = cls._parse_size_value(parsed.get("size"))
-            return None if size is None else {
+            if size is None:
+                return None
+            state = {
                 "size": size,
                 "maximized": bool(parsed.get("maximized", False)),
             }
+            position = cls._parse_window_position(parsed.get("position"))
+            if position is not None:
+                state["position"] = position
+            return state
         size = cls._parse_size_value(parsed)
         return None if size is None else {"size": size, "maximized": False}
 
 
     @staticmethod
+    def _parse_window_position(value):
+        if (isinstance(value, (list, tuple)) and len(value) == 2
+                and all(type(item) is int and -(2**31) <= item < 2**31 for item in value)):
+            return tuple(value)
+        return None
+
+    @staticmethod
     def _serialize_window_state(state) -> str:
+        payload = {
+            "size": list(state["size"]),
+            "maximized": bool(state.get("maximized", False)),
+        }
+        position = SettingsRepository._parse_window_position(state.get("position"))
+        if position is not None:
+            payload["position"] = list(position)
         return json.dumps(
-            {
-                "size": list(state["size"]),
-                "maximized": bool(state.get("maximized", False)),
-            },
+            payload,
             ensure_ascii=False,
             separators=(",", ":"),
         )
@@ -216,6 +238,7 @@ class SettingsRepository(Repository):
         win_height: int,
         window_name: str,
         maximized: bool = False,
+        position=None,
     ) -> None:
         if not window_name:
             return
@@ -226,7 +249,7 @@ class SettingsRepository(Repository):
                 return
             save_size = existing["size"]
         payload = self._serialize_window_state(
-            {"size": save_size, "maximized": bool(maximized)}
+            {"size": save_size, "maximized": bool(maximized), "position": position}
         )
         window_info = f"{window_name}-{self.get_screen_resolution()}"
         with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
@@ -238,7 +261,7 @@ class SettingsRepository(Repository):
             conn.commit()
 
 
-    def export_settings_to_excel(self, workbook) -> None:
+    def export_settings_to_excel(self, workbook, *, project_only=False) -> None:
         if "设置" in workbook.sheetnames:
             del workbook["设置"]
         sheet = workbook.create_sheet("设置")
@@ -247,9 +270,11 @@ class SettingsRepository(Repository):
             for setting_type, name, value in conn.execute(
                 "SELECT 类型, 设置项, 值 FROM 设置 ORDER BY 类型, 设置项"
             ):
-                sheet.append(["设置", name, value, setting_type, None])
-            for name, value in conn.execute("SELECT 窗口, 大小 FROM 窗口大小 ORDER BY 窗口"):
-                sheet.append(["窗口大小", name, value, None, None])
+                if name not in LOCAL_PROJECT_SETTINGS and (not project_only or name in PROJECT_SETTING_ITEMS):
+                    sheet.append(["设置", name, value, setting_type, None])
+            if not project_only:
+                for name, value in conn.execute("SELECT 窗口, 大小 FROM 窗口大小 ORDER BY 窗口"):
+                    sheet.append(["窗口大小", name, value, None, None])
             for path, order_ in conn.execute("SELECT 路径, 排序 FROM 资源文件夹 ORDER BY 排序"):
                 sheet.append(["资源文件夹", path, None, None, order_])
 
@@ -319,16 +344,23 @@ class SettingsRepository(Repository):
 
 
     @classmethod
-    def _apply_parsed_settings(cls, conn, grouped) -> None:
+    def _apply_parsed_settings(cls, conn, grouped, *, project_only=False) -> None:
         """在调用方事务中应用已验证的设置工作表数据。"""
+        if project_only:
+            # Missing task fields reset instead of inheriting the previous page.
+            conn.executemany('DELETE FROM 设置 WHERE 设置项=?', [(name,) for name in PROJECT_SETTING_ITEMS])
+            conn.executemany('INSERT INTO 设置(类型, 设置项, 值) VALUES (?, ?, ?)',
+                             [(get_setting_type(name), name, value) for name, value in PROJECT_SETTING_DEFAULTS.items()])
         for name, value, _, _ in grouped["设置"]:
+            if name in LOCAL_PROJECT_SETTINGS or (project_only and name not in PROJECT_SETTING_ITEMS):
+                continue
             conn.execute(
                 "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, ?, ?) "
                 "ON CONFLICT(设置项) DO UPDATE SET "
                 "类型=excluded.类型, 值=excluded.值",
                 (get_setting_type(name), name, "" if value is None else str(value)),
             )
-        if grouped["窗口大小"]:
+        if grouped["窗口大小"] and not project_only:
             conn.execute("DELETE FROM 窗口大小")
             conn.executemany(
                 "INSERT INTO 窗口大小(窗口, 大小) VALUES (?, ?)",
@@ -337,7 +369,7 @@ class SettingsRepository(Repository):
                     for name, value, _, _ in grouped["窗口大小"]
                 ],
             )
-        if grouped["资源文件夹"]:
+        if grouped["资源文件夹"] or project_only:
             conn.execute("DELETE FROM 资源文件夹")
             ordered_resources = sorted(
                 grouped["资源文件夹"],

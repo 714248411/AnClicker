@@ -1,0 +1,77 @@
+{
+  "source_policy": "Microsoft Learn official documentation; examples are authored summaries, not copied pages",
+  "commands": [
+    {
+      "name": "dir",
+      "purpose": "列出文件和目录",
+      "example": "dir /b \"C:\\Work\"",
+      "notes": "检查返回列表；/b为简洁名称，/a可包含隐藏项。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dir",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "start",
+      "purpose": "用关联程序打开文件",
+      "example": "start \"\" \"C:\\Work\\report.txt\"",
+      "notes": "第一个引号参数是窗口标题；打开后需指定目标窗口与预期文字核验。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/start",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "copy",
+      "purpose": "复制文件",
+      "example": "copy /-y \"C:\\Work\\a.txt\" \"C:\\Backup\\a.txt\"",
+      "notes": "/-y在覆盖前提示；自动操作优先结构化快速文件操作，复制后比对哈希。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/copy",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "robocopy",
+      "purpose": "稳健复制文件或目录",
+      "example": "robocopy \"C:\\Work\" \"C:\\Backup\" \"a.txt\" /R:0 /W:0",
+      "notes": "退出码小于8不一定是错误；/MIR和/PURGE可能删除目标文件，不作为普通复制默认参数。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "mkdir",
+      "purpose": "创建目录",
+      "example": "mkdir \"C:\\Work\\New Folder\"",
+      "notes": "检查目标目录存在。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mkdir",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "ren",
+      "purpose": "重命名文件",
+      "example": "ren \"C:\\Work\\old.txt\" \"new.txt\"",
+      "notes": "第二个参数是新名称，不能作为跨目录移动路径。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ren",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "findstr",
+      "purpose": "搜索文本",
+      "example": "findstr /l /n /c:\"ERROR\" \"C:\\Work\\app.log\"",
+      "notes": "/l使用字面文本，/n显示行号；选项放在查找内容和文件名前。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/findstr",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "where",
+      "purpose": "查找可执行程序路径",
+      "example": "where notepad.exe",
+      "notes": "检查输出路径是否存在；不要把未找到当成成功。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/where",
+      "reviewed": "2026-10-16"
+    },
+    {
+      "name": "find",
+      "purpose": "查找文本行",
+      "example": "find /n \"ERROR\" \"C:\\Work\\app.log\"",
+      "notes": "大小写和文件编码影响查找；保留退出码和输出。",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/find",
+      "reviewed": "2026-10-16"
+    }
+  ]
+}

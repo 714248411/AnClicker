@@ -48,6 +48,11 @@ SUPPORTED_TYPES = set(PAYLOAD_FIELDS) | {
 POLICIES = {"自动跳过", "提示异常并暂停", "提示异常并停止"}
 
 
+def is_graph_workbook(workbook):
+    """Route graph documents to strict graph validation, never branch conversion."""
+    return {'命令', '节点', '连线'} <= set(workbook.sheetnames)
+
+
 def is_current_workbook(workbook):
     return set(workbook.sheetnames) == set(WORKBOOK_SHEETS) and list(
         next(workbook["命令"].iter_rows(max_row=1, values_only=True))
@@ -165,6 +170,14 @@ def _convert_parameters(type_id, payload, raw, base_directory):
                     and (Path(base_directory) / path).is_file() else path
                     for path in paths
                 )
+    if '图像路径' in parameters:
+        from anclicker.platform.image_paths import resolve_image_reference
+        resolved = []
+        for reference in str(parameters['图像路径']).splitlines():
+            target = resolve_image_reference(reference,
+                project_path=str(Path(base_directory) / 'legacy.xlsx') if base_directory else None)
+            resolved.append(target if Path(target).is_file() else reference)
+        parameters['图像路径'] = '\n'.join(resolved)
     return parameters
 
 
@@ -174,7 +187,7 @@ def convert_legacy_workbook(source, base_directory=None, *, branch=None, branch_
     Fail closed for unknown sheets, auxiliary parameters and branch semantics.
     No source file, database, process, keyboard or mouse operation occurs here.
     """
-    if is_current_workbook(source):
+    if is_graph_workbook(source):
         return source
     target = Workbook()
     target.remove(target.active)

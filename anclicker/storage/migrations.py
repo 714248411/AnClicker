@@ -36,17 +36,16 @@ class DatabaseMigrator(Repository):
             toolbar_layout_version = cursor.execute(
                 "SELECT 值 FROM 设置 WHERE 设置项='工具栏紧凑布局版本'"
             ).fetchone()
-            if toolbar_layout_version is None:
-                # Older releases seeded this preference as hidden.  Migrate
-                # once to the new visible-by-default compact toolbar while
-                # preserving any choice the user makes afterwards.
+            if toolbar_layout_version is None or toolbar_layout_version[0] != '3':
+                # Apply the toolbar-free default once; later user choices persist.
                 cursor.execute(
-                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '显示工具栏', 'True') "
-                    "ON CONFLICT(设置项) DO UPDATE SET 值='True'",
+                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '显示工具栏', 'False') "
+                    "ON CONFLICT(设置项) DO UPDATE SET 值='False'",
                     (get_setting_type("显示工具栏"),),
                 )
                 cursor.execute(
-                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '工具栏紧凑布局版本', '2')",
+                    "INSERT INTO 设置(类型, 设置项, 值) VALUES (?, '工具栏紧凑布局版本', '3') "
+                    "ON CONFLICT(设置项) DO UPDATE SET 值='3'",
                     (get_setting_type("工具栏紧凑布局版本"),),
                 )
             light_theme_version = cursor.execute(
@@ -93,14 +92,13 @@ class DatabaseMigrator(Repository):
             self._migrate_legacy_window_settings(cursor)
             self._migrate_legacy_global_parameters(cursor)
             cursor.execute(
-                "INSERT OR IGNORE INTO 资源文件夹(路径, 排序) VALUES (?, 0)",
+                "INSERT INTO 资源文件夹(路径, 排序) SELECT ?, 0 "
+                "WHERE NOT EXISTS (SELECT 1 FROM 资源文件夹)",
                 (self.portable_resource_path(IMAGES_FOLDER),),
             )
-            image_path = self.portable_resource_path(IMAGES_FOLDER)
             resource_rows = cursor.execute(
                 "SELECT 路径 FROM 资源文件夹 "
-                "ORDER BY CASE WHEN 路径=? THEN 0 ELSE 1 END, 排序, rowid",
-                (image_path,),
+                "ORDER BY 排序, rowid",
             ).fetchall()
             for order_, (resource_path,) in enumerate(resource_rows):
                 cursor.execute(

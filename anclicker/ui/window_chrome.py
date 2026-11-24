@@ -31,6 +31,11 @@ except ImportError:
 
 class FramelessMainWindow(_FramelessMainWindow):
     """Preserve client geometry across Qt 5 native maximize/restore cycles."""
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        from anclicker.ui.window_edges import install_window_edges
+        install_window_edges()
+
     def showMaximized(self):
         if not self.isMaximized() and not self.isMinimized():
             self._restore_client_geometry = QRect(self.geometry())
@@ -62,6 +67,10 @@ def chrome_icon(kind, color):
         outer.addEllipse(QRectF(3, 3, 14, 14))
         cutout.addEllipse(QRectF(8, 0, 13, 13))
         painter.drawPath(outer.subtracted(cutout))
+    elif kind == "schedule":
+        painter.drawEllipse(QRectF(3, 3, 14, 14))
+        painter.drawLine(QLineF(10, 5.5, 10, 10))
+        painter.drawLine(QLineF(10, 10, 13, 12))
     elif kind == "update":
         painter.drawEllipse(QRectF(2, 2, 16, 16))
         painter.drawLine(10, 14, 10, 6)
@@ -196,7 +205,11 @@ class WindowTitleBar(StandardTitleBar):
         self.theme_button = QToolButton(self)
         self.theme_button.setDefaultAction(theme_action)
         self.theme_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        for button in (self.compact_button, self.theme_button):
+        self.schedule_button = QToolButton(self)
+        self.schedule_button.setObjectName('scheduleTasksButton')
+        self.schedule_button.setToolTip('定时任务')
+        self.schedule_button.setAccessibleName('定时任务')
+        for button in (self.compact_button, self.schedule_button, self.theme_button):
             button.setFixedSize(28, 28)
             button.setIconSize(QSize(18, 18))
             self.hBoxLayout.insertWidget(self.hBoxLayout.indexOf(self.minBtn), button)
@@ -252,6 +265,7 @@ class WindowTitleBar(StandardTitleBar):
         self.closeBtn.setHoverBackgroundColor(QColor('#dc3545'))
         self.closeBtn.setPressedBackgroundColor(QColor('#b42332'))
         self.compact_button.setIcon(chrome_icon('compact', colors['text']))
+        self.schedule_button.setIcon(chrome_icon('schedule', colors['text']))
         self.theme_button.defaultAction().setIcon(chrome_icon('sun' if mode == 'dark' else 'moon', colors['text']))
         self.theme_button.setToolTip('切换浅色主题' if mode == 'dark' else '切换深色主题')
         self.updateButton.setIcon(chrome_icon('update', colors['text']))

@@ -50,6 +50,9 @@ class DatabaseOperation:
         self.system_services = ConfiguredSystemServices(self)
         self.create_all_tables()
         self.ensure_setting_values(DEFAULT_SETTINGS)
+        if os.path.abspath(os.fspath(db_path)) == os.path.abspath(DATABASE_PATH):
+            from anclicker.storage.portable_migration import relocate_database
+            relocate_database(db_path, DATA_FOLDER, repair_commands=False)
 
     def create_all_tables(self) -> None:
         return self.migrations.create_all_tables()
@@ -112,8 +115,8 @@ class DatabaseOperation:
     def get_window_state(self, window_name: str):
         return self.settings.get_window_state(window_name)
 
-    def save_window_size(self, win_width: int, win_height: int, window_name: str, maximized: bool=False) -> None:
-        return self.settings.save_window_size(win_width, win_height, window_name, maximized)
+    def save_window_size(self, win_width: int, win_height: int, window_name: str, maximized: bool=False, position=None) -> None:
+        return self.settings.save_window_size(win_width, win_height, window_name, maximized, position)
 
     def writes_to_resource_folder_path(self, path: str) -> bool:
         return self.resources.writes_to_resource_folder_path(path)
@@ -138,8 +141,8 @@ class DatabaseOperation:
     def _move_ordered_row(self, table: str, key_column: str, key: str, direction: str) -> bool:
         return self.resources._move_ordered_row(table, key_column, key, direction)
 
-    def export_settings_to_excel(self, workbook) -> None:
-        return self.settings.export_settings_to_excel(workbook)
+    def export_settings_to_excel(self, workbook, *, project_only=False) -> None:
+        return self.settings.export_settings_to_excel(workbook, project_only=project_only)
 
     _read_settings_from_excel = SettingsRepository._read_settings_from_excel
 
@@ -194,6 +197,9 @@ class DatabaseOperation:
 
     def writes_to_recently_opened_files(self, file_path: str):
         return self.recent_projects.writes_to_recently_opened_files(file_path)
+
+    def add_recent_files(self, file_paths):
+        return self.recent_projects.add_recent_files(file_paths)
 
     def get_recently_opened_file(self, judge='单文件'):
         return self.recent_projects.get_recently_opened_file(judge)

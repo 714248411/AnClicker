@@ -40,6 +40,7 @@ from anclicker.domain.instructions import InstructionDraft
 
 
 from anclicker.domain.fields import FieldSpec
+from anclicker.ui.path_drop import enable_path_drop
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -177,6 +178,11 @@ class SchemaInstructionEditor(QDialog, InstructionEditorInterface):
         self._connect_buttons()
         self._prepare_variable_control()
         self._adapt_layout()
+        for field_ in self.FIELDS:
+            if field_.kind == 'path' or '路径' in field_.key or field_.key in ('工作簿','path','fromPath','toPath','folder','dst','fromBook','toBook'):
+                control_=self._controls[field_.key]
+                if isinstance(control_,(QLineEdit,QPlainTextEdit)) or (isinstance(control_,QComboBox) and control_.isEditable()):
+                    enable_path_drop(control_,multiple=isinstance(control_,QPlainTextEdit))
         if draft is not None:
             self.load_draft(draft)
 

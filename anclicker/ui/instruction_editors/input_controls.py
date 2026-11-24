@@ -159,6 +159,7 @@ class PasteTextEdit(QPlainTextEdit):
             self.setToolTip('剪贴板中没有可读取的文本。请先复制文字；图片不能直接粘贴为文字。')
         if getattr(self, 'paste_status', None) is not None:
             self.paste_status.setText('已粘贴文本' if value else self.toolTip())
+            self.paste_status.show()
 
     def keyPressEvent(self, event):
         if event.matches(QKeySequence.StandardKey.Paste):

@@ -1,0 +1,2 @@
+from anclicker.ui.instruction_editors.网页抓取工具.Crawl4AI网页抓取 import InstructionEditor
+from anclicker.instructions.网页抓取工具.Crawl4AI网页抓取.executor import InstructionExecutor

@@ -1,5 +1,5 @@
 """Content-sized instruction settings without vertical filler between sections."""
-from anclicker.platform.qt_compat.QtCore import Qt, QSize
+from anclicker.platform.qt_compat.QtCore import Qt, QSize, QRect
 from anclicker.platform.qt_compat.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
 
 
@@ -8,7 +8,7 @@ def compact_body(body):
     if layout is None:
         return
     for box in [layout] + body.findChildren(QVBoxLayout):
-        if not isinstance(box, QVBoxLayout):
+        if not isinstance(box, QVBoxLayout) or box.property("preserveVerticalStretch"):
             continue
         box.setAlignment(Qt.AlignTop)
         box.setSpacing(8)
@@ -50,10 +50,44 @@ def parameter_popup_size(editor):
     return QSize(min(width, available.width()-40), min(max(200, height+56), available.height()-60))
 
 
+def centered_popup_geometry(content, main_rect, available):
+    max_height = max(1, min(int(main_rect.height()*1.5), available.height()))
+    width = max(1, min(content.width(), available.width()))
+    height = max(1, min(content.height(), max_height))
+    x = main_rect.center().x() - width//2
+    y = main_rect.center().y() - height//2
+    x = max(available.left(), min(x, available.right()-width+1))
+    y = max(available.top(), min(y, available.bottom()-height+1))
+    return QRect(x, y, width, height)
+
+
 def fit_initial_popup(editor, dock):
     if not dock.isVisible() or not dock.isFloating():
         return
-    editor._panel_scaler.apply()
+    owner = getattr(editor, '_workspace_owner', None) or dock.parentWidget() or editor
+    available = (owner.screen() or dock.screen()).availableGeometry()
+    scaler = getattr(editor, '_panel_scaler', None)
+    if scaler is not None:
+        scaler.expanded_pixels = 14
+        scaler.last_size = None
+        scaler.apply()
     size = parameter_popup_size(editor)
-    dock.resize(size)
-    editor._original_popup_size = size
+    if getattr(editor, '_parameter_body', None) is None and editor.layout() is not None:
+        layout = editor.layout()
+        width = min(max(480, editor.sizeHint().width(), editor.width()), 900, available.width())
+        height = layout.totalHeightForWidth(width-24) if layout.hasHeightForWidth() else layout.sizeHint().height()
+        size = QSize(width, max(160, height+32))
+    chrome = max(0, dock.height()-dock.widget().height()) if dock.widget() else 0
+    size.setHeight(size.height()+chrome)
+    geometry = centered_popup_geometry(size, owner.frameGeometry(), available)
+    dock.setMinimumSize(0, 0)
+    dock.setMaximumHeight(max(1, min(int(owner.frameGeometry().height()*1.5), available.height())))
+    dock.resize(geometry.size())
+    dock.move(geometry.topLeft())
+    editor._original_popup_size = geometry.size()
+    if scaler is not None:
+        if hasattr(scaler, 'expanded_pixels'): del scaler.expanded_pixels
+        scaler.reference_width = max(1, scaler.viewport.width())
+        scaler.reference_height = max(1, scaler.viewport.height())
+        scaler.last_size = None
+        scaler.apply()

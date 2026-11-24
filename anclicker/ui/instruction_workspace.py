@@ -1,16 +1,18 @@
 """Main-window integration for the instruction palette and node canvas."""
 
 from __future__ import annotations
+from anclicker.ui.instruction_clipboard import set_command_mime
 
 import json
 import math
 import weakref
 from pathlib import Path
+from dataclasses import asdict
 from anclicker.platform.image_paths import store_image_reference
 from typing import Optional
 
-from anclicker.platform.qt_compat.QtCore import QObject, Signal, QTimer, Qt
-from anclicker.platform.qt_compat.QtWidgets import QDialog, QInputDialog, QMessageBox
+from anclicker.platform.qt_compat.QtCore import QObject, Signal, QTimer, Qt, QMimeData
+from anclicker.platform.qt_compat.QtWidgets import QDialog, QInputDialog, QMessageBox, QApplication
 
 from anclicker.storage.graph_repository import END_NODE_ID, GraphRepository
 from anclicker.domain.instructions import CommandRecord, ExecutionContext, InstructionDraft
@@ -18,6 +20,8 @@ from anclicker.execution.services import EditorContext
 from anclicker.app.state import application_state
 from anclicker.instructions.registry import INSTRUCTION_SPECS, get_instruction_spec
 from anclicker.ui.node_editor import InstructionPalette, NodeEditorWidget
+from anclicker.ui.drag_feedback import visual_only, feedback_call
+from anclicker.domain.step_folding import folding_groups, hidden_steps, group_title, copy_group_drafts, locked_move_ids
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -82,14 +86,28 @@ class InstructionWorkspace(QObject):
         self._connection_expected = None
         self._connect_signals()
         self.reload_graph()
+        from anclicker.ui.node_editor.arrangement import CanvasArrangement
+        self.arrangement = CanvasArrangement(self)
+        self.editor.view.arrangement_menu = self.arrangement.add_menu
+
+    def open_glyph_tool(self):
+        from anclicker.ui.instruction_editors.vision_tools import open_glyph_tool
+        open_glyph_tool(self.parent_window, self._editor_context())
 
     def _connect_signals(self) -> None:
+        self.palette.glyphToolRequested.connect(self.open_glyph_tool, Qt.QueuedConnection)
         self.palette.quickCaptureRequested.connect(self.quick_capture)
         self.palette.quickOcrCaptureRequested.connect(self.quick_ocr_capture)
         self.palette.instructionActivated.connect(self.add_palette_command)
         self.editor.instructionDropped.connect(self.add_palette_command)
         self.editor.instructionCreateRequested.connect(self.add_command)
         self.editor.commandActivated.connect(self.edit_command)
+        self.editor.scene.stepFoldRequested.connect(self.toggle_step_fold)
+        self.editor.view.hoverExpandRequested.connect(self.expand_step_for_drag)
+        self.editor.view.cutRequested.connect(self.cut_commands)
+        self.editor.view.dissolveThreadRequested.connect(self.dissolve_thread)
+        self.editor.scene.threadNestedRequested.connect(self.set_thread_nested)
+        self.editor.scene.stepLocksRequested.connect(self.set_step_locks)
         self.editor.copyRequested.connect(self.copy_commands)
         self.editor.deleteRequested.connect(self.remove_commands)
         self.editor.runSingleRequested.connect(self.run_from_command_single)
@@ -129,7 +147,20 @@ class InstructionWorkspace(QObject):
     def focus_command(self, command_id: int) -> bool:
         return self.editor.focus_command(int(command_id))
 
-    def reload_graph(self, focus_command_id: Optional[int] = None) -> None:
+    def reload_graph(self, focus_command_id: Optional[int] = None, *, reset_view: bool = False, positioned_ids=()) -> None:
+        view = self.editor.view
+        scene = self.editor.scene
+        arrangement = getattr(self, 'arrangement', None)
+        layout_viewport = arrangement._bounds() if arrangement is not None else None
+        existing_ids = set(scene.nodes_by_command_id) | set(positioned_ids)
+        preserve_view = bool(scene.nodes_by_id) and not reset_view
+        transform = view.transform()
+        center = view.mapToScene(view.viewport().rect().center())
+        scroll_position = (view.horizontalScrollBar().value(), view.verticalScrollBar().value())
+        scene_rect = scene.sceneRect()
+        selected_ids = self.selected_command_ids() if preserve_view else []
+        self.repository.sync_thread_groups()
+        self.repository.migrate_dynamic_folds()
         self.repository.align_comment_marker_orders()
         snapshot_ = self.repository.snapshot()
         if self.repository.align_loop_orders(snapshot_):
@@ -145,6 +176,15 @@ class InstructionWorkspace(QObject):
             self._connection_history.clear()
             self._connection_redo.clear()
         self._connection_expected = state
+        if any(command.type_id == '绑定选择窗口' or
+               (command.type_id.startswith('窗口') and command.parameters.get('模式') == '后台')
+               for command in snapshot_.commands):
+            _module_imports.load('start_preload')()
+        db = getattr(self.parent_window, 'db', None)
+        self.editor.scene.thumbnail_context = (
+            str(db.get_setting_value('当前文件路径') or ''),
+            tuple(db.extract_resource_folder_path() or ()),
+        ) if db is not None else ('', ())
         self.editor.load_graph(
             snapshot_.nodes, snapshot_.edges, INSTRUCTION_SPECS,
             allow_incomplete=True,
@@ -174,10 +214,226 @@ class InstructionWorkspace(QObject):
                 effect.setColor(QColor('#929292'))
                 effect.setStrength(1.0)
                 edge.setGraphicsEffect(effect)
-        if focus_command_id is not None:
-            self.editor.focus_command(int(focus_command_id))
+        self._apply_step_folds(snapshot_)
+        arrangement = getattr(self, 'arrangement', None)
+        if arrangement is not None:
+            if reset_view:
+                arrangement.bounds = None
+            else:
+                arranged = arrangement.place_new(snapshot_, existing_ids, layout_viewport)
+                if arranged is not snapshot_:
+                    snapshot_ = arranged
+                    self._apply_step_folds(snapshot_)
+        if preserve_view:
+            # Reloading items must not fit or recenter the canvas after an edit.
+            scene.setSceneRect(scene.sceneRect().united(scene_rect))
+            view.setTransform(transform)
+            view._zoom = transform.m11()
+            view._expand_canvas(center, view._zoom)
+            view.centerOn(center)
+            # centerOn rounds half-pixels on Qt 5; restoring the saved scroll
+            # offsets avoids cumulative camera drift across repeated edits.
+            view.horizontalScrollBar().setValue(scroll_position[0])
+            view.verticalScrollBar().setValue(scroll_position[1])
+            view.zoomChanged.emit(view._zoom * 100)
+            for command_id in selected_ids:
+                node = scene.nodes_by_command_id.get(command_id)
+                if node is not None:
+                    node.setSelected(True)
         else:
-            self.editor.view.fit_graph()
+            view.fit_graph()
+        if focus_command_id is not None:
+            command_id = int(focus_command_id)
+            if preserve_view and command_id in existing_ids:
+                node = scene.nodes_by_command_id.get(command_id)
+                if node is not None:
+                    node.setSelected(True)
+            else:
+                self.editor.focus_command(command_id)
+
+    def _apply_step_folds(self, snapshot):
+        from anclicker.domain.step_folding import folding_groups, hidden_steps, group_title, locked_move_ids
+        from anclicker.platform.qt_compat.QtCore import QPointF
+        groups = folding_groups(snapshot.commands)
+        hidden = hidden_steps({owner: group for owner, group in groups.items() if not group['locked']})
+        scene = self.editor.scene
+        scene.locked_groups = {}
+        scene.locked_source_positions = {node.node_id: QPointF(node.x, node.y) for node in snapshot.nodes}
+        visited = set()
+        updating = scene._updating_graph
+        scene._updating_graph = True
+        try:
+            for node in scene.nodes_by_id.values():
+                node.setPos(scene.locked_source_positions[node.node_id])
+                node.setZValue(1.0)
+            for command in snapshot.commands:
+                if command.id in visited or command.id not in groups or not groups[command.id]['locked']:
+                    continue
+                members = locked_move_ids(snapshot.commands, [command.id])
+                ordered = [scene.nodes_by_command_id[c.id] for c in snapshot.commands
+                           if c.id in members and c.id in scene.nodes_by_command_id]
+                if not ordered:
+                    continue
+                anchor = QPointF(ordered[0].pos())
+                node_ids = frozenset(node.node_id for node in ordered)
+                for index, node in enumerate(ordered):
+                    if index == 0:
+                        node.setPos(anchor)
+                    else:
+                        previous = ordered[index - 1]
+                        # Overlap only the empty corners, leaving titles and
+                        # side/top ports exposed. Notes extend below the card.
+                        rise = node.height + (22 if node.note else -8)
+                        node.setPos(previous.pos() + QPointF(previous.width - 8, -rise))
+                    node.setZValue(10 + (index + 1) / (len(ordered) + 1))
+                    scene.locked_groups[node.node_id] = node_ids
+                visited.update(members)
+        finally:
+            scene._updating_graph = updating
+        scene.reroute_edges()
+        InstructionWorkspace._refresh_fold_visibility(self, snapshot)
+
+    def _refresh_fold_visibility(self, snapshot):
+        groups = folding_groups(snapshot.commands)
+        hidden = hidden_steps({owner: group for owner, group in groups.items() if not group['locked']})
+        scene = self.editor.scene
+        scene.step_groups = groups
+        for node in scene.nodes_by_id.values():
+            node.setVisible(node.command_id not in hidden)
+            if node.command_id in groups:
+                group = groups[node.command_id]
+                node.title = group_title(group)
+                node.step_collapsed = group['collapsed']
+                node.subtitle = '已加锁 · 拖动整组 / 右键解锁' if group['locked'] else '右键折叠 / 展开；双击设置'
+                description = ('连线步骤自动分组；嵌套线程跟随父线程运行。' if node.type_id == '多线程启动'
+                               else '按表格序号折叠，仅影响显示，不影响运行。')
+                node.setToolTip(node.title + '\n' + description + '\n右键折叠 / 展开；双击设置')
+                node.update()
+        for edge in scene.edges:
+            internal = edge.target_node.node_id in scene.locked_groups.get(edge.source_node.node_id, ())
+            edge.setVisible(not internal and edge.source_node.isVisible() and edge.target_node.isVisible())
+        scene.update()
+
+    @visual_only
+    def expand_step_for_drag(self, command_id):
+        """Persist only the display state; keep the live drag item and camera intact."""
+        if not application_state(self.parent_window).can_edit_project():
+            return False
+        command = self.repository.get_command(int(command_id))
+        if command is None or command.type_id not in ('折叠步骤', '多线程启动'):
+            return False
+        if not command.parameters.get('已折叠', True):
+            return False
+        self.repository.set_step_collapsed(command.id, False)
+        self._refresh_fold_visibility(self.repository.snapshot())
+        view = getattr(self.parent_window, 'view_workspace', None)
+        if view is not None:
+            view.refresh_table()
+        return True
+
+    @visual_only
+    def expand_drop_targets(self, ids):
+        # Expansion is a display operation, independent of animation eligibility.
+        groups = folding_groups(self.repository.list_commands())
+        selected = set(ids)
+        for owner, group in groups.items():
+            if owner not in selected and selected & group['members'] and group['collapsed']:
+                if self.expand_step_for_drag(owner):
+                    self._show_expanded_group({owner} | group['members'])
+
+    @visual_only
+    def _show_expanded_group(self, ids):
+        self.editor.view.pulse_group(ids)
+        table = getattr(getattr(self.parent_window, 'view_workspace', None), 'command_table', None)
+        if table is not None:
+            table._pulse_group(ids)
+
+    @visual_only
+    def edit_feedback(self, kind, ids, marker=None):
+        self.editor.view.show_edit_feedback(kind, ids)
+        table = getattr(getattr(self.parent_window, 'view_workspace', None), 'command_table', None)
+        if table is not None:
+            table.show_edit_feedback(kind, ids, marker)
+
+    @visual_only
+    def capture_removal_feedback(self, ids):
+        views = [self.editor.view]
+        table = getattr(getattr(self.parent_window, 'view_workspace', None), 'command_table', None)
+        if table is not None:
+            views.append(table)
+        return [(view, view.feedback.capture(view.feedback_rects(ids), len(ids))) for view in views
+                if view.feedback.allowed(len(ids), preview=True)]
+
+    @visual_only
+    def removal_feedback(self, captured, count):
+        for view, snapshots in captured or ():
+            view.feedback.play('delete', snapshots=snapshots, count=count, committed=True)
+
+    def set_thread_nested(self, command_id, enabled):
+        try:
+            self._check_parameter_save_allowed()
+            self.repository.set_thread_nested(command_id, enabled)
+            self.reload_graph(command_id)
+            self.graphFinalized.emit(False)
+            self.statusMessage.emit('已打开嵌套多线程' if enabled else '已取消嵌套多线程，与上方线程并列运行')
+        except Exception as error:
+            self._show_error('修改多线程嵌套失败', error)
+
+    def toggle_step_fold(self, command_id):
+        try:
+            self._check_parameter_save_allowed()
+            command = self.repository.get_command(int(command_id))
+            if command is None or command.type_id not in ('折叠步骤', '多线程启动'):
+                return
+            self.repository.set_step_collapsed(command.id, not command.parameters.get('已折叠', True))
+            self.reload_graph(command.id)
+            self.graphFinalized.emit(False)
+        except Exception as error:
+            self._show_error('折叠步骤失败', error)
+
+    def set_step_locks(self, command_ids, locked):
+        from anclicker.domain.step_folding import folding_groups, locked_move_ids
+        try:
+            self._check_parameter_save_allowed()
+            commands = self.repository.list_commands()
+            groups = folding_groups(commands)
+            selected = set(command_ids) & {c.id for c in commands}
+            if not selected:
+                return
+            owners = set(groups) & selected
+            if not locked:
+                owners = {owner for owner, group in groups.items()
+                          if group['locked'] and selected & ({owner} | group['members'])}
+            elif not owners or not selected <= set().union(*({owner} | groups[owner]['members'] for owner in owners)):
+                selected = locked_move_ids(commands, selected)
+                before = next(c.id for c in commands if c.id in selected)
+                positions = [str(index + 2) for index, c in enumerate(commands) if c.id in selected]
+                draft = InstructionDraft('折叠步骤', {'整体锁定': True, '已折叠': False,
+                    '按条数': False, '按范围': True, '动态范围': True, '终止步骤': max(map(int, positions))})
+                created = self.repository.insert_table_commands([draft], before_command_id=before)
+                self.reload_graph(created[0])
+                self.graphFinalized.emit(False)
+                return
+            if owners:
+                self.repository.set_step_locks(owners, locked)
+                self.reload_graph()
+                self.graphFinalized.emit(False)
+        except Exception as error:
+            self._show_error('修改分组锁定失败', error)
+
+    def toggle_step_lock(self, command_id):
+        try:
+            self._check_parameter_save_allowed()
+            command = self.repository.get_command(int(command_id))
+            if command is None or command.type_id not in ('折叠步骤', '多线程启动'):
+                return
+            draft = command.to_draft()
+            draft.parameters['整体锁定'] = not draft.parameters.get('整体锁定', command.type_id == '多线程启动')
+            self.repository.update_command(command.id, draft)
+            self.reload_graph(command.id)
+            self.graphFinalized.emit(False)
+        except Exception as error:
+            self._show_error('切换整体移动锁定失败', error)
 
     def remember_capture(self, path):
         self._recent_capture = store_image_reference(path)
@@ -255,14 +511,14 @@ class InstructionWorkspace(QObject):
             return
         self.add_command(type_id_)
 
-    def add_palette_command(self, type_id, x=None, y=None):
+    def add_palette_command(self, type_id, x=None, y=None, *, before_command_id=None):
         """Use identical insertion and follow-up guidance for double-click and drag/drop."""
         if type_id == '打开网页':
             CATALOG = _module_imports.load('CATALOG')
             defaults = {p['key']: p.get('default', '') for p in CATALOG['openUrl']['params']}
             defaults.update(self.palette.quick_parameters(type_id) or {})
-            return self.add_command(type_id, x=x, y=y, initial_draft=InstructionDraft(type_id, defaults), configure=False)
-        return self.add_command(type_id, x=x, y=y)
+            return self.add_command(type_id, x=x, y=y, initial_draft=InstructionDraft(type_id, defaults), configure=False, before_command_id=before_command_id)
+        return self.add_command(type_id, x=x, y=y, before_command_id=before_command_id)
 
     def _run_parameter_editor(self, editor, callback, key):
         docking = getattr(getattr(self.parent_window, 'view_workspace', None), 'docking', None)
@@ -287,10 +543,14 @@ class InstructionWorkspace(QObject):
         if not application_state(window).can_edit_project():
             raise RuntimeError('请先停止运行、录制或指令测试，再保存参数。')
 
-    def add_command(self, type_id, x=None, y=None, *, initial_draft=None, configure=True):
+    def add_command(self, type_id, x=None, y=None, *, initial_draft=None, configure=True, before_command_id=None):
+        table = getattr(getattr(self.parent_window, 'view_workspace', None), 'command_table', None)
+        marker = table.take_drop_feedback() if table is not None and before_command_id is not None else None
+        unlocked = (feedback_call(table, 'take_drop_unlocks') or set()) if before_command_id is not None else set()
+        member_targets = feedback_call(table, 'take_drop_member_targets') if before_command_id is not None else None
         try:
             spec_ = get_instruction_spec(str(type_id))
-            if str(type_id) == "绑定选择窗口":
+            if str(type_id) == "绑定选择窗口" or spec_.category == "窗口键鼠":
                 start_preload = _module_imports.load('start_preload')
                 start_preload()
             if initial_draft is None:
@@ -298,10 +558,22 @@ class InstructionWorkspace(QObject):
                 if quick is not None: initial_draft = InstructionDraft(str(type_id), quick)
             def commit(draft):
                 self._check_parameter_save_allowed()
-                command = self.repository.add_command(draft, x=x, y=y, unconnected=True)
-                self.reload_graph(command.id)
+                if before_command_id is None:
+                    command = self.repository.add_command(draft, x=x, y=y, unconnected=True)
+                else:
+                    ids = self.repository.insert_table_commands([draft], before_command_id=before_command_id,
+                        **({'temporary_unlocks': unlocked} if unlocked else {}),
+                        **({'member_targets': member_targets} if member_targets is not None else {}))
+                    command = self.repository.get_command(ids[0])
+                if before_command_id is None and x is not None and y is not None:
+                    self.reload_graph(command.id, positioned_ids={command.id})
+                else:
+                    self.reload_graph(command.id)
                 self.graphFinalized.emit(False)
-                self.statusMessage.emit(f'已插入指令：{spec_.display_name}，请在流程图中完成连线')
+                self.statusMessage.emit(f'已插入指令：{spec_.display_name}' +
+                    ('，已按表格高亮位置插入' if before_command_id is not None else '，请在流程图中完成连线'))
+                feedback_call(self, 'expand_drop_targets', [command.id])
+                feedback_call(self, 'edit_feedback', 'create', [command.id], marker)
                 QTimer.singleShot(0, lambda: self.palette.command_added(draft.type_id, draft.parameters))
                 return command.id
             if not configure:
@@ -329,8 +601,15 @@ class InstructionWorkspace(QObject):
             self._connect_editor_test(editor, spec)
             def commit(draft):
                 self._check_parameter_save_allowed()
-                if self.repository.get_command(command.id) is None:
+                current = self.repository.get_command(command.id)
+                if current is None:
                     raise RuntimeError('原指令已删除，请取消该设置后重新添加指令。')
+                if current.type_id == '多线程启动':
+                    for key in ('嵌套层级', '已折叠', '整体锁定', '线程分组成员'):
+                        if key in current.parameters:
+                            draft.parameters[key] = current.parameters[key]
+                if current.type_id == '折叠步骤':
+                    draft.parameters['整体锁定'] = bool(current.parameters.get('整体锁定', False))
                 self.repository.update_command(command.id, draft)
                 self.reload_graph(command.id)
                 try: self.repository.validate_graph()
@@ -347,25 +626,99 @@ class InstructionWorkspace(QObject):
         command_ids_ = command_ids or self.selected_command_ids()
         copied_ids_: list[int] = []
         try:
-            for command_id_ in command_ids_:
-                copied_ = self.repository.duplicate_command(
-                    int(command_id_), unconnected=True
-                )
-                copied_ids_.append(int(copied_.id))
+            from anclicker.domain.step_folding import copy_group_drafts
+            drafts = copy_group_drafts(self.repository.list_commands(), command_ids_, self.repository.snapshot())
+            copied_ids_ = self.repository.append_recording(drafts, connect=False)
             self.reload_graph(copied_ids_[-1] if copied_ids_ else None)
             if copied_ids_:
                 self.editor.view.register_copied_group(copied_ids_)
                 self.graphFinalized.emit(False)
                 self.statusMessage.emit(f"已复制 {len(copied_ids_)} 条指令")
+                feedback_call(self, 'expand_drop_targets', copied_ids_)
+                feedback_call(self, 'edit_feedback', 'copy', copied_ids_)
         except Exception as error_:
             self._show_error("复制指令失败", error_)
         return copied_ids_
+
+    def cut_commands(self, command_ids=None):
+        try:
+            self._check_parameter_save_allowed()
+            commands = self.repository.list_commands()
+            ids = locked_move_ids(commands, command_ids or self.selected_command_ids())
+            drafts = copy_group_drafts(commands, ids, self.repository.snapshot())
+            if not drafts:
+                return 0
+            mime = QMimeData()
+            mime.setData('application/x-anclicker-commands', json.dumps([asdict(c) for c in drafts], ensure_ascii=False).encode('utf-8'))
+            mime.setText('\n'.join(c.type_id for c in drafts))
+            set_command_mime(mime)
+            deleted = self.remove_commands(ids, confirm=False)
+            if deleted:
+                self.statusMessage.emit(f'已剪切 {deleted} 条指令，可在表格中粘贴')
+            return deleted
+        except Exception as error:
+            self._show_error('剪切指令失败', error)
+            return 0
+
+    def dissolve_thread(self, command_id, *, confirm=True):
+        try:
+            self._check_parameter_save_allowed()
+            command = self.repository.get_command(int(command_id))
+            if command is None or command.type_id != '多线程启动':
+                return False
+            if confirm and QMessageBox.question(self.parent_window, '解散线程(保留步骤)',
+                    '仅移除该多线程启动指令，保留步骤和步骤之间的连线。嵌套子线程提升一级。入口需按需要重新连线。',
+                    QMessageBox.Ok | QMessageBox.Cancel, QMessageBox.Cancel) != QMessageBox.Ok:
+                return False
+            captured = feedback_call(self, 'capture_removal_feedback', [command.id])
+            self.repository.dissolve_thread(command.id)
+            self.reload_graph()
+            self.graphFinalized.emit(False)
+            feedback_call(self, 'removal_feedback', captured, 1)
+            self.statusMessage.emit('已解散线程并保留步骤，请按需要重新连接入口')
+            return True
+        except Exception as error:
+            self._show_error('解散线程失败', error)
+            return False
 
     def remove_commands(self, command_ids=None, *, confirm: bool = True) -> int:
         command_ids_ = command_ids or self.selected_command_ids()
         if not command_ids_:
             return 0
-        if confirm:
+        from anclicker.domain.step_folding import folding_groups, locked_move_ids
+        commands = self.repository.list_commands()
+        groups = folding_groups(commands)
+        selected = set(map(int, command_ids_))
+        # Deleting a locked header includes its descendants, without pulling
+        # in an enclosing group unless the user explicitly chooses whole-group.
+        changed = True
+        while changed:
+            before = set(selected)
+            for owner, group in groups.items():
+                if group['locked'] and owner in selected:
+                    selected.update(group['members'])
+            changed = before != selected
+        member_only = any(group['locked'] and owner not in selected
+                          and selected & group['members'] for owner, group in groups.items())
+        if confirm and member_only:
+            dialog = QMessageBox(self.parent_window)
+            dialog.setWindowTitle('删除锁定组内指令')
+            dialog.setIcon(QMessageBox.Icon.Question)
+            dialog.setText('所选指令属于锁定组，请选择删除方式。')
+            single = dialog.addButton('单行删除', QMessageBox.AcceptRole)
+            whole = dialog.addButton('整体删除', QMessageBox.DestructiveRole)
+            cancel = dialog.addButton('取消', QMessageBox.RejectRole)
+            dialog.setDefaultButton(single)
+            dialog.setEscapeButton(cancel)
+            single.setFocus()
+            dialog.exec()
+            clicked = dialog.clickedButton()
+            if clicked is whole:
+                selected = locked_move_ids(commands, selected)
+            elif clicked is not single:
+                return 0
+        command_ids_ = [c.id for c in commands if c.id in selected]
+        if confirm and not member_only:
             dialog = QMessageBox(self.parent_window)
             dialog.setWindowTitle('删除指令')
             dialog.setIcon(QMessageBox.Icon.Question)
@@ -379,6 +732,7 @@ class InstructionWorkspace(QObject):
             confirm_button.setFocus()
             if dialog.exec() != QMessageBox.StandardButton.Ok:
                 return 0
+        captured = feedback_call(self, 'capture_removal_feedback', command_ids_)
         try:
             deleted_ = self.repository.delete_commands(
                 command_ids_, preserve_flow=self.repository.is_plain_chain()
@@ -391,6 +745,7 @@ class InstructionWorkspace(QObject):
             else:
                 self.graphFinalized.emit(True)
             self.statusMessage.emit(f"已删除 {deleted_} 条指令")
+            feedback_call(self, 'removal_feedback', captured, deleted_)
             return deleted_
         except Exception as error_:
             self._show_error("删除指令失败", error_)
@@ -438,6 +793,10 @@ class InstructionWorkspace(QObject):
             self.reload_graph(focused_[0] if focused_ else None)
             self.graphFinalized.emit(True)
             self.statusMessage.emit("已保存节点位置和顺序")
+            node = self.editor.scene.nodes_by_id.get(str(node_id))
+            if node is not None:
+                feedback_call(self, 'expand_drop_targets', [node.command_id])
+                feedback_call(self, 'edit_feedback', 'move', [node.command_id])
         except Exception as error_:
             self.reload_graph()
             self._show_error("保存节点位置和顺序失败", error_)
@@ -445,6 +804,8 @@ class InstructionWorkspace(QObject):
     def _commit_positions(self, positions) -> None:
         try:
             self.repository.save_node_positions(positions)
+            feedback_call(self, 'edit_feedback', 'move', [node.command_id for key in positions
+                if (node := self.editor.scene.nodes_by_id.get(str(key))) is not None])
         except Exception as error_:
             self.reload_graph()
             self._show_error("保存整组节点位置失败", error_)
@@ -452,6 +813,9 @@ class InstructionWorkspace(QObject):
     def _commit_position(self, node_id, x: float, y: float) -> None:
         try:
             self.repository.save_node_position(str(node_id), float(x), float(y))
+            node = self.editor.scene.nodes_by_id.get(str(node_id))
+            if node is not None:
+                feedback_call(self, 'edit_feedback', 'move', [node.command_id])
         except Exception as error_:
             self.reload_graph()
             self._show_error("保存节点位置失败", error_)
@@ -616,6 +980,10 @@ class InstructionWorkspace(QObject):
             self._remember_connections(before)
             self.reload_graph()
             self.graphFinalized.emit(complete_)
+            target = self.editor.scene.nodes_by_id.get(str(target_id))
+            if target is not None:
+                feedback_call(self, 'expand_drop_targets', [target.command_id])
+                feedback_call(self, 'edit_feedback', 'link', [target.command_id])
             self.statusMessage.emit(
                 "流程已完整，表格与多功能内容已生成"
                 if complete_ else "流程连接已保存，请继续连接未接入的指令"
@@ -895,7 +1263,7 @@ class InstructionWorkspace(QObject):
                 if isinstance(context_, EditorContext):
                     context_ = context_.for_execution()
                 self._instruction_test_context = context_
-                if spec_.type_id in {'图像等待', '窗口焦点等待', '时间等待', '按键等待'} or spec_.category in {'键鼠', '本地OCR', 'Excel', '白话指令', '网页自动化', '数据抓取', '后台功能'}:
+                if spec_.type_id in {'图像等待', '窗口焦点等待', '时间等待', '按键等待'} or spec_.category in {'窗口键鼠', '键鼠', '本地OCR', 'Excel', '白话指令', '网页自动化', '网页后台操作', '数据抓取', '后台功能'}:
                     run_cancellable_test = _module_imports.load('run_cancellable_test')
                     run_cancellable_test(spec_, command_, context_, editor_)
                     if context_.stop_requested:

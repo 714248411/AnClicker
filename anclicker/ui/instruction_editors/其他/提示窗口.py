@@ -23,5 +23,24 @@ class InstructionEditor(SchemaInstructionEditor):
     UI_CLASS = Ui_InstructionEditor
     FIELDS = InstructionEditor_FIELDS
 
+    def _refresh_variables(self, current=''):
+        variables = dict(self._variable_database().get_variable_info('dict') or {})
+        if self.context is not None:
+            variables.update(self.context.variables)
+        control = self._controls['变量']
+        control.clear()
+        control.addItem('')
+        control.addItems([str(name) for name in variables if str(name)])
+        if current and control.findText(current) < 0:
+            control.addItem(current)
+        control.setCurrentText(current)
+
+    def __init__(self, parent=None, draft=None, context=None):
+        super().__init__(parent, draft, context)
+        self._controls['变量'].setToolTip('留空不附加变量；运行时读取选中变量的当前值。')
+        self._controls['内容'].setPlaceholderText('可留空只显示变量值；内容与变量直接拼接，可在这里加入空格或换行。')
+        self._controls['显示顺序'].setToolTip('控制提示内容与变量值的先后顺序。')
+
+
 
 InstructionExecutor = _module_imports.load('InstructionExecutor')

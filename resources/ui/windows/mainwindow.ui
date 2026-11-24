@@ -16,7 +16,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>An Clicker    [v1.0.0 Beat]</string>
+   <string>AnClicker    [v1.0.0 Beat]</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../../images.qrc">
@@ -179,7 +179,7 @@
             </property>
             <property name="icon">
              <iconset resource="../../images.qrc">
-              <normaloff>:/按钮图标/Window/res/导入指令.png</normaloff>:/按钮图标/Window/res/导入指令.png</iconset>
+              <normaloff>:/按钮图标/Window/res/导入单文件.png</normaloff>:/按钮图标/Window/res/导入指令.png</iconset>
             </property>
            </widget>
           </item>
@@ -946,7 +946,7 @@ QPushButton:pressed {
    </widget>
    <widget class="QMenu" name="menu_4">
     <property name="title">
-     <string>工具</string>
+     <string>设置</string>
     </property>
     <addaction name="actions_2" />
    </widget>

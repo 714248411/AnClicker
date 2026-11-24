@@ -36,6 +36,8 @@ APP_ID, APP_NAME, CURRENT_VERSION, EXECUTABLE_NAME = _module_imports.load('APP_I
 def platform_label() -> str:
     system_ = platform.system().lower()
     machine_ = platform.machine().lower().replace("amd64", "x64").replace("x86_64", "x64")
+    if not machine_ and sys.platform == "win32":
+        machine_ = "x64" if sys.maxsize > 2**32 else "x86"
     if system_ == "windows":
         return f"windows-{machine_}"
     if system_ == "darwin":

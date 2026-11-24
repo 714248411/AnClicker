@@ -1,8 +1,10 @@
 """Release-only checks of actual loaded instruction dialogs, without input replay."""
 from anclicker.platform.qt_compat.QtCore import QCoreApplication, QEvent
+from anclicker.platform.qt_compat.QtGui import QPalette
 from anclicker.platform.qt_compat.QtWidgets import QApplication, QAbstractSpinBox, QLineEdit
 from anclicker.instructions.registry import INSTRUCTION_SPECS
 from anclicker.domain.instructions import ExecutionContext
+import os
 
 from anclicker._imports import DeferredImports as _DeferredImports
 
@@ -33,6 +35,9 @@ def validate_instruction_editors(window):
     original_theme = view.theme_mode
     checked = 0
     image_layout = False
+    arrangement_layout = False
+    window_zorder_options = False
+    arrangement_modes_checked = 0
     try:
         for theme in ('light', 'dark'):
             view.theme_mode = theme
@@ -42,6 +47,52 @@ def validate_instruction_editors(window):
                 try:
                     editor.show()
                     app.processEvents()
+                    if spec.type_id == '窗口排布':
+                        arrangement_layout = (editor.ui.searchEdit.isVisible() and editor.ui.splitter.count()==2
+                                              and editor.ui.applyButton.isVisible() and editor.ui.stopButton.isVisible()
+                                              and editor.ui.searchEdit.mapTo(editor,editor.ui.searchEdit.rect().topLeft()).x()
+                                                  < editor._controls['屏幕'].mapTo(editor,editor._controls['屏幕'].rect().topLeft()).x())
+                        if not arrangement_layout:raise RuntimeError('Packaged window arrangement layout incomplete')
+                        editor.resize(min(editor.width(),900),min(editor.height(),650));app.processEvents()
+                        for mode in ('平铺','网格','对角线','水平层叠','垂直层叠','堆叠'):
+                            editor._controls['排布方式'].setCurrentText(mode);app.processEvents()
+                            if mode=='平铺' and (editor.ui.modeRowWidgets['grid'].isHidden() or not editor.ui.modeRowWidgets['size'].isHidden()):
+                                raise RuntimeError('Tile mode must expose rows/columns and hide custom size')
+                            if mode=='堆叠' and (any(editor.ui.modeRowWidgets[key].isHidden() for key in ('origin','x_step','y_step'))
+                                             or any(not editor.ui.modeRowWidgets[key].isHidden() for key in ('size','grid','direction','gaps','aspect'))):
+                                raise RuntimeError('Stack mode has unrelated or missing settings')
+                            if mode=='堆叠':
+                                viewport=editor.ui.settingsScroll.viewport()
+                                for key in ('起点X','起点Y','X间距','Y间距'):
+                                    control=editor._controls[key];point=control.mapTo(viewport,control.rect().bottomRight())
+                                    if not (0<=point.x()<viewport.width() and 0<=point.y()<viewport.height()):
+                                        raise RuntimeError('Stack core setting clipped: '+key)
+
+                            visible=[row for row in editor.ui.modeRowWidgets.values() if not row.isHidden()]
+                            if any(second.y()-first.y()-first.height()>12 for first,second in zip(visible,visible[1:])):
+                                raise RuntimeError('Mode switch left empty Qt 5 form rows')
+                            for spin in editor.findChildren(QAbstractSpinBox):
+                                if spin.isVisible():
+                                    line=spin.findChild(QLineEdit)
+                                    if line is not None and line.height()<line.fontMetrics().height():raise RuntimeError('Mode setting digits clipped')
+                            for control in (editor.ui.applyButton,editor.ui.stopButton,editor.ui.buttonBox):
+                                point=control.mapTo(editor,control.rect().bottomRight())
+                                if point.x()>editor.width() or point.y()>editor.height():raise RuntimeError('Mode action buttons clipped')
+                            settings=editor.ui.settingsScroll.widget();image=settings.grab().toImage()
+                            background=image.pixelColor(image.width()-2,image.height()-2).lightness()
+                            foreground=editor.ui.modeRows['screen'][0].palette().color(QPalette.WindowText).lightness()
+                            if (theme=='dark' and background>128) or (theme=='light' and background<128) or abs(background-foreground)<80:
+                                raise RuntimeError('Arrangement settings theme contrast is invalid: '+theme)
+                            proof=os.environ.get('ANCLICKER_UI_PROOF_DIR')
+                            if proof:
+                                Path=_module_imports.load('Path');folder=Path(proof);folder.mkdir(parents=True,exist_ok=True)
+                                editor.grab().save(str(folder/(theme+'-'+os.environ.get('QT_SCALE_FACTOR','1')+'-'+mode+'.png')))
+                            arrangement_modes_checked+=1
+                        editor._controls['排布方式'].setCurrentText('网格');app.processEvents()
+
+                    if spec.type_id == '窗口控制':
+                        window_zorder_options = all(editor._controls['操作'].findText(value)>=0 for value in ('置顶','置底'))
+                        if not window_zorder_options:raise RuntimeError('Packaged window Z order options missing')
                     if spec.type_id == '图像点击':
                         image_layout = (hasattr(editor, 'folder_combo')
                                         and editor.ui.auxiliary_6.text() == '调整点击位置'
@@ -49,7 +100,7 @@ def validate_instruction_editors(window):
                         if not image_layout:
                             raise RuntimeError('Packaged image-click editor has obsolete layout')
                     for spin in editor.findChildren(QAbstractSpinBox):
-                        if spin.isHidden():
+                        if not spin.isVisible():
                             continue
                         line = spin.findChild(QLineEdit)
                         if line is not None and line.height() < line.fontMetrics().height():
@@ -65,6 +116,8 @@ def validate_instruction_editors(window):
         view.theme_mode = original_theme
         view._apply_theme()
     return {'spinboxes_checked': checked, 'image_click_layout': image_layout,
+            'window_arrangement_layout':arrangement_layout,'window_zorder_options':window_zorder_options,
+            'arrangement_modes_checked':arrangement_modes_checked,
             'image_click_modal_add': validate_image_click_modal_add(window)}
 
 

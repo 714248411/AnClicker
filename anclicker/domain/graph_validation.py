@@ -141,10 +141,12 @@ def validate_records(
         incoming[edge.target].add(edge.source)
     if incoming[START_NODE_ID] or outgoing[END_NODE_ID]:
         raise GraphValidationError("开始节点不能有输入，结束节点不能有输出")
-    if len(outgoing[START_NODE_ID]) > 1 or (
-        not allow_incomplete and len(outgoing[START_NODE_ID]) != 1
-    ):
-        raise GraphValidationError("开始节点必须连接一条输出")
+    start_targets = outgoing[START_NODE_ID]
+    ordinary_targets = [target for target in start_targets if type_by_node.get(target) != '多线程启动']
+    if len(ordinary_targets) > 1:
+        raise GraphValidationError("开始节点可连接多个多线程启动，以及一条普通主流程输出")
+    if not allow_incomplete and not start_targets:
+        raise GraphValidationError("开始节点至少需要连接一条输出")
 
     command_by_id = {command.id: command for command in commands}
     for node in instruction_nodes:

@@ -1,0 +1,3791 @@
+{
+  "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/windows-commands",
+  "retrieved": "2026-10-16",
+  "commands": [
+    {
+      "name": "active",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/active",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "add",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/add",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "add alias",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/add-alias",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "add volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/add-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "adprep",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/adprep",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "append",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/append",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "arp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/arp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "assign",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/assign",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "assoc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/assoc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "at",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/at",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "atmadm",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/atmadm",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "attach-vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/attach-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "attrib",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/attrib",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "attributes",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/attributes",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "attributes disk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/attributes-disk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "attributes volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/attributes-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol backup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-backup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol clear",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-clear",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol get",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-get",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol list",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-list",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol remove",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-remove",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol resourcesacl",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-resourcesacl",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol restore",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-restore",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "auditpol set",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/auditpol-set",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "autochk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/autochk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "autoconv",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/autoconv",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "autofmt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/autofmt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "automount",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/automount",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bcdboot",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bcdboot",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bcdedit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bcdedit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg driveinfo",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg-driveinfo",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg newdriveletter",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg-newdriveletter",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg quiet",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg-quiet",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg restart",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg-restart",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg size",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg-size",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bdehdcfg target",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bdehdcfg-target",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "begin backup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/begin-backup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "begin restore",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/begin-restore",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin addfile",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-addfile",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin addfileset",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-addfileset",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin addfilewithranges",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-addfilewithranges",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and deleteurl",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-deleteurl",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and getexpirationtime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-getexpirationtime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and getlimit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-getlimit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and info",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-info",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and list",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-list",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and setexpirationtime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-setexpirationtime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and setlimit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-and-setlimit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cache and clear",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cache-clear",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin cancel",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-cancel",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin complete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-complete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin create",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-create",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin examples",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-examples",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getaclflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getaclflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getbytestotal",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getbytestotal",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getbytestransferred",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getbytestransferred",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getclientcertificate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getclientcertificate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getcompletiontime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getcompletiontime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getcreationtime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getcreationtime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getcustomheaders",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getcustomheaders",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getdescription",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getdescription",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getdisplayname",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getdisplayname",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin geterror",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-geterror",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin geterrorcount",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-geterrorcount",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getfilestotal",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getfilestotal",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getfilestransferred",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getfilestransferred",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin gethelpertokenflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-gethelpertokenflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin gethelpertokensid",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-gethelpertokensid",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin gethttpmethod",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-gethttpmethod",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getmaxdownloadtime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getmaxdownloadtime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getminretrydelay",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getminretrydelay",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getmodificationtime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getmodificationtime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getnoprogresstimeout",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getnoprogresstimeout",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getnotifycmdline",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getnotifycmdline",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getnotifyflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getnotifyflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getnotifyinterface",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getnotifyinterface",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getowner",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getowner",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getpeercachingflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getpeercachingflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getpriority",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getpriority",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getproxybypasslist",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getproxybypasslist",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getproxylist",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getproxylist",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getproxyusage",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getproxyusage",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getreplydata",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getreplydata",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getreplyfilename",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getreplyfilename",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getreplyprogress",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getreplyprogress",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getsecurityflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getsecurityflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getstate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getstate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin gettemporaryname",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-gettemporaryname",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin gettype",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-gettype",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin getvalidationstate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-getvalidationstate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin info",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-info",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin list",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-list",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin listfiles",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-listfiles",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin makecustomheaderswriteonly",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-makecustomheaderswriteonly",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin monitor",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-monitor",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin nowrap",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-nowrap",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peercaching",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peercaching",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peercaching and getconfigurationflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peercaching-and-getconfigurationflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peercaching and help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peercaching-and-help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peercaching and setconfigurationflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peercaching-and-setconfigurationflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peers",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peers",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peers and clear",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peers-and-clear",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peers and discover",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peers-and-discover",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peers and help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peers-and-help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin peers and list",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-peers-and-list",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin rawreturn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-rawreturn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin removeclientcertificate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-removeclientcertificate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin removecredentials",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-removecredentials",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin replaceremoteprefix",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-replaceremoteprefix",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin reset",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-reset",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin resume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-resume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setaclflag",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setaclflag",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setclientcertificatebyid",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setclientcertificatebyid",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setclientcertificatebyname",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setclientcertificatebyname",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setcredentials",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setcredentials",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setcustomheaders",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setcustomheaders",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setdescription",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setdescription",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setdisplayname",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setdisplayname",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin sethelpertoken",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-sethelpertoken",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin sethelpertokenflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-sethelpertokenflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin sethttpmethod",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-sethttpmethod",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setmaxdownloadtime",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setmaxdownloadtime",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setminretrydelay",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setminretrydelay",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setnoprogresstimeout",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setnoprogresstimeout",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setnotifycmdline",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setnotifycmdline",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setnotifyflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setnotifyflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setpeercachingflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setpeercachingflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setpriority",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setpriority",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setproxysettings",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setproxysettings",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setreplyfilename",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setreplyfilename",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setsecurityflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setsecurityflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin setvalidationstate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-setvalidationstate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin suspend",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-suspend",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin takeownership",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-takeownership",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin transfer",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-transfer",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util and enableanalyticchannel",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util-and-enableanalyticchannel",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util and getieproxy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util-and-getieproxy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util and help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util-and-help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util and repairservice",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util-and-repairservice",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util and setieproxy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util-and-setieproxy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin util and version",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-util-and-version",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bitsadmin wrap",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bitsadmin-wrap",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg addsw",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-addsw",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg copy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-copy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg dbg1394",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-dbg1394",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg debug",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-debug",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg default",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-default",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg ems",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-ems",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg query",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-query",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg raw",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-raw",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg rmsw",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-rmsw",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "bootcfg timeout",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/bootcfg-timeout",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "break",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/break",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cacls",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cacls",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "call",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/call",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "certreq",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certreq_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "certutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "change",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/change",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "change logon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/change-logon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "change port",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/change-port",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "change user",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/change-user",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chcp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chcp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chdir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chdir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chglogon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chglogon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chgport",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chgport",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chgusr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chgusr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chkdsk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chkdsk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "chkntfs",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/chkntfs",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "choice",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/choice",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cipher",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cipher",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "clean",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/clean",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cleanmgr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cleanmgr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "clip",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/clip",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cls",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cls",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cmd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cmdkey",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmdkey",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cmstp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmstp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "color",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/color",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "comp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/comp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "compact",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/compact",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "compact vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/compact-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "convert",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/convert",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "convert basic",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/convert-basic",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "convert dynamic",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/convert-dynamic",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "convert gpt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/convert-gpt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "convert mbr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/convert-mbr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "copy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/copy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create partition efi",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-partition-efi",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create partition extended",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-partition-extended",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create partition logical",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-partition-logical",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create partition msr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-partition-msr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create partition primary",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-partition-primary",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create volume mirror",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-volume-mirror",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create volume raid",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-volume-raid",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create volume simple",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-volume-simple",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "create volume stripe",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/create-volume-stripe",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "cscript",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cscript",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "date",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/date",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dcdiag",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dcdiag",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dcgpofix",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dcgpofix",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dcpromo",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dcpromo",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "defrag",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/defrag",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "del",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/del",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "delete disk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/delete-disk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "delete partition",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/delete-partition",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "delete shadows",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/delete-shadows",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "delete volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/delete-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "detach vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/detach-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "detail",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/detail",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "detail disk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/detail-disk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "detail partition",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/detail-partition",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "detail vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/detail-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "detail volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/detail-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsdiag",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsdiag",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsdiag testdcs",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsdiag-testdcs",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsdiag testdfsconfig",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsdiag-testdfsconfig",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsdiag testdfsintegrity",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsdiag-testdfsintegrity",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsdiag testreferral",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsdiag-testreferral",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsdiag testsites",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsdiag-testsites",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dfsrmig",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dfsrmig",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diantz",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diantz",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diskcomp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diskcomp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diskcopy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diskcopy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diskpart",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diskpart",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diskperf",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diskperf",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diskraid",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diskraid",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "diskshadow",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/diskshadow",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dispdiag",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dispdiag",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dnscmd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dnscmd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "doskey",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/doskey",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "driverquery",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/driverquery",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "dtrace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dtrace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "echo",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/echo",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "edit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/edit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "endlocal",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/endlocal",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "end restore",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/end-restore",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "erase",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/erase",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "eventcreate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/eventcreate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "Evntcmd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/evntcmd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "exec",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/exec",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "exit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/exit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "expand",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/expand",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "expand vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/expand-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "expose",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/expose",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "extend",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/extend",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "extract",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/extract",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "filesystems",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/filesystems",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "find",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/find",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "findstr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/findstr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "finger",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/finger",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "flattemp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/flattemp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fondue",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fondue",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "for",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/for",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "forfiles",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/forfiles",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "format",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/format",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "freedisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/freedisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil 8dot3name",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-8dot3name",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil behavior",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-behavior",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil devdrv",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-devdrv",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil dirty",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-dirty",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil file",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-file",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil fsinfo",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-fsinfo",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil hardlink",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-hardlink",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil objectid",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-objectid",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil quota",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-quota",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil repair",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-repair",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil reparsepoint",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-reparsepoint",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil resource",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-resource",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil sparse",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-sparse",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil tiering",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-tiering",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil transaction",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-transaction",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil usn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-usn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fsutil wim",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-wim",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp append",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-append",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp ascii",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-ascii",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp bell",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-bell_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp binary",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-binary",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp bye",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-bye",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp cd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-cd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp close",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-close_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp debug",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-debug",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp dir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-dir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp disconnect",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-disconnect_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp get",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-get",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp glob",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-glob_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp hash",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-hash_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp lcd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-lcd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp literal",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-literal_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp ls",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-ls_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp mget",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-mget",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp mkdir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-mkdir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp mls",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-mls_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp mput",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-mput_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp open",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-open_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp prompt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-prompt_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp put",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-put",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp pwd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-pwd_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp quit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-quit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp quote",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-quote",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp recv",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-recv",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp remotehelp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-remotehelp_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp rename",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-rename",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp rmdir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-rmdir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp send",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-send_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp status",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-status",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp trace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-trace_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp type",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-type",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp user",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-user",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp verbose",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp-verbose_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp mdelete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp.mdelete_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftp mdir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftp.mdir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ftype",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ftype",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "fveupdate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fveupdate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "getmac",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/getmac",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "gettype",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gettype",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "goto",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/goto",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "gpfixup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gpfixup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "gpresult",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gpresult",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "gpt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gpt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "gpupdate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gpupdate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "graftabl",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/graftabl",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "helpctr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/helpctr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "hostname",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/hostname",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "icacls",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "if",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/if",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "import (shadowdisk)",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/import",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "import (diskpart)",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/import_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "inactive",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/inactive",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ipconfig",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ipconfig",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ipxroute",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ipxroute",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "irftp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/irftp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "jetpack",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/jetpack",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "klist",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/klist",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup addenctypeattr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-addenctypeattr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup addhosttorealmmap",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-addhosttorealmmap",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup addkdc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-addkdc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup addkpasswd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-addkpasswd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup addrealmflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-addrealmflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup changepassword",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-changepassword",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup delenctypeattr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-delenctypeattr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup delhosttorealmmap",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-delhosttorealmmap",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup delkdc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-delkdc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup delkpasswd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-delkpasswd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup delrealmflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-delrealmflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup domain",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-domain",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup dumpstate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-dumpstate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup getenctypeattr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-getenctypeattr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup listrealmflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-listrealmflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup mapuser",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-mapuser",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup removerealm",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-removerealm",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup server",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-server",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup setcomputerpassword",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-setcomputerpassword",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup setenctypeattr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-setenctypeattr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup setrealm",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-setrealm",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ksetup setrealmflags",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ksetup-setrealmflags",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ktmutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ktmutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ktpass",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ktpass",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "label",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/label",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "list",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/list",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "list providers",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/list-providers",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "list shadows",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/list-shadows",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "list writers",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/list-writers",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "load metadata",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/load-metadata",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "lodctr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/lodctr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman create",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman create alert",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-alert",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman create api",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-api",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman create cfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-cfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman create counter",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-counter",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman create trace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-create-trace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman import and logman export",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-import-export",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman query",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-query",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman start and logman stop",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-start-stop",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman update",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-update",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman update alert",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-update-alert",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman update api",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-update-api",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman update cfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-update-cfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman update counter",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-update-counter",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logman update trace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logman-update-trace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "logoff",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/logoff",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "lpq",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/lpq",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "lpr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/lpr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "macfile",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/macfile",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "makecab",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/makecab",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde status",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-status",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde on",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-on",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde off",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-off",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde pause",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-pause",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde resume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-resume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde lock",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-lock",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde unlock",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-unlock",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde autounlock",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-autounlock",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde protectors",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-protectors",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde tpm",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-tpm",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde setidentifier",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-setidentifier",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde forcerecovery",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-forcerecovery",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde changepassword",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-changepassword",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde changepin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-changepin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde changekey",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-changekey",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde keypackage",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-keypackage",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde upgrade",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-upgrade",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "manage bde wipefreespace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/manage-bde-wipefreespace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mapadmin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mapadmin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "md",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/md",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "merge vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/merge-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mkdir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mkdir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mklink",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mklink",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mmc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mmc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mode",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mode",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "more",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/more",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mount",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mount",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mountvol",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mountvol",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "move",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/move",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mqbkup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mqbkup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mqsvc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mqsvc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mqtgsvc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mqtgsvc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "msdt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msdt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "msg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "msiexec",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msiexec",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "msinfo32",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msinfo32",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "mstsc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/mstsc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nbtstat",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nbtstat",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netcfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netcfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom add",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-add",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom computername",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-computername",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom join",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-join",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom move",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-move",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom movent4bdc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-movent4bdc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom query",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-query",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom remove",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-remove",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom renamecomputer",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-renamecomputer",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom reset",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-reset",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom resetpwd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-resetpwd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom trust",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-trust",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netdom verify",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netdom-verify",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "net print",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/net-print",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "net user",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/net-user",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh add",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-add",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh advfirewall",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-advfirewall",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh branchcache",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-branchcache",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh bridge",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-bridge",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh dhcpclient",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-dhcpclient",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh dnsclient",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-dnsclient",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh dump",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-dump",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh exec",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-exec",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh http",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-http",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh interface",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-interface",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh ipsec",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-ipsec",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh lan",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-lan",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh mbn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-mbn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh namespace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-namespace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh netio",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-netio",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh nlm",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-nlm",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh ras",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-ras",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh rpc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-rpc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh set",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-set",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh show",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-show",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh trace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-trace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh wcn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-wcn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh wfp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-wfp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh winhttp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-winhttp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh winsock",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-winsock",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netsh wlan",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-wlan",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "netstat",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netstat",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nfsadmin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nfsadmin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nfsshare",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nfsshare",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nfsstat",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nfsstat",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nlbmgr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nlbmgr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup exit Command",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-exit-command",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup finger Command",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-finger-command",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup help",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-help",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup ls",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-ls",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup lserver",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-lserver",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup root",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-root",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup server",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-server",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set all",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-all",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set class",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-class",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set d2",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-d2",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set debug",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-debug",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set domain",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-domain",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set port",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-port",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set querytype",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-querytype",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set recurse",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-recurse",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set retry",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-retry",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set root",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-root",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set search",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-search",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set srchlist",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-srchlist",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set timeout",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-timeout",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set type",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-type",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup set vc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-set-vc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "nslookup view",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/nslookup-view",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ntbackup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ntbackup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ntcmdprompt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ntcmdprompt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ntfrsutl",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ntfrsutl",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "offline",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/offline",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "offline disk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/offline-disk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "offline volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/offline-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "online",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/online",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "online disk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/online-disk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "online volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/online-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "openfiles",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/openfiles",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pagefileconfig",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pagefileconfig",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "path",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/path",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pathping",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pathping",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pause",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pause",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pbadmin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pbadmin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pentnt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pentnt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "perfmon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/perfmon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ping",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ping",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pktmon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pktmon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pnpunattend",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pnpunattend",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pnputil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pnputil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "popd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/popd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "powershell",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/powershell",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "powershell ise",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/powershell_ise",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "print",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/print",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prncnfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prncnfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prndrvr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prndrvr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prnjobs",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prnjobs",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prnmngr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prnmngr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prnport",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prnport",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prnqctl",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prnqctl",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "prompt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/prompt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pubprn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pubprn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pushd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pushd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pushprinterconnections",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pushprinterconnections",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "pwlauncher",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/pwlauncher",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "qappsrv",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/qappsrv",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "qprocess",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/qprocess",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "query",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/query",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "query process",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/query-process",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "query session",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/query-session",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "query termserver",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/query-termserver",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "query user",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/query-user",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "quser",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/quser",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "qwinsta",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/qwinsta",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rdpsign",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rdpsign",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "recover",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/recover",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "recover disk group",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/recover_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil compression",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-compression",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil dedup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-dedup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil fixboot",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-fixboot",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil iometrics",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-iometrics",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil leak",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-leak",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil salvage",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-salvage",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil streamsnapshot",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-streamsnapshot",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "refsutil triage",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/refsutil-triage",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg add",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-add",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg compare",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-compare",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg copy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-copy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg export",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-export",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg import",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-import",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg load",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-load",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg query",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-query",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg restore",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-restore",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg save",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-save",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reg unload",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-unload",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "regini",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/regini",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "regsvr32",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/regsvr32",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "relog",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/relog",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rem",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rem",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "remove",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/remove",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ren",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ren",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rename",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rename",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "repair",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/repair",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "repair bde",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/repair-bde",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "replace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/replace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rescan",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rescan",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reset",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reset",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "reset session",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reset-session",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "retain",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/retain",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "revert",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/revert",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rexec",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rexec",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "risetup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/risetup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rmdir",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rmdir",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "robocopy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "route ws2008",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/route_ws2008",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rpcinfo",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rpcinfo",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rpcping",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rpcping",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rsh",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rsh",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rundll32",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rundll32",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rundll32 printui",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rundll32-printui",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "rwinsta",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/rwinsta",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "san",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/san",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sc config",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-config",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sc create",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-create",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sc delete",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-delete",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sc query",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-query",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "schtasks",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/schtasks",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd analyze",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd-analyze",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd configure",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd-configure",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd register",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd-register",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd rollback",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd-rollback",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd transform",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd-transform",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "scwcmd view",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/scwcmd-view",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit analyze",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit-analyze",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit configure",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit-configure",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit export",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit-export",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit generaterollback",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit-generaterollback",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit import",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit-import",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "secedit validate",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/secedit-validate",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "select",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/select",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "select disk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/select-disk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "select partition",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/select-partition",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "select vdisk",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/select-vdisk",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "select volume",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/select-volume",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "serverceipoptin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/serverceipoptin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "servermanagercmd",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/servermanagercmd",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "serverweroptin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/serverweroptin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set environmental variables",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set_1",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set shadow copy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set context",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set-context",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set id",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set-id",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "setlocal",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/setlocal",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set metadata",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set-metadata",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set option",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set-option",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "set verbose",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set-verbose",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "setspn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/setspn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "setx",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/setx",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sfc",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sfc",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "shadow",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shadow",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "shift",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shift",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "showmount",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/showmount",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "shrink",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shrink",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "shutdown",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shutdown",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "simulate restore",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/simulate-restore",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sort",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sort",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "start",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/start",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set device",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-device",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set drivergroup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-drivergroup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set drivergroupfilter",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-drivergroupfilter",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set driverpackage",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-driverpackage",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set image",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-image",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set imagegroup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-imagegroup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set server",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-server",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set transportserver",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-set-transportserver",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand set multicasttransmission",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-start-multicasttransmission",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand start namespace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-start-namespace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand start server",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-start-server",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand start transportserver",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-start-transportserver",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand stop server",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-stop-server",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subcommand stop transportserver",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil-stop-transportserver",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "subst",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/subst",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sxstrace",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sxstrace",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sysmon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sysmon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "sysocmgr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sysocmgr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "systeminfo",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/systeminfo",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "takeown",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/takeown",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tapicfg",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tapicfg",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "taskkill",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/taskkill",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tasklist",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tasklist",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tcmsetup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tcmsetup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet close",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-close",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet display",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-display",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet open",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-open",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet quit",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-quit",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet send",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-send",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet set",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-set",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet status",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-status",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "telnet unset",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/telnet-unset",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tftp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tftp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "time",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/time",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "timeout",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/timeout",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "title",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/title",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tlntadmn",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tlntadmn",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tpmtool",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tpmtool",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tpmvscmgr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tpmvscmgr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tracerpt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tracerpt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tracert",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tracert",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tree",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tree",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tscon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tscon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tsdiscon",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tsdiscon",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tsecimp",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tsecimp",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tskill",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tskill",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tsprof",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tsprof",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "type",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/type",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "typeperf",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/typeperf",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "tzutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tzutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "unexpose",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/unexpose",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "uniqueid",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/uniqueid",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "unlodctr",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/unlodctr",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "ver",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ver",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "verifier",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/verifier",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "verify",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/verify",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "vol",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vol",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "vssadmin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "vssadmin delete shadows",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin-delete-shadows",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "vssadmin list shadows",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin-list-shadows",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "vssadmin list writers",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin-list-writers",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "vssadmin resize shadowstorage",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/vssadmin-resize-shadowstorage",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "waitfor",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/waitfor",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin delete catalog",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-delete-catalog",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin delete systemstatebackup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-delete-systemstatebackup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin disable backup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-disable-backup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin enable backup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-enable-backup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin get disks",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-get-disks",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin get items",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-get-items",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin get status",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-get-status",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin get versions",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-get-versions",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin restore catalog",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-restore-catalog",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin start backup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-backup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin start recovery",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-recovery",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin start sysrecovery",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-sysrecovery",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin start systemstatebackup",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-systemstatebackup",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin start systemstaterecovery",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-systemstaterecovery",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wbadmin stop job",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-stop-job",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wdsutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wdsutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wecutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wecutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wevtutil",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wevtutil",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "where",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/where",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "whoami",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/whoami",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "winnt",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/winnt",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "winnt32",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/winnt32",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "winrs",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/winrs",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "winsat mem",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/winsat-mem",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "winsat mfmedia",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/winsat-mfmedia",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wmic",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wmic",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "writer",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/writer",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "wscript",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wscript",
+      "review_status": "index_only_not_individually_validated"
+    },
+    {
+      "name": "xcopy",
+      "source": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/xcopy",
+      "review_status": "index_only_not_individually_validated"
+    }
+  ]
+}

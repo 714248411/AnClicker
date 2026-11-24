@@ -3,6 +3,7 @@
 import json
 import argparse
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -40,9 +41,21 @@ def main():
                    ANCLICKER_SINGLETON_KEY=f"AnClickerSmoke_{uuid.uuid4().hex}",
                    QT_QPA_PLATFORM=("windows" if sys.platform == "win32" else
                                     "cocoa" if sys.platform == "darwin" else "xcb"))
+        # First launch matches extracting the ZIP and double-clicking: no override.
+        portable = Path(folder) / "portable" / APP_ID
+        shutil.copytree(executable.parent, portable, ignore=lambda folder,names: [
+            name for name in names if name == '.dual-runtime' or
+            (Path(folder) == executable.parent and name == 'data')])
+        executable = portable / executable.name
         for attempt in range(2):
+            if attempt == 0:
+                env.pop('ANCLICKER_DATA_DIR', None)
+                data_folder = portable / 'data'
+            else:
+                env['ANCLICKER_DATA_DIR'] = folder
+                data_folder = Path(folder)
             env['QT_SCALE_FACTOR'] = '1' if attempt == 0 else '2'
-            report = Path(folder) / "startup-ready.json"
+            report = data_folder / "startup-ready.json"
             report.unlink(missing_ok=True)
             process = subprocess.Popen([str(executable), "--startup-smoke-test"], env=env, cwd=folder)
             try:
@@ -52,13 +65,13 @@ def main():
                 process.wait()
                 raise RuntimeError("Packaged startup timed out; a process alone does not prove readiness")
             if result != 0 or not report.exists():
-                error_log = Path(folder) / "logs/startup-error.log"
+                error_log = data_folder / "logs/startup-error.log"
                 detail = error_log.read_text(encoding="utf-8") if error_log.exists() else "No readiness report"
-                for engine_log in Path(folder).glob('*/engine-startup.log'):
+                for engine_log in data_folder.glob('*/engine-startup.log'):
                     detail += '\n' + engine_log.read_text(encoding='utf-8', errors='replace')[-6000:]
                 raise RuntimeError(f"Packaged startup failed ({result}): {detail}")
             ready = json.loads(report.read_text(encoding="utf-8"))
-            expected_views = ["主界面", "表格图", "流程图", "多功能", "录制", "网页录制", "对话 Agent"]
+            expected_views = ["主界面", "表格图", "流程图", "多功能", "录制", "网页录制", "对话Ai编程"]
             if (not ready["ready"] or ready["views"] != len(expected_views)
                     or ready.get("view_labels") != expected_views
                     or not ready.get("window_chrome_valid")):
@@ -66,7 +79,9 @@ def main():
             if ready["version"] != CURRENT_VERSION or ready["title"] != WINDOW_TITLE:
                 raise RuntimeError(f"Packaged version does not match release: {ready}")
             checks = ready.get('editor_validation', {})
-            if not checks.get('image_click_layout') or checks.get('spinboxes_checked', 0) < 70:
+            if (not checks.get('image_click_layout') or checks.get('spinboxes_checked', 0) < 70
+                    or not checks.get('window_arrangement_layout') or not checks.get('window_zorder_options')
+                    or checks.get('arrangement_modes_checked',0)<12):
                 raise RuntimeError(f"Packaged editor checks missing: {ready}")
             migration = ready.get('migration_validation', {})
             if (migration.get('commands_checked') != 2 or not migration.get('round_trip')
@@ -83,7 +98,7 @@ def main():
                 raise RuntimeError(f'Packaged offline OCR checks missing: {ready}')
             print(f'Offline OCR: {ocr_checks}')
             rpa_checks = ready.get('rpa_validation', {})
-            if not all(rpa_checks.get(key) for key in ('excel', 'browser', 'screenshot', 'web_recording')):
+            if not all(rpa_checks.get(key) for key in ('excel', 'browser', 'screenshot', 'web_recording', 'web_anchors')):
                 raise RuntimeError(f'Packaged RPA checks missing: {ready}')
             print(f'RPA: {rpa_checks}')
         result = subprocess.run([str(executable), '--migration-tool', '--startup-smoke-test'],

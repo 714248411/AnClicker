@@ -1,6 +1,8 @@
 """文本输入：独立参数编辑器与执行器。"""
 
 from __future__ import annotations
+from anclicker.platform.qt_compat.QtCore import Qt
+from anclicker.platform.qt_compat.QtWidgets import QFormLayout, QHBoxLayout, QSizePolicy
 from anclicker.instructions.键鼠.文本输入.schema import FIELDS as InstructionEditor_FIELDS
 
 from anclicker.instructions.common import FieldSpec, InstructionExecutorBase, SchemaInstructionEditor
@@ -43,9 +45,24 @@ class InstructionEditor(SchemaInstructionEditor):
         button.setAutoDefault(False)
         button.clicked.connect(editor.paste)
         layout.addWidget(editor)
-        layout.addWidget(button)
+        editor.paste_status.hide()
         layout.addWidget(editor.paste_status)
-        self.ui.parameterFormLayout.replaceWidget(original, holder)
+        form = self.ui.parameterFormLayout
+        for widget in (original, self.ui.parameterLabel_0, self.ui.parameterLabel_1, self.ui.parameter_1):
+            form.removeWidget(widget)
+        form.setWidget(0, QFormLayout.SpanningRole, self.ui.parameterLabel_0)
+        form.setWidget(1, QFormLayout.SpanningRole, holder)
+        actions = QHBoxLayout()
+        actions.addWidget(self.ui.parameterLabel_1, 0, Qt.AlignVCenter)
+        actions.addWidget(self.ui.parameter_1, 0, Qt.AlignVCenter)
+        actions.addStretch(1)
+        actions.addWidget(button, 0, Qt.AlignVCenter)
+        form.setLayout(2, QFormLayout.SpanningRole, actions)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form.setVerticalSpacing(8)
+        holder.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.ui.rootLayout.removeItem(self.ui.verticalSpacer)
+        self.ui.rootLayout.setStretch(self.ui.rootLayout.indexOf(self.ui.parameterGroupBox), 1)
         original.hide()
         original.deleteLater()
         self._controls['内容'] = editor

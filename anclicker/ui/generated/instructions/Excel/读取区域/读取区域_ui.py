@@ -34,7 +34,9 @@ class Ui_InstructionEditor(object):
 
         self.parameterFormLayout.setWidget(0, QFormLayout.LabelRole, self.label_0)
 
-        self.parameter_0 = QLineEdit(self.parameterGroupBox)
+        self.parameter_0 = QComboBox(self.parameterGroupBox)
+        self.parameter_0.addItem("")
+        self.parameter_0.addItem("")
         self.parameter_0.setObjectName(u"parameter_0")
 
         self.parameterFormLayout.setWidget(0, QFormLayout.FieldRole, self.parameter_0)
@@ -44,23 +46,33 @@ class Ui_InstructionEditor(object):
 
         self.parameterFormLayout.setWidget(1, QFormLayout.LabelRole, self.label_1)
 
-        self.container_1 = QWidget(self.parameterGroupBox)
-        self.container_1.setObjectName(u"container_1")
-        self.fieldLayout_1 = QHBoxLayout(self.container_1)
-        self.fieldLayout_1.setObjectName(u"fieldLayout_1")
-        self.fieldLayout_1.setContentsMargins(0, 0, 0, 0)
-        self.parameter_1 = QLineEdit(self.container_1)
+        self.parameter_1 = QLineEdit(self.parameterGroupBox)
         self.parameter_1.setObjectName(u"parameter_1")
 
-        self.fieldLayout_1.addWidget(self.parameter_1)
+        self.parameterFormLayout.setWidget(1, QFormLayout.FieldRole, self.parameter_1)
 
-        self.auxiliary_1 = QPushButton(self.container_1)
-        self.auxiliary_1.setObjectName(u"auxiliary_1")
+        self.label_2 = QLabel(self.parameterGroupBox)
+        self.label_2.setObjectName(u"label_2")
 
-        self.fieldLayout_1.addWidget(self.auxiliary_1)
+        self.parameterFormLayout.setWidget(2, QFormLayout.LabelRole, self.label_2)
+
+        self.container_2 = QWidget(self.parameterGroupBox)
+        self.container_2.setObjectName(u"container_2")
+        self.fieldLayout_2 = QHBoxLayout(self.container_2)
+        self.fieldLayout_2.setObjectName(u"fieldLayout_2")
+        self.fieldLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.parameter_2 = QLineEdit(self.container_2)
+        self.parameter_2.setObjectName(u"parameter_2")
+
+        self.fieldLayout_2.addWidget(self.parameter_2)
+
+        self.auxiliary_2 = QPushButton(self.container_2)
+        self.auxiliary_2.setObjectName(u"auxiliary_2")
+
+        self.fieldLayout_2.addWidget(self.auxiliary_2)
 
 
-        self.parameterFormLayout.setWidget(1, QFormLayout.FieldRole, self.container_1)
+        self.parameterFormLayout.setWidget(2, QFormLayout.FieldRole, self.container_2)
 
 
         self.rootLayout.addWidget(self.parameterGroupBox)
@@ -144,11 +156,15 @@ class Ui_InstructionEditor(object):
     def retranslateUi(self, InstructionEditor):
         self.titleLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u8bfb\u53d6\u533a\u57df", None))
         self.parameterGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u6307\u4ee4\u53c2\u6570", None))
-        self.label_0.setText(QCoreApplication.translate("InstructionEditor", u"\u533a\u57df(\u5982A1:C5)", None))
-        self.parameter_0.setText(QCoreApplication.translate("InstructionEditor", u"A1:C5", None))
-        self.label_1.setText(QCoreApplication.translate("InstructionEditor", u"\u4fdd\u5b58\u5230\u53d8\u91cf(\u4e8c\u7ef4\u6570\u7ec4)", None))
-        self.parameter_1.setText(QCoreApplication.translate("InstructionEditor", u"\u53d8\u91cf1", None))
-        self.auxiliary_1.setText(QCoreApplication.translate("InstructionEditor", u"\u8bbe\u7f6e\u53d8\u91cf", None))
+        self.label_0.setText(QCoreApplication.translate("InstructionEditor", u"\u8bfb\u53d6\u683c\u5f0f", None))
+        self.parameter_0.setItemText(0, QCoreApplication.translate("InstructionEditor", u"\u4e8c\u7ef4\u6570\u7ec4", None))
+        self.parameter_0.setItemText(1, QCoreApplication.translate("InstructionEditor", u"\u5236\u8868\u7b26\u6587\u672c", None))
+
+        self.label_1.setText(QCoreApplication.translate("InstructionEditor", u"\u533a\u57df(\u5982A1:C5)", None))
+        self.parameter_1.setText(QCoreApplication.translate("InstructionEditor", u"A1:C5", None))
+        self.label_2.setText(QCoreApplication.translate("InstructionEditor", u"\u4fdd\u5b58\u5230\u53d8\u91cf(\u4e8c\u7ef4\u6570\u7ec4)", None))
+        self.parameter_2.setText(QCoreApplication.translate("InstructionEditor", u"\u53d8\u91cf1", None))
+        self.auxiliary_2.setText(QCoreApplication.translate("InstructionEditor", u"\u8bbe\u7f6e\u53d8\u91cf", None))
         self.commonGroupBox.setTitle(QCoreApplication.translate("InstructionEditor", u"\u901a\u7528\u53c2\u6570", None))
         self.repeatLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u91cd\u590d\u6b21\u6570", None))
         self.errorPolicyLabel.setText(QCoreApplication.translate("InstructionEditor", u"\u5f02\u5e38\u5904\u7406", None))

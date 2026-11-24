@@ -2,7 +2,7 @@
 import re
 import weakref
 from anclicker.platform.qt_compat.QtCore import QObject, QEvent, QTimer, QSize
-from anclicker.platform.qt_compat.QtWidgets import QApplication, QWidget, QAbstractButton, QToolBar
+from anclicker.platform.qt_compat.QtWidgets import QApplication, QWidget, QAbstractButton, QToolBar, QMessageBox, QDialogButtonBox
 
 
 def original_style(widget):
@@ -26,10 +26,15 @@ class InterfaceScale(QObject):
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.apply)
+        QApplication.instance().aboutToQuit.connect(self.stop)
         QTimer.singleShot(0, self.start)
 
+    def stop(self):
+        self.timer.stop()
+        self.listen(False)
+
     def start(self):
-        self.listen(self.offset != 0)
+        self.listen(True)
         self.apply()
 
     def listen(self, enabled):
@@ -47,6 +52,25 @@ class InterfaceScale(QObject):
         return False
 
     def eventFilter(self, obj, event):
+        if event.type() == QEvent.Show and isinstance(obj, (QMessageBox, QDialogButtonBox)) and self.owns(obj):
+            labels = {QMessageBox.Yes:'是', QMessageBox.No:'否', QMessageBox.Ok:'确定',
+                      QMessageBox.Cancel:'取消', QMessageBox.YesToAll:'全部是', QMessageBox.NoToAll:'全部否',
+                      QMessageBox.Close:'关闭', QMessageBox.Save:'保存', QMessageBox.Discard:'放弃',
+                      QMessageBox.Apply:'应用', QMessageBox.Reset:'重置', QMessageBox.Retry:'重试',
+                      QMessageBox.Abort:'终止', QMessageBox.Ignore:'忽略', QMessageBox.Help:'帮助'}
+            def translate_buttons():
+                for standard, text in labels.items():
+                    button = obj.button(QDialogButtonBox.StandardButton(int(standard)) if isinstance(obj, QDialogButtonBox) else standard)
+                    if button is not None: button.setText(text)
+            translate_buttons()
+            if not hasattr(obj, '_chinese_button_timer'):
+                obj._chinese_button_timer = QTimer(obj)
+                obj._chinese_button_timer.setSingleShot(True)
+                obj._chinese_button_timer.timeout.connect(translate_buttons)
+            obj._chinese_button_timer.start(0)
+            if isinstance(obj, QMessageBox):
+                from anclicker.ui.settings_theme import apply_settings_theme
+                apply_settings_theme(obj, self.window)
         if not self.busy and event.type() in (QEvent.Show, QEvent.StyleChange):
             # Do not inspect partially constructed native children in event filters.
             if not self.timer.isActive():
@@ -56,8 +80,13 @@ class InterfaceScale(QObject):
     def change(self, amount=None):
         self.offset = 0 if amount is None else max(-5, min(10, self.offset + amount))
         self.window.db.set_setting_value('界面字号偏移', str(self.offset))
-        self.listen(self.offset != 0)
+        self.listen(True)
         self.apply()
+        workspace = getattr(self.window, 'view_workspace', None)
+        presets = getattr(workspace, 'layout_presets', None)
+        if presets is not None:
+            presets.view.docking.refresh_control_actions_style()
+            presets.responsive.schedule()
 
     def stylesheet(self, text):
         delta = self.offset
@@ -87,6 +116,11 @@ class InterfaceScale(QObject):
             for w in widgets:
                 state = self.widgets.setdefault(w, {})
                 base = original_style(w)
+                ancestor = w
+                while ancestor is not None and not ancestor.property('uniformSettingsFont'):
+                    ancestor = ancestor.parentWidget() if isinstance(ancestor, QWidget) else None
+                if ancestor is not None:
+                    base = re.sub(r'font-size\s*:\s*\d+(?:\.\d+)?(?:px|pt)', 'font-size:'+str(getattr(getattr(ancestor, '_panel_scaler', None), 'last_size', None) or 14)+'px', base)
                 scaled = self.stylesheet(base)
                 w._interface_style = (base, scaled)
                 if w.styleSheet() != scaled:

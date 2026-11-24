@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from anclicker.platform.image_paths import resolve_image_reference
+from anclicker.platform.image_region import window_region
 
 from datetime import datetime
 from pathlib import Path
@@ -110,7 +111,7 @@ def resolve_image_path(parameters: dict, context: ExecutionContext | None = None
         project = getter('当前文件路径')
     catalog = getattr(database, 'extract_resource_folder_path', None)
     folders = catalog() if callable(catalog) else ()
-    return resolve_image_reference(image_path_, project_path=project, resource_folders=folders)
+    return resolve_image_reference(image_path_, project_path=project, resource_folders=folders, allow_adaptation=False)
 
 
 
@@ -132,7 +133,9 @@ def locate_image(
             found = locate_image_on_screen(
                 image_path_, confidence=confidence_,
                 grayscale=bool(parameter(parameters, "灰度", default=False)),
-                region=region(parameter(parameters, "区域", default=None)),
+                region=(window_region(parameters.get('区域窗口') or {})
+                        if parameters.get('区域模式') == '跟随窗口'
+                        else region(parameter(parameters, '区域', default=None))),
             )
         except (FileNotFoundError, OSError) as error_:
             if context is not None:
@@ -385,7 +388,12 @@ def release_execution_resources(context):
     """Always attempt every cleanup; native failures must not escape Qt worker.run."""
     close_background = _module_imports.load('close_background')
     first_error = None
-    for cleanup in (release_recorded_inputs, close_background):
+    from anclicker.execution.parallel_runtime import close_parallel
+    cleanups = [close_parallel, release_recorded_inputs, close_background]
+    if context.metadata.get('vision_monitors'):
+        from anclicker.platform.vision_tools.runtime import close_monitors
+        cleanups.insert(0, close_monitors)
+    for cleanup in cleanups:
         try:
             cleanup(context)
         except Exception as error:
